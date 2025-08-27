@@ -4,6 +4,8 @@ data/*
 !data/stats/.gitkeep
 !data/release/
 !data/release/.gitkeep
+!data/year/
+!data/year/.gitkeep
 
 # Ignore temporary files
 *.tmp
