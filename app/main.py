@@ -426,9 +426,9 @@ class AnalyticsDialog(QtWidgets.QDialog):
     """Годовая статистика: месяцы × показатели с колонкой "Итого за год"."""
 
     INDICATORS = [
-        "Работ", "Завершённых", "Онгоингов", "Глав", "Знаков",
-        "Просмотров", "Профит", "Реклама (РК)", "Лайков", "Спасибо",
-        "Комиссия", "Затраты на софт", "Чистыми",
+        "Работ", "Завершенных", "Онгоингов", "Глав", "Знаков",
+        "Просмотров", "Профит", "РК", "Лайков", "Спасибо",
+        "Камса", "Потрачено на софт",
     ]
 
     def __init__(self, year, parent=None):
@@ -461,7 +461,7 @@ class AnalyticsDialog(QtWidgets.QDialog):
         for r, name in enumerate(self.INDICATORS):
             for c in range(cols):
                 it = QtWidgets.QTableWidgetItem("0")
-                if name not in ("Комиссия", "Затраты на софт") or c == cols - 1:
+                if name not in ("Камса", "Потрачено на софт") or c == cols - 1:
                     it.setFlags(QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled)
                 self.table.setItem(r, c, it)
 
@@ -497,8 +497,8 @@ class AnalyticsDialog(QtWidgets.QDialog):
             for ind, val in stats.items():
                 row = self.INDICATORS.index(ind)
                 self.table.item(row, m - 1).setText(str(val))
-            self.table.item(self.INDICATORS.index("Комиссия"), m - 1).setText(str(self._commissions[str(m)]))
-            self.table.item(self.INDICATORS.index("Затраты на софт"), m - 1).setText(str(self._software[str(m)]))
+            self.table.item(self.INDICATORS.index("Камса"), m - 1).setText(str(self._commissions[str(m)]))
+            self.table.item(self.INDICATORS.index("Потрачено на софт"), m - 1).setText(str(self._software[str(m)]))
 
         self._recalculate()
         self._loading = False
@@ -515,7 +515,7 @@ class AnalyticsDialog(QtWidgets.QDialog):
 
     # --- helpers -------------------------------------------------------
     def _calc_month_stats(self, year, month):
-        res = {k: 0 for k in self.INDICATORS if k not in ("Комиссия", "Затраты на софт", "Чистыми")}
+        res = {k: 0 for k in self.INDICATORS if k not in ("Камса", "Потрачено на софт")}
         path = os.path.join(stats_dir(year), f"{year}.json")
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
@@ -525,14 +525,14 @@ class AnalyticsDialog(QtWidgets.QDialog):
             for rec in month_data:
                 status = (rec.get("status", "") or "").lower()
                 if "заверш" in status:
-                    res["Завершённых"] += 1
+                    res["Завершенных"] += 1
                 elif "онго" in status:
                     res["Онгоингов"] += 1
                 res["Глав"] += int(rec.get("chapters", 0) or 0)
                 res["Знаков"] += int(rec.get("chars", 0) or 0)
                 res["Просмотров"] += int(rec.get("views", 0) or 0)
                 res["Профит"] += float(rec.get("profit", 0) or 0)
-                res["Реклама (РК)"] += float(rec.get("ads", 0) or 0)
+                res["РК"] += float(rec.get("ads", 0) or 0)
                 res["Лайков"] += int(rec.get("likes", 0) or 0)
                 res["Спасибо"] += int(rec.get("thanks", 0) or 0)
         return res
@@ -543,12 +543,12 @@ class AnalyticsDialog(QtWidgets.QDialog):
         row = item.row()
         col = item.column()
         ind = self.INDICATORS[row]
-        if ind == "Комиссия":
+        if ind == "Камса":
             try:
                 self._commissions[str(col + 1)] = float(item.text())
             except ValueError:
                 self._commissions[str(col + 1)] = 0.0
-        elif ind == "Затраты на софт":
+        elif ind == "Потрачено на софт":
             try:
                 self._software[str(col + 1)] = float(item.text())
             except ValueError:
@@ -556,22 +556,7 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self._recalculate()
 
     def _recalculate(self):
-        row_profit = self.INDICATORS.index("Профит")
-        row_comm = self.INDICATORS.index("Комиссия")
-        row_soft = self.INDICATORS.index("Затраты на софт")
-        row_net = self.INDICATORS.index("Чистыми")
         cols = len(RU_MONTHS)
-
-        for c in range(cols):
-            try:
-                profit = float(self.table.item(row_profit, c).text())
-            except ValueError:
-                profit = 0.0
-            comm = self._commissions[str(c + 1)]
-            soft = self._software[str(c + 1)]
-            net = profit - comm - soft
-            it = self.table.item(row_net, c)
-            it.setText(str(round(net, 2)))
 
         # totals
         for r in range(len(self.INDICATORS)):
@@ -588,11 +573,11 @@ class TopDialog(QtWidgets.QDialog):
 
     SORT_OPTIONS = [
         ("Профит", "profit"),
-        ("Завершённость", "done"),
+        ("Завершенность", "done"),
         ("Глав", "chapters"),
         ("Знаков", "chars"),
         ("Просмотров", "views"),
-        ("Реклама (РК)", "ads"),
+        ("РК", "ads"),
         ("Лайков", "likes"),
         ("Спасибо", "thanks"),
     ]
@@ -642,7 +627,7 @@ class TopDialog(QtWidgets.QDialog):
             "Знаков",
             "Просмотров",
             "Профит",
-            "Реклама",
+            "РК",
             "Лайков",
             "Спасибо",
         ]
