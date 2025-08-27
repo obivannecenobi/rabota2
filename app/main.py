@@ -574,7 +574,7 @@ class TopDialog(QtWidgets.QDialog):
     SORT_OPTIONS = [
         ("Профит", "profit"),
         ("Завершенность", "done"),
-        ("Глав", "chapters"),
+        ("Сделано глав", "chapters"),
         ("Знаков", "chars"),
         ("Просмотров", "views"),
         ("РК", "ads"),
@@ -623,7 +623,11 @@ class TopDialog(QtWidgets.QDialog):
         headers = [
             "Работа",
             "Статус",
-            "Глав",
+            "Всего глав",
+            "Запланированно",
+            "Сделано глав",
+            "Прогресс перевода",
+            "Выпуск",
             "Знаков",
             "Просмотров",
             "Профит",
@@ -692,7 +696,11 @@ class TopDialog(QtWidgets.QDialog):
                         work,
                         {
                             "status": "",
+                            "total_chapters": 0,
+                            "planned": 0,
                             "chapters": 0,
+                            "progress": 0.0,
+                            "release": "",
                             "chars": 0,
                             "views": 0,
                             "profit": 0.0,
@@ -703,7 +711,17 @@ class TopDialog(QtWidgets.QDialog):
                         },
                     )
                     t["status"] = rec.get("status", t["status"])
+                    t["total_chapters"] = max(
+                        t["total_chapters"], int(rec.get("total_chapters", 0) or 0)
+                    )
+                    t["planned"] += int(rec.get("planned", 0) or 0)
                     t["chapters"] += int(rec.get("chapters", 0) or 0)
+                    prog = rec.get("progress")
+                    if prog is not None:
+                        t["progress"] = prog
+                    rel = rec.get("release")
+                    if rel:
+                        t["release"] = rel
                     t["chars"] += int(rec.get("chars", 0) or 0)
                     t["views"] += int(rec.get("views", 0) or 0)
                     t["profit"] += float(rec.get("profit", 0) or 0)
@@ -722,13 +740,21 @@ class TopDialog(QtWidgets.QDialog):
             self.table.insertRow(row)
             self.table.setItem(row, 0, QtWidgets.QTableWidgetItem(work))
             self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(vals.get("status", "")))
-            self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(str(vals["chapters"])))
-            self.table.setItem(row, 3, QtWidgets.QTableWidgetItem(str(vals["chars"])))
-            self.table.setItem(row, 4, QtWidgets.QTableWidgetItem(str(vals["views"])))
-            self.table.setItem(row, 5, QtWidgets.QTableWidgetItem(str(round(vals["profit"], 2))))
-            self.table.setItem(row, 6, QtWidgets.QTableWidgetItem(str(round(vals["ads"], 2))))
-            self.table.setItem(row, 7, QtWidgets.QTableWidgetItem(str(vals["likes"])))
-            self.table.setItem(row, 8, QtWidgets.QTableWidgetItem(str(vals["thanks"])))
+            self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(str(vals["total_chapters"])))
+            self.table.setItem(row, 3, QtWidgets.QTableWidgetItem(str(vals["planned"])))
+            self.table.setItem(row, 4, QtWidgets.QTableWidgetItem(str(vals["chapters"])))
+            self.table.setItem(
+                row,
+                5,
+                QtWidgets.QTableWidgetItem(f"{round(vals['progress'], 2)}%"),
+            )
+            self.table.setItem(row, 6, QtWidgets.QTableWidgetItem(vals.get("release", "")))
+            self.table.setItem(row, 7, QtWidgets.QTableWidgetItem(str(vals["chars"])))
+            self.table.setItem(row, 8, QtWidgets.QTableWidgetItem(str(vals["views"])))
+            self.table.setItem(row, 9, QtWidgets.QTableWidgetItem(str(round(vals["profit"], 2))))
+            self.table.setItem(row, 10, QtWidgets.QTableWidgetItem(str(round(vals["ads"], 2))))
+            self.table.setItem(row, 11, QtWidgets.QTableWidgetItem(str(vals["likes"])))
+            self.table.setItem(row, 12, QtWidgets.QTableWidgetItem(str(vals["thanks"])))
 
     def _period_key(self):
         mode = self.combo_mode.currentData()
@@ -750,9 +776,28 @@ class TopDialog(QtWidgets.QDialog):
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
         key = self._period_key()
+        results = []
+        for w, vals in self.results:
+            results.append(
+                {
+                    "work": w,
+                    "status": vals.get("status", ""),
+                    "total_chapters": vals.get("total_chapters", 0),
+                    "planned": vals.get("planned", 0),
+                    "chapters": vals.get("chapters", 0),
+                    "progress": vals.get("progress", 0.0),
+                    "release": vals.get("release", ""),
+                    "chars": vals.get("chars", 0),
+                    "views": vals.get("views", 0),
+                    "profit": vals.get("profit", 0.0),
+                    "ads": vals.get("ads", 0.0),
+                    "likes": vals.get("likes", 0),
+                    "thanks": vals.get("thanks", 0),
+                }
+            )
         data[key] = {
             "sort": self.combo_sort.currentData(),
-            "results": [{"work": w, **vals} for w, vals in self.results],
+            "results": results,
         }
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
