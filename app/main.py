@@ -7,10 +7,46 @@ from openpyxl.utils import get_column_letter
 
 ASSETS = os.path.join(os.path.dirname(__file__), "..", "assets")
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
-STATS_DIR = os.path.join(DATA_DIR, "stats")
-YEAR_DIR = os.path.join(DATA_DIR, "year")
-RELEASE_DIR = os.path.join(DATA_DIR, "release")
-TOP_DIR = os.path.join(DATA_DIR, "top")
+CONFIG_PATH = os.path.join(DATA_DIR, "config.json")
+
+
+def load_config():
+    default = {
+        "neon": False,
+        "header_font": "Arial",
+        "text_font": "Arial",
+        "save_path": DATA_DIR,
+    }
+    if os.path.exists(CONFIG_PATH):
+        try:
+            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            save_path = data.get("save_path")
+            if save_path:
+                if not os.path.isabs(save_path):
+                    save_path = os.path.abspath(
+                        os.path.join(os.path.dirname(CONFIG_PATH), save_path)
+                    )
+                data["save_path"] = save_path
+            default.update({k: v for k, v in data.items() if v is not None})
+        except Exception:
+            pass
+    else:
+        try:
+            os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
+            with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+                json.dump(default, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+    return default
+
+
+CONFIG = load_config()
+BASE_SAVE_PATH = os.path.abspath(CONFIG.get("save_path", DATA_DIR))
+STATS_DIR = os.path.join(BASE_SAVE_PATH, "stats")
+YEAR_DIR = os.path.join(BASE_SAVE_PATH, "year")
+RELEASE_DIR = os.path.join(BASE_SAVE_PATH, "release")
+TOP_DIR = os.path.join(BASE_SAVE_PATH, "top")
 EXCEL_PATH = os.path.join(ASSETS, "пример блоков.xlsx")
 SHEET_NAME = "ЦЕНТРАЛЬНАЯ РАБОЧАЯ ОБЛАСТЬ"
 ICON_TOGGLE = os.path.join(ASSETS, "gpt_icon.png")
@@ -963,17 +999,106 @@ class CollapsibleSidebar(QtWidgets.QFrame):
     def toggle(self): self.set_collapsed(not self._collapsed)
 
 
+class SettingsDialog(QtWidgets.QDialog):
+    """Окно настроек приложения."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Настройки")
+        self.resize(400, 200)
+        form = QtWidgets.QFormLayout(self)
+
+        self.chk_neon = QtWidgets.QCheckBox(self)
+        self.chk_neon.setChecked(CONFIG.get("neon", False))
+        form.addRow("Неоновая подсветка", self.chk_neon)
+
+        self.font_header = QtWidgets.QFontComboBox(self)
+        self.font_header.setCurrentFont(QtGui.QFont(CONFIG.get("header_font", "Arial")))
+        form.addRow("Шрифт заголовков", self.font_header)
+
+        self.font_text = QtWidgets.QFontComboBox(self)
+        self.font_text.setCurrentFont(QtGui.QFont(CONFIG.get("text_font", "Arial")))
+        form.addRow("Шрифт текста", self.font_text)
+
+        path_lay = QtWidgets.QHBoxLayout()
+        self.edit_path = QtWidgets.QLineEdit(CONFIG.get("save_path", DATA_DIR), self)
+        btn_browse = QtWidgets.QPushButton("...", self)
+        btn_browse.clicked.connect(self.browse_path)
+        path_lay.addWidget(self.edit_path, 1)
+        path_lay.addWidget(btn_browse)
+        form.addRow("Путь сохранения", path_lay)
+
+        box = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Cancel, self
+        )
+        box.accepted.connect(self.accept)
+        box.rejected.connect(self.reject)
+        form.addRow(box)
+
+    def browse_path(self):
+        path = QtWidgets.QFileDialog.getExistingDirectory(
+            self, "Выбрать папку", self.edit_path.text()
+        )
+        if path:
+            self.edit_path.setText(path)
+
+    def accept(self):
+        config = {
+            "neon": self.chk_neon.isChecked(),
+            "header_font": self.font_header.currentFont().family(),
+            "text_font": self.font_text.currentFont().family(),
+            "save_path": self.edit_path.text().strip() or DATA_DIR,
+        }
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(config, f, ensure_ascii=False, indent=2)
+        super().accept()
+
+
 class TopBar(QtWidgets.QWidget):
     prev_clicked = QtCore.Signal()
     next_clicked = QtCore.Signal()
+    settings_clicked = QtCore.Signal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        lay = QtWidgets.QHBoxLayout(self); lay.setContentsMargins(8,8,8,8); lay.setSpacing(8)
-        self.btn_prev = QtWidgets.QToolButton(self); self.btn_prev.setText(" < "); self.btn_prev.clicked.connect(self.prev_clicked); lay.addWidget(self.btn_prev)
-        self.lbl_month = QtWidgets.QLabel("Месяц"); self.lbl_month.setAlignment(QtCore.Qt.AlignCenter); font=self.lbl_month.font(); font.setBold(True); self.lbl_month.setFont(font); lay.addWidget(self.lbl_month,1)
-        self.btn_next = QtWidgets.QToolButton(self); self.btn_next.setText(" > "); self.btn_next.clicked.connect(self.next_clicked); lay.addWidget(self.btn_next)
-        self.setStyleSheet("QLabel{color:#e5e5e5;} QToolButton{color:#e5e5e5; border:1px solid #555; border-radius:6px; padding:4px 10px;}")
-        pal = self.palette(); pal.setColor(self.backgroundRole(), QtGui.QColor(30,30,33)); self.setAutoFillBackground(True); self.setPalette(pal)
+        lay = QtWidgets.QHBoxLayout(self)
+        lay.setContentsMargins(8, 8, 8, 8)
+        lay.setSpacing(8)
+        self.btn_prev = QtWidgets.QToolButton(self)
+        self.btn_prev.setText(" < ")
+        self.btn_prev.clicked.connect(self.prev_clicked)
+        lay.addWidget(self.btn_prev)
+        self.lbl_month = QtWidgets.QLabel("Месяц")
+        self.lbl_month.setAlignment(QtCore.Qt.AlignCenter)
+        lay.addWidget(self.lbl_month, 1)
+        self.btn_next = QtWidgets.QToolButton(self)
+        self.btn_next.setText(" > ")
+        self.btn_next.clicked.connect(self.next_clicked)
+        lay.addWidget(self.btn_next)
+        self.btn_settings = QtWidgets.QToolButton(self)
+        self.btn_settings.setText("⚙")
+        self.btn_settings.clicked.connect(self.settings_clicked)
+        lay.addWidget(self.btn_settings)
+        self.default_style = (
+            "QLabel{color:#e5e5e5;} QToolButton{color:#e5e5e5; border:1px solid #555; border-radius:6px; padding:4px 10px;}"
+        )
+        self.neon_style = (
+            "QLabel{color:#39ff14;} QToolButton{color:#39ff14; border:1px solid #39ff14; border-radius:6px; padding:4px 10px;}"
+        )
+        pal = self.palette()
+        pal.setColor(self.backgroundRole(), QtGui.QColor(30, 30, 33))
+        self.setAutoFillBackground(True)
+        self.setPalette(pal)
+        self.apply_style(CONFIG.get("neon", False))
+        self.apply_fonts()
+
+    def apply_fonts(self):
+        font = QtGui.QFont(CONFIG.get("header_font", "Arial"))
+        font.setBold(True)
+        self.lbl_month.setFont(font)
+
+    def apply_style(self, neon):
+        self.setStyleSheet(self.neon_style if neon else self.default_style)
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -1004,6 +1129,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sidebar.btn_top_quarter.clicked.connect(lambda: self.open_top_dialog("quarter"))
         self.sidebar.btn_top_half.clicked.connect(lambda: self.open_top_dialog("half"))
         self.sidebar.btn_top_year.clicked.connect(lambda: self.open_top_dialog("year"))
+        self.topbar.settings_clicked.connect(self.open_settings_dialog)
         self._update_month_label()
         self.sidebar.set_period(self.table.year, self.table.month)
 
@@ -1038,10 +1164,32 @@ class MainWindow(QtWidgets.QMainWindow):
         dlg = TopDialog(self.table.year, mode, period, self)
         dlg.exec()
 
+    def open_settings_dialog(self):
+        dlg = SettingsDialog(self)
+        if dlg.exec():
+            global CONFIG, BASE_SAVE_PATH, STATS_DIR, YEAR_DIR, RELEASE_DIR, TOP_DIR
+            CONFIG = load_config()
+            BASE_SAVE_PATH = os.path.abspath(CONFIG.get("save_path", DATA_DIR))
+            STATS_DIR = os.path.join(BASE_SAVE_PATH, "stats")
+            YEAR_DIR = os.path.join(BASE_SAVE_PATH, "year")
+            RELEASE_DIR = os.path.join(BASE_SAVE_PATH, "release")
+            TOP_DIR = os.path.join(BASE_SAVE_PATH, "top")
+            app = QtWidgets.QApplication.instance()
+            app.setFont(QtGui.QFont(CONFIG.get("text_font", "Arial")))
+            self.apply_settings()
+
+    def apply_settings(self):
+        self.topbar.apply_fonts()
+        self.topbar.apply_style(CONFIG.get("neon", False))
+
 
 def main():
     app = QtWidgets.QApplication(sys.argv)
-    w = MainWindow(); w.show(); sys.exit(app.exec())
+    app.setFont(QtGui.QFont(CONFIG.get("text_font", "Arial")))
+    w = MainWindow()
+    w.apply_settings()
+    w.show()
+    sys.exit(app.exec())
 
 if __name__ == "__main__":
     main()
