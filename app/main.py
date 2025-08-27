@@ -8,6 +8,7 @@ from openpyxl.utils import get_column_letter
 ASSETS = os.path.join(os.path.dirname(__file__), "..", "assets")
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 STATS_DIR = os.path.join(DATA_DIR, "stats")
+YEAR_DIR = os.path.join(DATA_DIR, "year")
 RELEASE_DIR = os.path.join(DATA_DIR, "release")
 EXCEL_PATH = os.path.join(ASSETS, "пример блоков.xlsx")
 SHEET_NAME = "ЦЕНТРАЛЬНАЯ РАБОЧАЯ ОБЛАСТЬ"
@@ -200,6 +201,168 @@ class ReleaseDialog(QtWidgets.QDialog):
         with open(self.file_path(), "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         self.accept()
+
+class YearStatsDialog(QtWidgets.QDialog):
+    """Годовая статистика: месяцы × показатели с колонкой "Итого за год"."""
+
+    INDICATORS = [
+        "Работ", "Завершённых", "Онгоингов", "Глав", "Знаков",
+        "Просмотров", "Профит", "Реклама (РК)", "Лайков", "Спасибо",
+        "Комиссия", "Затраты на софт", "Чистыми",
+    ]
+
+    def __init__(self, year, parent=None):
+        super().__init__(parent)
+        self.year = year
+        self.setWindowTitle("Статистика")
+        self.resize(900, 400)
+
+        lay = QtWidgets.QVBoxLayout(self)
+        top = QtWidgets.QHBoxLayout()
+        top.addWidget(QtWidgets.QLabel("Год:"))
+        self.spin_year = QtWidgets.QSpinBox(self)
+        self.spin_year.setRange(2000, 2100)
+        self.spin_year.setValue(year)
+        self.spin_year.valueChanged.connect(self._year_changed)
+        top.addWidget(self.spin_year)
+        top.addStretch(1)
+        self.btn_save = QtWidgets.QPushButton("Сохранить", self)
+        self.btn_save.clicked.connect(self.save)
+        top.addWidget(self.btn_save)
+        lay.addLayout(top)
+
+        cols = len(RU_MONTHS) + 1
+        self.table = QtWidgets.QTableWidget(len(self.INDICATORS), cols, self)
+        self.table.setHorizontalHeaderLabels(RU_MONTHS + ["Итого за год"])
+        self.table.setVerticalHeaderLabels(self.INDICATORS)
+        lay.addWidget(self.table, 1)
+
+        # prepare items
+        for r, name in enumerate(self.INDICATORS):
+            for c in range(cols):
+                it = QtWidgets.QTableWidgetItem("0")
+                if name not in ("Комиссия", "Затраты на софт") or c == cols - 1:
+                    it.setFlags(QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled)
+                self.table.setItem(r, c, it)
+
+        self.table.itemChanged.connect(self._item_changed)
+
+        self._loading = False
+        self._commissions = {str(m): 0.0 for m in range(1, 13)}
+        self._software = {str(m): 0.0 for m in range(1, 13)}
+        self.load(year)
+
+    def _year_changed(self, val):
+        self.load(val)
+
+    # --- data handling -------------------------------------------------
+    def load(self, year):
+        self._loading = True
+        self.year = year
+        self.spin_year.setValue(year)
+
+        # load manual values
+        self._commissions = {str(m): 0.0 for m in range(1, 13)}
+        self._software = {str(m): 0.0 for m in range(1, 13)}
+        path = os.path.join(YEAR_DIR, f"{year}.json")
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            self._commissions.update({str(k): float(v) for k, v in data.get("commission", {}).items()})
+            self._software.update({str(k): float(v) for k, v in data.get("software", {}).items()})
+
+        # fill table with monthly values
+        for m in range(1, 13):
+            stats = self._calc_month_stats(year, m)
+            for ind, val in stats.items():
+                row = self.INDICATORS.index(ind)
+                self.table.item(row, m - 1).setText(str(val))
+            self.table.item(self.INDICATORS.index("Комиссия"), m - 1).setText(str(self._commissions[str(m)]))
+            self.table.item(self.INDICATORS.index("Затраты на софт"), m - 1).setText(str(self._software[str(m)]))
+
+        self._recalculate()
+        self._loading = False
+
+    def save(self):
+        os.makedirs(YEAR_DIR, exist_ok=True)
+        path = os.path.join(YEAR_DIR, f"{self.year}.json")
+        data = {
+            "commission": self._commissions,
+            "software": self._software,
+        }
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        self.accept()
+
+    # --- helpers -------------------------------------------------------
+    def _calc_month_stats(self, year, month):
+        res = {k: 0 for k in self.INDICATORS if k not in ("Комиссия", "Затраты на софт", "Чистыми")}
+        path = os.path.join(STATS_DIR, f"{year}.json")
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            month_data = data.get(str(month), [])
+            res["Работ"] = len(month_data)
+            for rec in month_data:
+                status = (rec.get("status", "") or "").lower()
+                if "заверш" in status:
+                    res["Завершённых"] += 1
+                elif "онго" in status:
+                    res["Онгоингов"] += 1
+                res["Глав"] += int(rec.get("chapters", 0) or 0)
+                res["Знаков"] += int(rec.get("chars", 0) or 0)
+                res["Просмотров"] += int(rec.get("views", 0) or 0)
+                res["Профит"] += float(rec.get("profit", 0) or 0)
+                res["Реклама (РК)"] += float(rec.get("ads", 0) or 0)
+                res["Лайков"] += int(rec.get("likes", 0) or 0)
+                res["Спасибо"] += int(rec.get("thanks", 0) or 0)
+        return res
+
+    def _item_changed(self, item):
+        if self._loading:
+            return
+        row = item.row()
+        col = item.column()
+        ind = self.INDICATORS[row]
+        if ind == "Комиссия":
+            try:
+                self._commissions[str(col + 1)] = float(item.text())
+            except ValueError:
+                self._commissions[str(col + 1)] = 0.0
+        elif ind == "Затраты на софт":
+            try:
+                self._software[str(col + 1)] = float(item.text())
+            except ValueError:
+                self._software[str(col + 1)] = 0.0
+        self._recalculate()
+
+    def _recalculate(self):
+        row_profit = self.INDICATORS.index("Профит")
+        row_comm = self.INDICATORS.index("Комиссия")
+        row_soft = self.INDICATORS.index("Затраты на софт")
+        row_net = self.INDICATORS.index("Чистыми")
+        cols = len(RU_MONTHS)
+
+        for c in range(cols):
+            try:
+                profit = float(self.table.item(row_profit, c).text())
+            except ValueError:
+                profit = 0.0
+            comm = self._commissions[str(c + 1)]
+            soft = self._software[str(c + 1)]
+            net = profit - comm - soft
+            it = self.table.item(row_net, c)
+            it.setText(str(round(net, 2)))
+
+        # totals
+        for r in range(len(self.INDICATORS)):
+            total = 0.0
+            for c in range(cols):
+                try:
+                    total += float(self.table.item(r, c).text())
+                except ValueError:
+                    pass
+            self.table.item(r, cols).setText(str(round(total, 2)))
 
 class ExcelCalendarTable(QtWidgets.QTableWidget):
     """Рендер Excel + управление днями месяца и «хвостом» следующего/предыдущего месяца."""
@@ -479,6 +642,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
 
         items = [
             ("Выкладка", ICON_VYKL),
+            ("Статистика", ICON_TG),
             ("Топ месяца", ICON_TM),
             ("Топ квартала", ICON_TQ),
             ("Топ полугода", ICON_TP),
@@ -486,6 +650,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         ]
         self.buttons=[]
         self.btn_release=None
+        self.btn_stats=None
         for label, icon in items:
             b=QtWidgets.QToolButton(self)
             b.setIcon(QtGui.QIcon(icon)); b.setIconSize(QtCore.QSize(22,22))
@@ -496,6 +661,8 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             lay.addWidget(b); self.buttons.append(b)
             if label == "Выкладка":
                 self.btn_release = b
+            elif label == "Статистика":
+                self.btn_stats = b
 
         # --- stats table ---
         self.current_year = datetime.now().year
@@ -638,6 +805,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.topbar.prev_clicked.connect(self.prev_month)
         self.topbar.next_clicked.connect(self.next_month)
         self.sidebar.btn_release.clicked.connect(self.open_release_dialog)
+        self.sidebar.btn_stats.clicked.connect(self.open_year_stats_dialog)
         self._update_month_label()
         self.sidebar.set_period(self.table.year, self.table.month)
 
@@ -654,6 +822,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def open_release_dialog(self):
         dlg = ReleaseDialog(self.table.year, self.table.month, self)
+        dlg.exec()
+
+    def open_year_stats_dialog(self):
+        dlg = YearStatsDialog(self.table.year, self)
         dlg.exec()
 
 
