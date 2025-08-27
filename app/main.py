@@ -973,7 +973,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
 
         items = [
             ("Вводные", ICON_TM),
-            ("Выкладка", ICON_VYK),
+            ("Выкладка", ICON_TQ),
             ("Аналитика", ICON_TG),
             ("Топы", ICON_TP),
         ]
