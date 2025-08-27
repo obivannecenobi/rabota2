@@ -10,6 +10,7 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 STATS_DIR = os.path.join(DATA_DIR, "stats")
 YEAR_DIR = os.path.join(DATA_DIR, "year")
 RELEASE_DIR = os.path.join(DATA_DIR, "release")
+TOP_DIR = os.path.join(DATA_DIR, "top")
 EXCEL_PATH = os.path.join(ASSETS, "пример блоков.xlsx")
 SHEET_NAME = "ЦЕНТРАЛЬНАЯ РАБОЧАЯ ОБЛАСТЬ"
 ICON_TOGGLE = os.path.join(ASSETS, "gpt_icon.png")
@@ -364,6 +365,187 @@ class YearStatsDialog(QtWidgets.QDialog):
                     pass
             self.table.item(r, cols).setText(str(round(total, 2)))
 
+class TopDialog(QtWidgets.QDialog):
+    """Агрегирование и сохранение топов за период."""
+
+    SORT_OPTIONS = [
+        ("Профит", "profit"),
+        ("Завершённость", "done"),
+        ("Глав", "chapters"),
+        ("Знаков", "chars"),
+        ("Просмотров", "views"),
+        ("Реклама (РК)", "ads"),
+        ("Лайков", "likes"),
+        ("Спасибо", "thanks"),
+    ]
+
+    def __init__(self, year, mode="month", period=1, parent=None):
+        super().__init__(parent)
+        self.year = year
+        self.mode = mode
+        self.period = period
+        self.results = []
+        self.setWindowTitle("Топ")
+        self.resize(700, 400)
+
+        lay = QtWidgets.QVBoxLayout(self)
+        top = QtWidgets.QHBoxLayout()
+        top.addWidget(QtWidgets.QLabel("Год:"))
+        self.spin_year = QtWidgets.QSpinBox(self)
+        self.spin_year.setRange(2000, 2100)
+        self.spin_year.setValue(year)
+        top.addWidget(self.spin_year)
+
+        self.combo_period = None
+        if mode != "year":
+            self.combo_period = QtWidgets.QComboBox(self)
+            if mode == "month":
+                top.addWidget(QtWidgets.QLabel("Месяц:"))
+                for i, m in enumerate(RU_MONTHS, 1):
+                    self.combo_period.addItem(m, i)
+                self.combo_period.setCurrentIndex(period - 1)
+            elif mode == "quarter":
+                top.addWidget(QtWidgets.QLabel("Квартал:"))
+                for i in range(1, 5):
+                    self.combo_period.addItem(str(i), i)
+                self.combo_period.setCurrentIndex(period - 1)
+            elif mode == "half":
+                top.addWidget(QtWidgets.QLabel("Полугодие:"))
+                for i in range(1, 3):
+                    self.combo_period.addItem(str(i), i)
+                self.combo_period.setCurrentIndex(period - 1)
+            top.addWidget(self.combo_period)
+
+        top.addWidget(QtWidgets.QLabel("Сортировка:"))
+        self.combo_sort = QtWidgets.QComboBox(self)
+        for label, key in self.SORT_OPTIONS:
+            self.combo_sort.addItem(label, key)
+        top.addWidget(self.combo_sort)
+
+        self.btn_calc = QtWidgets.QPushButton("Сформировать", self)
+        self.btn_calc.clicked.connect(self.calculate)
+        top.addWidget(self.btn_calc)
+        lay.addLayout(top)
+
+        headers = [
+            "Работа",
+            "Статус",
+            "Глав",
+            "Знаков",
+            "Просмотров",
+            "Профит",
+            "Реклама",
+            "Лайков",
+            "Спасибо",
+        ]
+        self.table = QtWidgets.QTableWidget(0, len(headers), self)
+        self.table.setHorizontalHeaderLabels(headers)
+        self.table.horizontalHeader().setStretchLastSection(True)
+        lay.addWidget(self.table, 1)
+
+        box = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Close, self
+        )
+        box.accepted.connect(self.save)
+        box.rejected.connect(self.reject)
+        lay.addWidget(box)
+
+    # --- helpers -------------------------------------------------------
+    def _months_for_period(self):
+        if self.mode == "month" and self.combo_period:
+            return [self.combo_period.currentData()]
+        if self.mode == "quarter" and self.combo_period:
+            q = self.combo_period.currentData()
+            start = (q - 1) * 3 + 1
+            return list(range(start, start + 3))
+        if self.mode == "half" and self.combo_period:
+            h = self.combo_period.currentData()
+            start = (h - 1) * 6 + 1
+            return list(range(start, start + 6))
+        return list(range(1, 13))
+
+    def calculate(self):
+        year = self.spin_year.value()
+        months = self._months_for_period()
+        sort_key = self.combo_sort.currentData()
+        path = os.path.join(STATS_DIR, f"{year}.json")
+        totals = {}
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            for m in months:
+                for rec in data.get(str(m), []):
+                    work = rec.get("work", "")
+                    t = totals.setdefault(
+                        work,
+                        {
+                            "status": "",
+                            "chapters": 0,
+                            "chars": 0,
+                            "views": 0,
+                            "profit": 0.0,
+                            "ads": 0.0,
+                            "likes": 0,
+                            "thanks": 0,
+                            "done": 0,
+                        },
+                    )
+                    t["status"] = rec.get("status", t["status"])
+                    t["chapters"] += int(rec.get("chapters", 0) or 0)
+                    t["chars"] += int(rec.get("chars", 0) or 0)
+                    t["views"] += int(rec.get("views", 0) or 0)
+                    t["profit"] += float(rec.get("profit", 0) or 0)
+                    t["ads"] += float(rec.get("ads", 0) or 0)
+                    t["likes"] += int(rec.get("likes", 0) or 0)
+                    t["thanks"] += int(rec.get("thanks", 0) or 0)
+                    status = (rec.get("status", "") or "").lower()
+                    if "заверш" in status:
+                        t["done"] += 1
+
+        results = sorted(totals.items(), key=lambda kv: kv[1].get(sort_key, 0), reverse=True)
+        self.results = results
+        self.table.setRowCount(0)
+        for work, vals in results:
+            row = self.table.rowCount()
+            self.table.insertRow(row)
+            self.table.setItem(row, 0, QtWidgets.QTableWidgetItem(work))
+            self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(vals.get("status", "")))
+            self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(str(vals["chapters"])))
+            self.table.setItem(row, 3, QtWidgets.QTableWidgetItem(str(vals["chars"])))
+            self.table.setItem(row, 4, QtWidgets.QTableWidgetItem(str(vals["views"])))
+            self.table.setItem(row, 5, QtWidgets.QTableWidgetItem(str(round(vals["profit"], 2))))
+            self.table.setItem(row, 6, QtWidgets.QTableWidgetItem(str(round(vals["ads"], 2))))
+            self.table.setItem(row, 7, QtWidgets.QTableWidgetItem(str(vals["likes"])))
+            self.table.setItem(row, 8, QtWidgets.QTableWidgetItem(str(vals["thanks"])))
+
+    def _period_key(self):
+        if self.mode == "month" and self.combo_period:
+            return f"M{self.combo_period.currentData():02d}"
+        if self.mode == "quarter" and self.combo_period:
+            return f"Q{self.combo_period.currentData()}"
+        if self.mode == "half" and self.combo_period:
+            return f"H{self.combo_period.currentData()}"
+        return "Y"
+
+    def save(self):
+        if not self.results:
+            self.calculate()
+        year = self.spin_year.value()
+        os.makedirs(TOP_DIR, exist_ok=True)
+        path = os.path.join(TOP_DIR, f"{year}.json")
+        data = {}
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        key = self._period_key()
+        data[key] = {
+            "sort": self.combo_sort.currentData(),
+            "results": [{"work": w, **vals} for w, vals in self.results],
+        }
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        self.accept()
+
 class ExcelCalendarTable(QtWidgets.QTableWidget):
     """Рендер Excel + управление днями месяца и «хвостом» следующего/предыдущего месяца."""
     def __init__(self, parent=None):
@@ -651,6 +833,10 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         self.buttons=[]
         self.btn_release=None
         self.btn_stats=None
+        self.btn_top_month=None
+        self.btn_top_quarter=None
+        self.btn_top_half=None
+        self.btn_top_year=None
         for label, icon in items:
             b=QtWidgets.QToolButton(self)
             b.setIcon(QtGui.QIcon(icon)); b.setIconSize(QtCore.QSize(22,22))
@@ -663,6 +849,14 @@ class CollapsibleSidebar(QtWidgets.QFrame):
                 self.btn_release = b
             elif label == "Статистика":
                 self.btn_stats = b
+            elif label == "Топ месяца":
+                self.btn_top_month = b
+            elif label == "Топ квартала":
+                self.btn_top_quarter = b
+            elif label == "Топ полугода":
+                self.btn_top_half = b
+            elif label == "Топ года":
+                self.btn_top_year = b
 
         # --- stats table ---
         self.current_year = datetime.now().year
@@ -806,6 +1000,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.topbar.next_clicked.connect(self.next_month)
         self.sidebar.btn_release.clicked.connect(self.open_release_dialog)
         self.sidebar.btn_stats.clicked.connect(self.open_year_stats_dialog)
+        self.sidebar.btn_top_month.clicked.connect(lambda: self.open_top_dialog("month"))
+        self.sidebar.btn_top_quarter.clicked.connect(lambda: self.open_top_dialog("quarter"))
+        self.sidebar.btn_top_half.clicked.connect(lambda: self.open_top_dialog("half"))
+        self.sidebar.btn_top_year.clicked.connect(lambda: self.open_top_dialog("year"))
         self._update_month_label()
         self.sidebar.set_period(self.table.year, self.table.month)
 
@@ -826,6 +1024,18 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def open_year_stats_dialog(self):
         dlg = YearStatsDialog(self.table.year, self)
+        dlg.exec()
+
+    def open_top_dialog(self, mode):
+        if mode == "month":
+            period = self.table.month
+        elif mode == "quarter":
+            period = (self.table.month - 1) // 3 + 1
+        elif mode == "half":
+            period = (self.table.month - 1) // 6 + 1
+        else:
+            period = 1
+        dlg = TopDialog(self.table.year, mode, period, self)
         dlg.exec()
 
 
