@@ -249,7 +249,11 @@ class WorkEditDialog(QtWidgets.QDialog):
 
 
 class ReleaseDialog(QtWidgets.QDialog):
-    """Диалог для управления выкладками в формате «День × Работы»."""
+    """Диалог для управления выкладкой.
+
+    Структура представлена таблицей из четырёх колонок:
+    день, работа, количество глав и время. Допускается несколько
+    записей на один день."""
 
     def __init__(self, year, month, works, parent=None):
         super().__init__(parent)
@@ -261,11 +265,16 @@ class ReleaseDialog(QtWidgets.QDialog):
 
         lay = QtWidgets.QVBoxLayout(self)
         self.days_in_month = calendar.monthrange(year, month)[1]
-        self.table = QtWidgets.QTableWidget(self.days_in_month, len(self.works) + 1, self)
-        self.table.verticalHeader().setVisible(False)
+
+        self.table = QtWidgets.QTableWidget(0, 4, self)
+        self.table.setHorizontalHeaderLabels(["День", "Работа", "Глав", "Время"])
         self.table.horizontalHeader().setStretchLastSection(True)
-        self.table.setEditTriggers(QtWidgets.QAbstractItemView.AllEditTriggers)
+        self.table.verticalHeader().setVisible(False)
         lay.addWidget(self.table)
+
+        btn_add = QtWidgets.QPushButton("Добавить", self)
+        btn_add.clicked.connect(self._add_row)
+        lay.addWidget(btn_add)
 
         box = QtWidgets.QDialogButtonBox(
             QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Close, self
@@ -274,20 +283,38 @@ class ReleaseDialog(QtWidgets.QDialog):
         box.rejected.connect(self.reject)
         lay.addWidget(box)
 
-        self._update_structure()
         self.load()
 
-    def _update_structure(self):
-        self.table.setColumnCount(len(self.works) + 1)
-        self.table.setHorizontalHeaderLabels(["День"] + self.works)
-        for d in range(1, self.days_in_month + 1):
-            it = self.table.item(d - 1, 0)
-            if not it:
-                it = QtWidgets.QTableWidgetItem(str(d))
-                it.setFlags(QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
-                self.table.setItem(d - 1, 0, it)
+    def _add_row(self, day: int | None = None, work: str = "", chapters: int = 0, time: QtCore.QTime | None = None):
+        row = self.table.rowCount()
+        self.table.insertRow(row)
+
+        sp_day = QtWidgets.QSpinBox(self.table)
+        sp_day.setRange(1, self.days_in_month)
+        if day:
+            sp_day.setValue(day)
+        self.table.setCellWidget(row, 0, sp_day)
+
+        cb_work = QtWidgets.QComboBox(self.table)
+        cb_work.setEditable(True)
+        cb_work.addItems(self.works)
+        if work:
+            idx = cb_work.findText(work)
+            if idx >= 0:
+                cb_work.setCurrentIndex(idx)
             else:
-                it.setText(str(d))
+                cb_work.setEditText(work)
+        self.table.setCellWidget(row, 1, cb_work)
+
+        sp_ch = QtWidgets.QSpinBox(self.table)
+        sp_ch.setRange(0, 9999)
+        sp_ch.setValue(chapters)
+        self.table.setCellWidget(row, 2, sp_ch)
+
+        te_time = QtWidgets.QTimeEdit(self.table)
+        te_time.setDisplayFormat("HH:mm")
+        te_time.setTime(time or QtCore.QTime.currentTime())
+        self.table.setCellWidget(row, 3, te_time)
 
     def file_path(self):
         return os.path.join(release_dir(self.year), f"{self.month:02d}.json")
@@ -297,30 +324,42 @@ class ReleaseDialog(QtWidgets.QDialog):
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
+
             file_works = data.get("works", [])
             for w in file_works:
                 if w not in self.works:
                     self.works.append(w)
-            self._update_structure()
-            for day_str, works_dict in data.get("days", {}).items():
+
+            for day_str, entries in data.get("days", {}).items():
                 day = int(day_str)
-                for work, text in works_dict.items():
-                    if work in self.works:
-                        col = self.works.index(work) + 1
-                        self.table.setItem(day - 1, col, QtWidgets.QTableWidgetItem(str(text)))
+                for entry in entries:
+                    time_str = entry.get("time", "00:00")
+                    qt = QtCore.QTime.fromString(time_str, "HH:mm")
+                    self._add_row(day, entry.get("work", ""), entry.get("chapters", 0), qt)
 
     def save(self):
-        data = {"works": self.works, "days": {}}
-        for day in range(1, self.days_in_month + 1):
-            row_data = {}
-            for col, work in enumerate(self.works, 1):
-                item = self.table.item(day - 1, col)
-                if item:
-                    txt = item.text().strip()
-                    if txt:
-                        row_data[work] = txt
-            if row_data:
-                data["days"][str(day)] = row_data
+        days: Dict[str, List[Dict[str, str | int]]] = {}
+        for row in range(self.table.rowCount()):
+            sp_day = self.table.cellWidget(row, 0)
+            cb_work = self.table.cellWidget(row, 1)
+            sp_ch = self.table.cellWidget(row, 2)
+            te_time = self.table.cellWidget(row, 3)
+            if not (sp_day and cb_work and sp_ch and te_time):
+                continue
+            work_name = cb_work.currentText().strip()
+            if not work_name:
+                continue
+            day = sp_day.value()
+            entry = {
+                "work": work_name,
+                "chapters": sp_ch.value(),
+                "time": te_time.time().toString("HH:mm"),
+            }
+            days.setdefault(str(day), []).append(entry)
+
+        works = sorted({e["work"] for entries in days.values() for e in entries})
+        data = {"works": works, "days": days}
+
         os.makedirs(os.path.dirname(self.file_path()), exist_ok=True)
         with open(self.file_path(), "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
