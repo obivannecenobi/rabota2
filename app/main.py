@@ -255,7 +255,124 @@ class ReleaseDialog(QtWidgets.QDialog):
             json.dump(data, f, ensure_ascii=False, indent=2)
         self.accept()
 
-class YearStatsDialog(QtWidgets.QDialog):
+
+class InputDialog(QtWidgets.QDialog):
+    """Форма ввода первоначальных данных за месяц."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        now = datetime.now()
+        self.setWindowTitle("Вводные данные")
+        self.resize(400, 500)
+
+        form = QtWidgets.QFormLayout(self)
+
+        self.spin_year = QtWidgets.QSpinBox(self)
+        self.spin_year.setRange(2000, 2100)
+        self.spin_year.setValue(now.year)
+        form.addRow("Год", self.spin_year)
+
+        self.combo_month = QtWidgets.QComboBox(self)
+        for i, m in enumerate(RU_MONTHS, 1):
+            self.combo_month.addItem(m, i)
+        self.combo_month.setCurrentIndex(now.month - 1)
+        form.addRow("Месяц", self.combo_month)
+
+        self.edit_work = QtWidgets.QLineEdit(self)
+        form.addRow("Работа", self.edit_work)
+
+        self.edit_status = QtWidgets.QLineEdit(self)
+        form.addRow("Статус", self.edit_status)
+
+        self.chk_adult = QtWidgets.QCheckBox(self)
+        form.addRow("18+", self.chk_adult)
+
+        self.spin_total_chapters = QtWidgets.QSpinBox(self)
+        self.spin_total_chapters.setRange(0, 100000)
+        form.addRow("Всего глав", self.spin_total_chapters)
+
+        self.spin_chars_per_chapter = QtWidgets.QSpinBox(self)
+        self.spin_chars_per_chapter.setRange(0, 1000000)
+        form.addRow("Знаков глава", self.spin_chars_per_chapter)
+
+        self.spin_planned = QtWidgets.QSpinBox(self)
+        self.spin_planned.setRange(0, 100000)
+        form.addRow("Запланированно", self.spin_planned)
+
+        self.spin_done = QtWidgets.QSpinBox(self)
+        self.spin_done.setRange(0, 100000)
+        form.addRow("Сделано глав", self.spin_done)
+
+        self.spin_progress = QtWidgets.QDoubleSpinBox(self)
+        self.spin_progress.setRange(0, 100)
+        self.spin_progress.setSuffix("%")
+        form.addRow("Прогресс перевода", self.spin_progress)
+
+        self.edit_release = QtWidgets.QLineEdit(self)
+        form.addRow("Выпуск", self.edit_release)
+
+        self.dbl_profit = QtWidgets.QDoubleSpinBox(self)
+        self.dbl_profit.setDecimals(2)
+        self.dbl_profit.setRange(0, 1_000_000_000)
+        form.addRow("Профит", self.dbl_profit)
+
+        self.dbl_ads = QtWidgets.QDoubleSpinBox(self)
+        self.dbl_ads.setDecimals(2)
+        self.dbl_ads.setRange(0, 1_000_000_000)
+        form.addRow("Затраты на рекламу", self.dbl_ads)
+
+        self.spin_views = QtWidgets.QSpinBox(self)
+        self.spin_views.setRange(0, 1_000_000_000)
+        form.addRow("Просмотры", self.spin_views)
+
+        self.spin_likes = QtWidgets.QSpinBox(self)
+        self.spin_likes.setRange(0, 1_000_000_000)
+        form.addRow("Лайки", self.spin_likes)
+
+        self.spin_thanks = QtWidgets.QSpinBox(self)
+        self.spin_thanks.setRange(0, 1_000_000_000)
+        form.addRow("Спасибо", self.spin_thanks)
+
+        box = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Cancel, self
+        )
+        box.accepted.connect(self.save)
+        box.rejected.connect(self.reject)
+        form.addRow(box)
+
+    def save(self):
+        year = self.spin_year.value()
+        month = self.combo_month.currentData()
+        record = {
+            "work": self.edit_work.text().strip(),
+            "status": self.edit_status.text().strip(),
+            "adult": self.chk_adult.isChecked(),
+            "total_chapters": self.spin_total_chapters.value(),
+            "chars_per_chapter": self.spin_chars_per_chapter.value(),
+            "planned": self.spin_planned.value(),
+            "chapters": self.spin_done.value(),
+            "progress": self.spin_progress.value(),
+            "release": self.edit_release.text().strip(),
+            "profit": self.dbl_profit.value(),
+            "ads": self.dbl_ads.value(),
+            "views": self.spin_views.value(),
+            "likes": self.spin_likes.value(),
+            "thanks": self.spin_thanks.value(),
+        }
+        record["chars"] = record["chapters"] * record["chars_per_chapter"]
+        path = os.path.join(stats_dir(year), f"{year}.json")
+        data = {}
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        month_list = data.setdefault(str(month), [])
+        month_list.append(record)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        self.accept()
+
+
+class AnalyticsDialog(QtWidgets.QDialog):
     """Годовая статистика: месяцы × показатели с колонкой "Итого за год"."""
 
     INDICATORS = [
@@ -430,13 +547,11 @@ class TopDialog(QtWidgets.QDialog):
         ("Спасибо", "thanks"),
     ]
 
-    def __init__(self, year, mode="month", period=1, parent=None):
+    def __init__(self, year, parent=None):
         super().__init__(parent)
         self.year = year
-        self.mode = mode
-        self.period = period
         self.results = []
-        self.setWindowTitle("Топ")
+        self.setWindowTitle("Топы")
         self.resize(700, 400)
 
         lay = QtWidgets.QVBoxLayout(self)
@@ -447,25 +562,17 @@ class TopDialog(QtWidgets.QDialog):
         self.spin_year.setValue(year)
         top.addWidget(self.spin_year)
 
-        self.combo_period = None
-        if mode != "year":
-            self.combo_period = QtWidgets.QComboBox(self)
-            if mode == "month":
-                top.addWidget(QtWidgets.QLabel("Месяц:"))
-                for i, m in enumerate(RU_MONTHS, 1):
-                    self.combo_period.addItem(m, i)
-                self.combo_period.setCurrentIndex(period - 1)
-            elif mode == "quarter":
-                top.addWidget(QtWidgets.QLabel("Квартал:"))
-                for i in range(1, 5):
-                    self.combo_period.addItem(str(i), i)
-                self.combo_period.setCurrentIndex(period - 1)
-            elif mode == "half":
-                top.addWidget(QtWidgets.QLabel("Полугодие:"))
-                for i in range(1, 3):
-                    self.combo_period.addItem(str(i), i)
-                self.combo_period.setCurrentIndex(period - 1)
-            top.addWidget(self.combo_period)
+        self.combo_mode = QtWidgets.QComboBox(self)
+        self.combo_mode.addItem("Месяц", "month")
+        self.combo_mode.addItem("Квартал", "quarter")
+        self.combo_mode.addItem("Полугодие", "half")
+        self.combo_mode.addItem("Год", "year")
+        self.combo_mode.currentIndexChanged.connect(self._mode_changed)
+        top.addWidget(self.combo_mode)
+
+        self.combo_period = QtWidgets.QComboBox(self)
+        top.addWidget(self.combo_period)
+        self._mode_changed()  # fill periods
 
         top.addWidget(QtWidgets.QLabel("Сортировка:"))
         self.combo_sort = QtWidgets.QComboBox(self)
@@ -501,15 +608,34 @@ class TopDialog(QtWidgets.QDialog):
         box.rejected.connect(self.reject)
         lay.addWidget(box)
 
+    def _mode_changed(self):
+        mode = self.combo_mode.currentData()
+        self.combo_period.clear()
+        if mode == "month":
+            for i, m in enumerate(RU_MONTHS, 1):
+                self.combo_period.addItem(m, i)
+            self.combo_period.setEnabled(True)
+        elif mode == "quarter":
+            for i in range(1, 5):
+                self.combo_period.addItem(str(i), i)
+            self.combo_period.setEnabled(True)
+        elif mode == "half":
+            for i in range(1, 3):
+                self.combo_period.addItem(str(i), i)
+            self.combo_period.setEnabled(True)
+        else:
+            self.combo_period.setEnabled(False)
+
     # --- helpers -------------------------------------------------------
     def _months_for_period(self):
-        if self.mode == "month" and self.combo_period:
+        mode = self.combo_mode.currentData()
+        if mode == "month" and self.combo_period.isEnabled():
             return [self.combo_period.currentData()]
-        if self.mode == "quarter" and self.combo_period:
+        if mode == "quarter" and self.combo_period.isEnabled():
             q = self.combo_period.currentData()
             start = (q - 1) * 3 + 1
             return list(range(start, start + 3))
-        if self.mode == "half" and self.combo_period:
+        if mode == "half" and self.combo_period.isEnabled():
             h = self.combo_period.currentData()
             start = (h - 1) * 6 + 1
             return list(range(start, start + 6))
@@ -570,11 +696,12 @@ class TopDialog(QtWidgets.QDialog):
             self.table.setItem(row, 8, QtWidgets.QTableWidgetItem(str(vals["thanks"])))
 
     def _period_key(self):
-        if self.mode == "month" and self.combo_period:
+        mode = self.combo_mode.currentData()
+        if mode == "month" and self.combo_period.isEnabled():
             return f"M{self.combo_period.currentData():02d}"
-        if self.mode == "quarter" and self.combo_period:
+        if mode == "quarter" and self.combo_period.isEnabled():
             return f"Q{self.combo_period.currentData()}"
-        if self.mode == "half" and self.combo_period:
+        if mode == "half" and self.combo_period.isEnabled():
             return f"H{self.combo_period.currentData()}"
         return "Y"
 
@@ -739,18 +866,14 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         lay.addWidget(line)
 
         items = [
-            ("Статистика", ICON_TG),
-            ("Топ месяца", ICON_TM),
-            ("Топ квартала", ICON_TQ),
-            ("Топ полугода", ICON_TP),
-            ("Топ года", ICON_TG),
+            ("Вводные", ICON_TM),
+            ("Аналитика", ICON_TG),
+            ("Топы", ICON_TP),
         ]
         self.buttons=[]
-        self.btn_stats=None
-        self.btn_top_month=None
-        self.btn_top_quarter=None
-        self.btn_top_half=None
-        self.btn_top_year=None
+        self.btn_inputs=None
+        self.btn_analytics=None
+        self.btn_tops=None
         for label, icon in items:
             b=QtWidgets.QToolButton(self)
             b.setIcon(QtGui.QIcon(icon)); b.setIconSize(QtCore.QSize(22,22))
@@ -759,16 +882,12 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             b.setCursor(QtCore.Qt.PointingHandCursor)
             b.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
             lay.addWidget(b); self.buttons.append(b)
-            if label == "Статистика":
-                self.btn_stats = b
-            elif label == "Топ месяца":
-                self.btn_top_month = b
-            elif label == "Топ квартала":
-                self.btn_top_quarter = b
-            elif label == "Топ полугода":
-                self.btn_top_half = b
-            elif label == "Топ года":
-                self.btn_top_year = b
+            if label == "Вводные":
+                self.btn_inputs = b
+            elif label == "Аналитика":
+                self.btn_analytics = b
+            elif label == "Топы":
+                self.btn_tops = b
         lay.addStretch(1)
         self._collapsed = False
         self.anim = QtCore.QPropertyAnimation(self, b"maximumWidth", self)
@@ -925,11 +1044,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.topbar.prev_clicked.connect(self.prev_month)
         self.topbar.next_clicked.connect(self.next_month)
         self.topbar.year_changed.connect(self.change_year)
-        self.sidebar.btn_stats.clicked.connect(self.open_year_stats_dialog)
-        self.sidebar.btn_top_month.clicked.connect(lambda: self.open_top_dialog("month"))
-        self.sidebar.btn_top_quarter.clicked.connect(lambda: self.open_top_dialog("quarter"))
-        self.sidebar.btn_top_half.clicked.connect(lambda: self.open_top_dialog("half"))
-        self.sidebar.btn_top_year.clicked.connect(lambda: self.open_top_dialog("year"))
+        self.sidebar.btn_inputs.clicked.connect(self.open_input_dialog)
+        self.sidebar.btn_analytics.clicked.connect(self.open_analytics_dialog)
+        self.sidebar.btn_tops.clicked.connect(self.open_top_dialog)
         self.topbar.settings_clicked.connect(self.open_settings_dialog)
         self._update_month_label()
 
@@ -982,20 +1099,18 @@ class MainWindow(QtWidgets.QMainWindow):
         self.table.load_month_data(year, self.table.month)
         self._update_month_label()
 
-    def open_year_stats_dialog(self):
-        dlg = YearStatsDialog(self.table.year, self)
+    def open_input_dialog(self):
+        dlg = InputDialog(self)
+        dlg.spin_year.setValue(self.table.year)
+        dlg.combo_month.setCurrentIndex(self.table.month - 1)
         dlg.exec()
 
-    def open_top_dialog(self, mode):
-        if mode == "month":
-            period = self.table.month
-        elif mode == "quarter":
-            period = (self.table.month - 1) // 3 + 1
-        elif mode == "half":
-            period = (self.table.month - 1) // 6 + 1
-        else:
-            period = 1
-        dlg = TopDialog(self.table.year, mode, period, self)
+    def open_analytics_dialog(self):
+        dlg = AnalyticsDialog(self.table.year, self)
+        dlg.exec()
+
+    def open_top_dialog(self):
+        dlg = TopDialog(self.table.year, self)
         dlg.exec()
 
     def open_settings_dialog(self):
