@@ -1,0 +1,12 @@
+# Ignore data directory
+data/
+
+# Ignore temporary files
+*.tmp
+*~
+__pycache__/
+*.pyc
+
+# Ignore binary assets and spreadsheets
+assets/
+*.xlsx
