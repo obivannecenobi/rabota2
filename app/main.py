@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 import sys, os, math, json, calendar
-from datetime import datetime
+from datetime import datetime, date
+from typing import Dict, List
+
 from PySide6 import QtWidgets, QtGui, QtCore
-from openpyxl import load_workbook
-from openpyxl.utils import get_column_letter
+from pydantic import BaseModel, Field
 
 ASSETS = os.path.join(os.path.dirname(__file__), "..", "assets")
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
@@ -46,12 +47,9 @@ BASE_SAVE_PATH = os.path.abspath(CONFIG.get("save_path", DATA_DIR))
 
 def ensure_year_dirs(year):
     base = os.path.join(BASE_SAVE_PATH, str(year))
-    for sub in ("months", "stats", "release", "top", "year"):
+    for sub in ("stats", "release", "top", "year"):
         os.makedirs(os.path.join(base, sub), exist_ok=True)
     return base
-
-def months_dir(year):
-    return os.path.join(ensure_year_dirs(year), "months")
 
 def stats_dir(year):
     return os.path.join(ensure_year_dirs(year), "stats")
@@ -64,8 +62,6 @@ def top_dir(year):
 
 def year_dir(year):
     return os.path.join(ensure_year_dirs(year), "year")
-EXCEL_PATH = os.path.join(ASSETS, "пример блоков.xlsx")
-SHEET_NAME = "ЦЕНТРАЛЬНАЯ РАБОЧАЯ ОБЛАСТЬ"
 ICON_TOGGLE = os.path.join(ASSETS, "gpt_icon.png")
 ICON_VYKL = os.path.join(ASSETS, "ic_vykl.png")
 ICON_TM   = os.path.join(ASSETS, "ic_tm.png")
@@ -80,45 +76,40 @@ RU_MONTHS = ["Январь","Февраль","Март","Апрель","Май",
 WORK_ROLE  = QtCore.Qt.UserRole
 ADULT_ROLE = QtCore.Qt.UserRole + 1
 
-def excel_col_width_to_pixels(width):
-    if width is None: return 64
-    return max(20, int((width * 7) + 5))
 
-def excel_row_height_to_pixels(height_points):
-    if height_points is None: return 20
-    return max(16, int(round(height_points * (96.0/72.0))))
+class Work(BaseModel):
+    plan: str
+    done: bool = False
+    is_adult: bool = False
 
-def qt_align(h, v):
-    ah = {"left": QtCore.Qt.AlignLeft, "center": QtCore.Qt.AlignHCenter, "right": QtCore.Qt.AlignRight, "justify": QtCore.Qt.AlignJustify, None: QtCore.Qt.AlignLeft}.get(h, QtCore.Qt.AlignLeft)
-    av = {"top": QtCore.Qt.AlignTop, "center": QtCore.Qt.AlignVCenter, "bottom": QtCore.Qt.AlignBottom, None: QtCore.Qt.AlignVCenter}.get(v, QtCore.Qt.AlignVCenter)
-    return ah | av
 
-class ExcelDelegate(QtWidgets.QStyledItemDelegate):
-    def __init__(self, borders_map, rows, cols, parent=None):
-        super().__init__(parent); self.borders_map=borders_map; self.rows=rows; self.cols=cols
+class MonthData(BaseModel):
+    year: int
+    month: int
+    days: Dict[int, List[Work]] = Field(default_factory=dict)
+
+    @property
+    def path(self) -> str:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        return os.path.join(DATA_DIR, f"{self.year:04d}-{self.month:02d}.json")
+
+    def save(self) -> None:
+        with open(self.path, "w", encoding="utf-8") as f:
+            f.write(self.model_dump_json(indent=2, ensure_ascii=False))
+
+    @classmethod
+    def load(cls, year: int, month: int) -> "MonthData":
+        path = os.path.join(DATA_DIR, f"{year:04d}-{month:02d}.json")
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                return cls.model_validate_json(f.read())
+        return cls(year=year, month=month)
+
+
+class MonthDelegate(QtWidgets.QStyledItemDelegate):
     def paint(self, painter, option, index):
         super().paint(painter, option, index)
 
-        # borders from Excel
-        r, c = index.row(), index.column()
-        sides = self.borders_map.get((r, c))
-        if sides:
-            pen = QtGui.QPen(QtGui.QColor(0, 0, 0))
-            pen.setWidth(1)
-            painter.save()
-            painter.setPen(pen)
-            rect = option.rect.adjusted(0, 0, -1, -1)
-            if sides.get("top"):
-                painter.drawLine(rect.topLeft(), rect.topRight())
-            if sides.get("left"):
-                painter.drawLine(rect.topLeft(), rect.bottomLeft())
-            if c == self.cols - 1 and sides.get("right"):
-                painter.drawLine(rect.topRight(), rect.bottomRight())
-            if r == self.rows - 1 and sides.get("bottom"):
-                painter.drawLine(rect.bottomLeft(), rect.bottomRight())
-            painter.restore()
-
-        # mark 18+ cells
         if index.data(ADULT_ROLE):
             painter.save()
             painter.setPen(QtCore.Qt.NoPen)
@@ -598,254 +589,106 @@ class TopDialog(QtWidgets.QDialog):
         self.accept()
 
 class ExcelCalendarTable(QtWidgets.QTableWidget):
-    """Рендер Excel + управление днями месяца и «хвостом» следующего/предыдущего месяца."""
+    """Таблица календаря месяца, построенная на данных MonthData."""
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
-        self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        self.setShowGrid(False); self.verticalHeader().setVisible(False); self.horizontalHeader().setVisible(False)
-        self.setWordWrap(True); self.setEditTriggers(QtWidgets.QAbstractItemView.AllEditTriggers)
+        self.verticalHeader().setVisible(False)
+        self.setShowGrid(True)
+        self.setWordWrap(True)
+        self.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        wk_names = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "ВС"]
+        self.setColumnCount(7)
+        self.setHorizontalHeaderLabels(wk_names)
+        self.setItemDelegate(MonthDelegate(self))
 
         now = datetime.now()
         self.year = now.year
         self.month = now.month
+        self.date_map: Dict[tuple[int, int], date] = {}
 
-        self.base_col_widths=[]; self.base_row_heights=[]
-        self.week_blocks=[]  # list of (numbers_row, weekdays_row, content_start_row) per неделю
-        self.day_cols=(None,None)  # (start, end) индексы 7 колонок дней
+        self.load_month_data(self.year, self.month)
 
-        self.load_excel(EXCEL_PATH, SHEET_NAME)
-        self.apply_month_numbers()
-
-        # редактирование содержимого ячеек (список работ)
         self.itemDoubleClicked.connect(self.edit_cell)
 
-    def _works_to_text(self, works):
-        lines = []
+    def _format_cell_text(self, day_num: int, works):
+        lines = [str(day_num)]
         for w in works:
             prefix = "[x]" if w.get("done") else "[ ]"
-            txt = f"{prefix} {w.get('plan','')}"
+            txt = f"{prefix} {w.get('plan', '')}"
             if w.get("is_adult"):
                 txt += " (18+)"
             lines.append(txt)
         return "\n".join(lines)
 
     def edit_cell(self, item):
+        row, col = item.row(), item.column()
+        day = self.date_map.get((row, col))
+        if not day or day.month != self.month:
+            return
         works = item.data(WORK_ROLE) or []
         dlg = WorkEditDialog(works, self)
         if dlg.exec() == QtWidgets.QDialog.Accepted:
             works = dlg.get_works()
             item.setData(WORK_ROLE, works)
-            item.setText(self._works_to_text(works))
             item.setData(ADULT_ROLE, any(w.get("is_adult") for w in works))
+            item.setText(self._format_cell_text(day.day, works))
 
     # ---------- Persistence ----------
-    def month_key(self, year=None, month=None):
-        y = year or self.year; m = month or self.month
-        return f"{y:04d}-{m:02d}"
-
     def save_current_month(self):
-        path = os.path.join(months_dir(self.year), f"{self.month:02d}.json")
-        data = {"rows": self.rowCount(), "cols": self.columnCount(), "grid": [], "works": {}}
-        for r in range(self.rowCount()):
-            row = []
-            for c in range(self.columnCount()):
-                it = self.item(r, c)
-                row.append("" if it is None else it.text())
-                if it:
-                    works = it.data(WORK_ROLE) or []
-                    if works:
-                        data["works"][f"{r},{c}"] = works
-            data["grid"].append(row)
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False)
+        md = MonthData(year=self.year, month=self.month)
+        for (r, c), day in self.date_map.items():
+            if day.month != self.month:
+                continue
+            it = self.item(r, c)
+            works = it.data(WORK_ROLE) or []
+            if works:
+                md.days[day.day] = [Work(**w) for w in works]
+        md.save()
 
-    def load_month_data(self, year, month):
-        path = os.path.join(months_dir(year), f"{month:02d}.json")
-        if not os.path.exists(path): return False
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        works_map = data.get("works", {})
-        for r, row in enumerate(data.get("grid", [])):
-            for c, txt in enumerate(row):
-                it = self.item(r, c) or QtWidgets.QTableWidgetItem()
-                works = works_map.get(f"{r},{c}", [])
-                it.setData(WORK_ROLE, works)
-                it.setData(ADULT_ROLE, any(w.get("is_adult") for w in works))
-                if works:
-                    it.setText(self._works_to_text(works))
+    def load_month_data(self, year: int, month: int):
+        self.year = year
+        self.month = month
+        md = MonthData.load(year, month)
+        cal = calendar.Calendar()
+        weeks = cal.monthdatescalendar(year, month)
+        self.date_map.clear()
+        self.setRowCount(len(weeks))
+        for r, week in enumerate(weeks):
+            for c, day in enumerate(week):
+                self.date_map[(r, c)] = day
+                it = QtWidgets.QTableWidgetItem()
+                if day.month != month:
+                    it.setFlags(QtCore.Qt.NoItemFlags)
+                    it.setText(str(day.day))
+                    it.setForeground(QtGui.QBrush(QtGui.QColor(150, 150, 150)))
                 else:
-                    it.setText(txt)
+                    works = [w.model_dump() if isinstance(w, Work) else w for w in md.days.get(day.day, [])]
+                    it.setData(WORK_ROLE, works)
+                    it.setData(ADULT_ROLE, any(w.get("is_adult") for w in works))
+                    it.setText(self._format_cell_text(day.day, works))
                 self.setItem(r, c, it)
         return True
-
-    # ---------- Excel load ----------
-    def load_excel(self, path, sheet_name):
-        from openpyxl import load_workbook
-        from openpyxl.utils import get_column_letter
-        wb = load_workbook(path, data_only=True); ws = wb[sheet_name]
-        min_row=min_col=max_row=max_col=None
-        for row in ws.iter_rows():
-            for cell in row:
-                if cell.value is not None or cell.coordinate in ws.merged_cells:
-                    r,c=cell.row,cell.column
-                    min_row = r if min_row is None else min(min_row,r)
-                    min_col = c if min_col is None else min(min_col,c)
-                    max_row = r if max_row is None else max(max_row,r)
-                    max_col = c if max_col is None else max(max_col,c)
-        if min_row is None: min_row=min_col=max_row=max_col=1
-        rows=max_row-min_row+1; cols=max_col-min_col+1
-        self.setRowCount(rows); self.setColumnCount(cols)
-
-        borders={}
-        for r in range(min_row, max_row+1):
-            for c in range(min_col, max_col+1):
-                b = ws.cell(r,c).border
-                borders[(r-min_row,c-min_col)] = {"left":bool(b.left and b.left.style), "right":bool(b.right and b.right.style), "top":bool(b.top and b.top.style), "bottom":bool(b.bottom and b.bottom.style)}
-        self.setItemDelegate(ExcelDelegate(borders, rows, cols, self))
-
-        # sizes
-        self.base_col_widths=[excel_col_width_to_pixels(ws.column_dimensions.get(get_column_letter(c)).width if ws.column_dimensions.get(get_column_letter(c)) else None) for c in range(min_col, max_col+1)]
-        self.base_row_heights=[excel_row_height_to_pixels(ws.row_dimensions.get(r).height if ws.row_dimensions.get(r) else None) for r in range(min_row, max_row+1)]
-        for i,w in enumerate(self.base_col_widths): self.setColumnWidth(i,w)
-        for i,h in enumerate(self.base_row_heights): self.setRowHeight(i,h)
-
-        # content + record weekday rows
-        default_font_family="Calibri"; default_font_size=11
-        wk_names = ["ПН","ВТ","СР","ЧТ","ПТ","СБ","ВС"]
-        self.week_blocks.clear()
-        self.day_cols=(None,None)
-
-        def is_weekdays_row(texts):
-            return texts == wk_names
-
-        for r in range(min_row, max_row+1):
-            # set items
-            for c in range(min_col, max_col+1):
-                cell=ws.cell(r,c)
-                it = QtWidgets.QTableWidgetItem("" if cell.value is None else str(cell.value))
-                f=cell.font; qf=QtGui.QFont(f.name or default_font_family, int(f.sz or default_font_size)); qf.setBold(bool(f.b)); qf.setItalic(bool(f.i)); it.setFont(qf)
-                al=cell.alignment; it.setTextAlignment(qt_align(al.horizontal, al.vertical))
-                it.setFlags(it.flags() | QtCore.Qt.ItemIsEditable)
-                self.setItem(r-min_row, c-min_col, it)
-
-            # detect weekdays row by scanning sequences of 7 cells
-            row_texts = [self.item(r-min_row, c-min_col).text() for c in range(min_col, max_col+1)]
-            for cstart in range(0, len(row_texts)-6):
-                if row_texts[cstart:cstart+7] == wk_names:
-                    numbers_row = (r-1)-min_row
-                    weekdays_row = r-min_row
-                    content_start_row = (r+1)-min_row
-                    if self.day_cols==(None,None):
-                        self.day_cols=(cstart, cstart+7)
-                    self.week_blocks.append((numbers_row, weekdays_row, content_start_row))
-                    break
-
-        # merges
-        for rng in ws.merged_cells.ranges:
-            self.setSpan(rng.min_row-min_row, rng.min_col-min_col, rng.max_row-rng.min_row+1, rng.max_col-rng.min_col+1)
-
-        self.update_layout()
-
-    def update_layout(self):
-        total_w=sum(self.base_col_widths) or 1; total_h=sum(self.base_row_heights) or 1
-        vw=max(1, self.viewport().width()-2); vh=max(1, self.viewport().height()-2)
-        sx=vw/total_w; sy=vh/total_h
-        for i,w in enumerate(self.base_col_widths): self.setColumnWidth(i, max(20,int(round(w*sx))))
-        for i,h in enumerate(self.base_row_heights): self.setRowHeight(i, max(16,int(round(h*sy))))
-    def resizeEvent(self, e): super().resizeEvent(e); self.update_layout()
-
-    # ---------- Month numbers logic ----------
-    def apply_month_numbers(self):
-        """Заполнить строки чисел дней для self.year/self.month. Хвост следующего/предыдущего месяца подсветить серым и сделать нередактируемым."""
-        if not self.week_blocks or self.day_cols==(None,None): return
-        y, m = self.year, self.month
-        first_weekday, days_in_month = calendar.monthrange(y, m)  # Monday=0
-        # Build 5 weeks x 7 days matrix of ints and a boolean is_current flag
-        weeks = [[{"num":"", "active":False} for _ in range(7)] for _ in range(len(self.week_blocks))]
-
-        # starting index in first week
-        idx = first_weekday  # 0..6
-        d = 1
-        w = 0
-        # fill current month
-        while d <= days_in_month and w < len(weeks):
-            while idx < 7 and d <= days_in_month:
-                weeks[w][idx] = {"num":str(d), "active":True}
-                d += 1; idx += 1
-            w += 1; idx = 0
-
-        # prev month tail for first week if needed
-        if self.week_blocks:
-            prev_y, prev_m = (y-1,12) if m==1 else (y,m-1)
-            _, prev_days = calendar.monthrange(prev_y, prev_m)
-            first_w = weeks[0]
-            for i in range(7):
-                if not first_w[i]["active"]:
-                    # fill from right to left
-                    count = sum(1 for j in range(7) if not first_w[j]["active"])
-            # Fill leading blanks with tail of prev month
-            lead = 0
-            for i in range(7):
-                if not first_w[i]["active"]:
-                    lead += 1
-            val = prev_days - lead + 1
-            for i in range(lead):
-                first_w[i] = {"num":str(val+i), "active":False}
-
-        # next month tail in last week(s)
-        next_y, next_m = (y+1,1) if m==12 else (y,m+1)
-        nd = 1
-        for wi in range(len(weeks)-1, -1, -1):
-            row = weeks[wi]
-            for i in range(7):
-                if row[i]["num"]=="":
-                    row[i] = {"num":str(nd), "active":False}; nd += 1
-
-        # apply to table
-        start_col, end_col = self.day_cols
-        inactive_brush = QtGui.QBrush(QtGui.QColor(140,140,140))
-        active_brush = QtGui.QBrush()
-        for widx, (num_row, _, content_row) in enumerate(self.week_blocks):
-            for i in range(7):
-                col = start_col + i
-                it = self.item(num_row, col) or QtWidgets.QTableWidgetItem()
-                it.setText(weeks[widx][i]["num"])
-                # grey inactive
-                if weeks[widx][i]["active"]:
-                    it.setForeground(active_brush); it.setFlags((it.flags() | QtCore.Qt.ItemIsEditable))
-                else:
-                    it.setForeground(inactive_brush); it.setFlags(it.flags() & ~QtCore.Qt.ItemIsEditable)
-                self.setItem(num_row, col, it)
-
-                # optionally grey out the entire content block below for inactive days
-                # Здесь мы просто делаем первую строку контента нередактируемой/серой для неактивных дней
-                content_it = self.item(content_row, col)
-                if content_it:
-                    if weeks[widx][i]["active"]:
-                        content_it.setForeground(active_brush); content_it.setFlags(content_it.flags() | QtCore.Qt.ItemIsEditable)
-                    else:
-                        content_it.setForeground(inactive_brush); content_it.setFlags(content_it.flags() & ~QtCore.Qt.ItemIsEditable)
 
     # ---------- Navigation ----------
     def go_prev_month(self):
         self.save_current_month()
-        if self.month==1: self.month=12; self.year-=1
-        else: self.month-=1
-        # load saved data if exists, else keep current content (Excel baseline)
-        if not self.load_month_data(self.year, self.month):
-            pass
-        self.apply_month_numbers()
+        if self.month == 1:
+            self.month = 12
+            self.year -= 1
+        else:
+            self.month -= 1
+        self.load_month_data(self.year, self.month)
 
     def go_next_month(self):
         self.save_current_month()
-        if self.month==12: self.month=1; self.year+=1
-        else: self.month+=1
-        if not self.load_month_data(self.year, self.month):
-            pass
-        self.apply_month_numbers()
-
+        if self.month == 12:
+            self.month = 1
+            self.year += 1
+        else:
+            self.month += 1
+        self.load_month_data(self.year, self.month)
 
 class CollapsibleSidebar(QtWidgets.QFrame):
     toggled = QtCore.Signal(bool)
@@ -1206,9 +1049,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def change_year(self, year):
         self.table.save_current_month()
         self.table.year = year
-        if not self.table.load_month_data(year, self.table.month):
-            pass
-        self.table.apply_month_numbers()
+        self.table.load_month_data(year, self.table.month)
         self._update_month_label()
         self.sidebar.set_period(self.table.year, self.table.month)
 

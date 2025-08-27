@@ -58,6 +58,6 @@
 
 ## Требования к окружению и запуск
 - Python 3.10+
-- Зависимости: PySide6, openpyxl (устанавливаются через `pip install -r requirements.txt`).
+- Зависимости: PySide6, pydantic (устанавливаются через `pip install -r requirements.txt`).
 - Данные сохраняются в каталоге `data/` (можно изменить путь в настройках).
 - Запуск приложения: `python app/main.py`
