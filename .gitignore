@@ -8,6 +8,7 @@ data/*
 !data/year/.gitkeep
 !data/top/
 !data/top/.gitkeep
+!data/config.json
 
 # Ignore temporary files
 *.tmp
