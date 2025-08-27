@@ -55,6 +55,7 @@ ICON_TM   = os.path.join(ASSETS, "ic_tm.png")
 ICON_TQ   = os.path.join(ASSETS, "ic_tq.png")
 ICON_TP   = os.path.join(ASSETS, "ic_tp.png")
 ICON_TG   = os.path.join(ASSETS, "ic_tg.png")
+VERSION_FILE = os.path.join(os.path.dirname(__file__), "..", "VERSION")
 
 RU_MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"]
 
@@ -1133,8 +1134,39 @@ class MainWindow(QtWidgets.QMainWindow):
         self._update_month_label()
         self.sidebar.set_period(self.table.year, self.table.month)
 
+        # status bar with timer and version info
+        self._start_dt = QtCore.QDateTime.currentDateTime()
+        bar = QtWidgets.QStatusBar(self)
+        self.setStatusBar(bar)
+        self.lbl_timer = QtWidgets.QLabel("000:00:00:00", self)
+        bar.addWidget(self.lbl_timer)
+        self.lbl_version = QtWidgets.QLabel("", self)
+        bar.addPermanentWidget(self.lbl_version)
+        self._timer = QtCore.QTimer(self)
+        self._timer.timeout.connect(self._update_timer)
+        self._timer.start(1000)
+        self._update_timer()
+        self._update_version()
+
     def _update_month_label(self):
         self.topbar.lbl_month.setText(f"{RU_MONTHS[self.table.month-1]} {self.table.year}")
+
+    def _update_timer(self):
+        secs = self._start_dt.secsTo(QtCore.QDateTime.currentDateTime())
+        days = secs // 86400
+        hours = (secs // 3600) % 24
+        minutes = (secs // 60) % 60
+        seconds = secs % 60
+        self.lbl_timer.setText(f"{days:02d}:{hours:02d}:{minutes:02d}:{seconds:02d}")
+
+    def _update_version(self):
+        version = "unknown"
+        try:
+            with open(VERSION_FILE, "r", encoding="utf-8") as f:
+                version = f.read().strip()
+        except Exception:
+            pass
+        self.lbl_version.setText(f"v{version}")
 
     def prev_month(self):
         self.table.go_prev_month(); self._update_month_label()
@@ -1147,6 +1179,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def open_release_dialog(self):
         dlg = ReleaseDialog(self.table.year, self.table.month, self)
         dlg.exec()
+        self._update_version()
 
     def open_year_stats_dialog(self):
         dlg = YearStatsDialog(self.table.year, self)
