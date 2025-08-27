@@ -1,14 +1,8 @@
-# Ignore data directory but keep stats placeholder
+# Ignore data directory but keep config and gitkeep placeholders
 data/*
-!data/stats/
-!data/stats/.gitkeep
-!data/release/
-!data/release/.gitkeep
-!data/year/
-!data/year/.gitkeep
-!data/top/
-!data/top/.gitkeep
 !data/config.json
+!data/*/
+!data/**/.gitkeep
 
 # Ignore temporary files
 *.tmp

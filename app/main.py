@@ -43,10 +43,27 @@ def load_config():
 
 CONFIG = load_config()
 BASE_SAVE_PATH = os.path.abspath(CONFIG.get("save_path", DATA_DIR))
-STATS_DIR = os.path.join(BASE_SAVE_PATH, "stats")
-YEAR_DIR = os.path.join(BASE_SAVE_PATH, "year")
-RELEASE_DIR = os.path.join(BASE_SAVE_PATH, "release")
-TOP_DIR = os.path.join(BASE_SAVE_PATH, "top")
+
+def ensure_year_dirs(year):
+    base = os.path.join(BASE_SAVE_PATH, str(year))
+    for sub in ("months", "stats", "release", "top", "year"):
+        os.makedirs(os.path.join(base, sub), exist_ok=True)
+    return base
+
+def months_dir(year):
+    return os.path.join(ensure_year_dirs(year), "months")
+
+def stats_dir(year):
+    return os.path.join(ensure_year_dirs(year), "stats")
+
+def release_dir(year):
+    return os.path.join(ensure_year_dirs(year), "release")
+
+def top_dir(year):
+    return os.path.join(ensure_year_dirs(year), "top")
+
+def year_dir(year):
+    return os.path.join(ensure_year_dirs(year), "year")
 EXCEL_PATH = os.path.join(ASSETS, "пример блоков.xlsx")
 SHEET_NAME = "ЦЕНТРАЛЬНАЯ РАБОЧАЯ ОБЛАСТЬ"
 ICON_TOGGLE = os.path.join(ASSETS, "gpt_icon.png")
@@ -196,8 +213,7 @@ class ReleaseDialog(QtWidgets.QDialog):
         self.load()
 
     def file_path(self):
-        os.makedirs(RELEASE_DIR, exist_ok=True)
-        return os.path.join(RELEASE_DIR, f"{self.year:04d}-{self.month:02d}.json")
+        return os.path.join(release_dir(self.year), f"{self.month:02d}.json")
 
     def add_row(self, data=None):
         if data is None:
@@ -302,7 +318,7 @@ class YearStatsDialog(QtWidgets.QDialog):
         # load manual values
         self._commissions = {str(m): 0.0 for m in range(1, 13)}
         self._software = {str(m): 0.0 for m in range(1, 13)}
-        path = os.path.join(YEAR_DIR, f"{year}.json")
+        path = os.path.join(year_dir(year), f"{year}.json")
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -322,8 +338,7 @@ class YearStatsDialog(QtWidgets.QDialog):
         self._loading = False
 
     def save(self):
-        os.makedirs(YEAR_DIR, exist_ok=True)
-        path = os.path.join(YEAR_DIR, f"{self.year}.json")
+        path = os.path.join(year_dir(self.year), f"{self.year}.json")
         data = {
             "commission": self._commissions,
             "software": self._software,
@@ -335,7 +350,7 @@ class YearStatsDialog(QtWidgets.QDialog):
     # --- helpers -------------------------------------------------------
     def _calc_month_stats(self, year, month):
         res = {k: 0 for k in self.INDICATORS if k not in ("Комиссия", "Затраты на софт", "Чистыми")}
-        path = os.path.join(STATS_DIR, f"{year}.json")
+        path = os.path.join(stats_dir(year), f"{year}.json")
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -505,7 +520,7 @@ class TopDialog(QtWidgets.QDialog):
         year = self.spin_year.value()
         months = self._months_for_period()
         sort_key = self.combo_sort.currentData()
-        path = os.path.join(STATS_DIR, f"{year}.json")
+        path = os.path.join(stats_dir(year), f"{year}.json")
         totals = {}
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
@@ -568,8 +583,7 @@ class TopDialog(QtWidgets.QDialog):
         if not self.results:
             self.calculate()
         year = self.spin_year.value()
-        os.makedirs(TOP_DIR, exist_ok=True)
-        path = os.path.join(TOP_DIR, f"{year}.json")
+        path = os.path.join(top_dir(year), f"{year}.json")
         data = {}
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
@@ -632,7 +646,7 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         return f"{y:04d}-{m:02d}"
 
     def save_current_month(self):
-        path = os.path.join(DATA_DIR, self.month_key()+".json")
+        path = os.path.join(months_dir(self.year), f"{self.month:02d}.json")
         data = {"rows": self.rowCount(), "cols": self.columnCount(), "grid": [], "works": {}}
         for r in range(self.rowCount()):
             row = []
@@ -648,7 +662,7 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
             json.dump(data, f, ensure_ascii=False)
 
     def load_month_data(self, year, month):
-        path = os.path.join(DATA_DIR, f"{year:04d}-{month:02d}.json")
+        path = os.path.join(months_dir(year), f"{month:02d}.json")
         if not os.path.exists(path): return False
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -943,7 +957,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         self.stats_table.setItem(row, 3, adult_item)
 
     def _load_stats(self):
-        path = os.path.join(STATS_DIR, f"{self.current_year}.json")
+        path = os.path.join(stats_dir(self.current_year), f"{self.current_year}.json")
         self.stats_table.setRowCount(0)
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
@@ -955,8 +969,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             self.stats_table.sortItems(self.sorted_col, self.sorted_order)
 
     def _write_stats_file(self):
-        os.makedirs(STATS_DIR, exist_ok=True)
-        path = os.path.join(STATS_DIR, f"{self.current_year}.json")
+        path = os.path.join(stats_dir(self.current_year), f"{self.current_year}.json")
         data = {}
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
@@ -981,6 +994,9 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         self._add_row(work, status, adult)
         self.stats_table.sortItems(self.sorted_col, self.sorted_order)
         self.edit_work.clear(); self.edit_status.clear(); self.edit_adult.setChecked(False)
+        self._write_stats_file()
+
+    def save_all(self):
         self._write_stats_file()
 
     def set_period(self, year, month):
@@ -1059,6 +1075,7 @@ class TopBar(QtWidgets.QWidget):
     prev_clicked = QtCore.Signal()
     next_clicked = QtCore.Signal()
     settings_clicked = QtCore.Signal()
+    year_changed = QtCore.Signal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -1071,7 +1088,13 @@ class TopBar(QtWidgets.QWidget):
         lay.addWidget(self.btn_prev)
         self.lbl_month = QtWidgets.QLabel("Месяц")
         self.lbl_month.setAlignment(QtCore.Qt.AlignCenter)
-        lay.addWidget(self.lbl_month, 1)
+        lay.addWidget(self.lbl_month)
+        self.spin_year = QtWidgets.QSpinBox(self)
+        self.spin_year.setRange(2000, 2100)
+        self.spin_year.setValue(datetime.now().year)
+        self.spin_year.valueChanged.connect(self.year_changed.emit)
+        lay.addWidget(self.spin_year)
+        lay.addStretch(1)
         self.btn_next = QtWidgets.QToolButton(self)
         self.btn_next.setText(" > ")
         self.btn_next.clicked.connect(self.next_clicked)
@@ -1124,6 +1147,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Connect topbar
         self.topbar.prev_clicked.connect(self.prev_month)
         self.topbar.next_clicked.connect(self.next_month)
+        self.topbar.year_changed.connect(self.change_year)
         self.sidebar.btn_release.clicked.connect(self.open_release_dialog)
         self.sidebar.btn_stats.clicked.connect(self.open_year_stats_dialog)
         self.sidebar.btn_top_month.clicked.connect(lambda: self.open_top_dialog("month"))
@@ -1149,7 +1173,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self._update_version()
 
     def _update_month_label(self):
-        self.topbar.lbl_month.setText(f"{RU_MONTHS[self.table.month-1]} {self.table.year}")
+        self.topbar.lbl_month.setText(RU_MONTHS[self.table.month-1])
+        self.topbar.spin_year.blockSignals(True)
+        self.topbar.spin_year.setValue(self.table.year)
+        self.topbar.spin_year.blockSignals(False)
 
     def _update_timer(self):
         secs = self._start_dt.secsTo(QtCore.QDateTime.currentDateTime())
@@ -1176,6 +1203,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.table.go_next_month(); self._update_month_label()
         self.sidebar.set_period(self.table.year, self.table.month)
 
+    def change_year(self, year):
+        self.table.save_current_month()
+        self.table.year = year
+        if not self.table.load_month_data(year, self.table.month):
+            pass
+        self.table.apply_month_numbers()
+        self._update_month_label()
+        self.sidebar.set_period(self.table.year, self.table.month)
+
     def open_release_dialog(self):
         dlg = ReleaseDialog(self.table.year, self.table.month, self)
         dlg.exec()
@@ -1200,13 +1236,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def open_settings_dialog(self):
         dlg = SettingsDialog(self)
         if dlg.exec():
-            global CONFIG, BASE_SAVE_PATH, STATS_DIR, YEAR_DIR, RELEASE_DIR, TOP_DIR
+            global CONFIG, BASE_SAVE_PATH
             CONFIG = load_config()
             BASE_SAVE_PATH = os.path.abspath(CONFIG.get("save_path", DATA_DIR))
-            STATS_DIR = os.path.join(BASE_SAVE_PATH, "stats")
-            YEAR_DIR = os.path.join(BASE_SAVE_PATH, "year")
-            RELEASE_DIR = os.path.join(BASE_SAVE_PATH, "release")
-            TOP_DIR = os.path.join(BASE_SAVE_PATH, "top")
             app = QtWidgets.QApplication.instance()
             app.setFont(QtGui.QFont(CONFIG.get("text_font", "Arial")))
             self.apply_settings()
@@ -1214,6 +1246,13 @@ class MainWindow(QtWidgets.QMainWindow):
     def apply_settings(self):
         self.topbar.apply_fonts()
         self.topbar.apply_style(CONFIG.get("neon", False))
+
+    def closeEvent(self, event):
+        self.table.save_current_month()
+        self.sidebar.save_all()
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(CONFIG, f, ensure_ascii=False, indent=2)
+        super().closeEvent(event)
 
 
 def main():
