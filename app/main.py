@@ -63,7 +63,6 @@ def top_dir(year):
 def year_dir(year):
     return os.path.join(ensure_year_dirs(year), "year")
 ICON_TOGGLE = os.path.join(ASSETS, "gpt_icon.png")
-ICON_VYKL = os.path.join(ASSETS, "ic_vykl.png")
 ICON_TM   = os.path.join(ASSETS, "ic_tm.png")
 ICON_TQ   = os.path.join(ASSETS, "ic_tq.png")
 ICON_TP   = os.path.join(ASSETS, "ic_tp.png")
@@ -717,7 +716,6 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         lay.addWidget(line)
 
         items = [
-            ("Выкладка", ICON_VYKL),
             ("Статистика", ICON_TG),
             ("Топ месяца", ICON_TM),
             ("Топ квартала", ICON_TQ),
@@ -725,7 +723,6 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             ("Топ года", ICON_TG),
         ]
         self.buttons=[]
-        self.btn_release=None
         self.btn_stats=None
         self.btn_top_month=None
         self.btn_top_quarter=None
@@ -739,9 +736,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             b.setCursor(QtCore.Qt.PointingHandCursor)
             b.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
             lay.addWidget(b); self.buttons.append(b)
-            if label == "Выкладка":
-                self.btn_release = b
-            elif label == "Статистика":
+            if label == "Статистика":
                 self.btn_stats = b
             elif label == "Топ месяца":
                 self.btn_top_month = b
@@ -991,7 +986,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.topbar.prev_clicked.connect(self.prev_month)
         self.topbar.next_clicked.connect(self.next_month)
         self.topbar.year_changed.connect(self.change_year)
-        self.sidebar.btn_release.clicked.connect(self.open_release_dialog)
         self.sidebar.btn_stats.clicked.connect(self.open_year_stats_dialog)
         self.sidebar.btn_top_month.clicked.connect(lambda: self.open_top_dialog("month"))
         self.sidebar.btn_top_quarter.clicked.connect(lambda: self.open_top_dialog("quarter"))
@@ -1052,11 +1046,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.table.load_month_data(year, self.table.month)
         self._update_month_label()
         self.sidebar.set_period(self.table.year, self.table.month)
-
-    def open_release_dialog(self):
-        dlg = ReleaseDialog(self.table.year, self.table.month, self)
-        dlg.exec()
-        self._update_version()
 
     def open_year_stats_dialog(self):
         dlg = YearStatsDialog(self.table.year, self)
