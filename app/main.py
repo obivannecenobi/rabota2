@@ -98,11 +98,19 @@ class MonthData:
         return os.path.join(DATA_DIR, f"{self.year:04d}-{self.month:02d}.json")
 
     def save(self) -> None:
-        data = {
-            "year": self.year,
-            "month": self.month,
-            "days": {str(k): [asdict(w) for w in v] for k, v in self.days.items()},
-        }
+        days: Dict[str, Dict[str, Dict[str, int | bool]]] = {}
+        for day, works in self.days.items():
+            works_dict: Dict[str, Dict[str, int | bool]] = {}
+            for w in works:
+                works_dict[w.plan] = {
+                    "done": w.done,
+                    "is_adult": w.is_adult,
+                    "plan": w.planned_chapters,
+                    "done_chapters": w.done_chapters,
+                }
+            if works_dict:
+                days[str(day)] = works_dict
+        data = {"year": self.year, "month": self.month, "days": days}
         with open(self.path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
@@ -114,17 +122,30 @@ class MonthData:
                 data = json.load(f)
             days: Dict[int, List[Work]] = {}
             for k, v in data.get("days", {}).items():
-                works_list = []
-                for w in v:
-                    works_list.append(
-                        Work(
-                            plan=w.get("plan", ""),
-                            done=w.get("done", False),
-                            is_adult=w.get("is_adult", False),
-                            planned_chapters=w.get("planned_chapters", 0),
-                            done_chapters=w.get("done_chapters", 0),
+                works_list: List[Work] = []
+                if isinstance(v, list):
+                    # legacy format
+                    for w in v:
+                        works_list.append(
+                            Work(
+                                plan=w.get("plan", ""),
+                                done=w.get("done", False),
+                                is_adult=w.get("is_adult", False),
+                                planned_chapters=w.get("planned_chapters", 0),
+                                done_chapters=w.get("done_chapters", 0),
+                            )
                         )
-                    )
+                else:
+                    for name, info in v.items():
+                        works_list.append(
+                            Work(
+                                plan=name,
+                                done=info.get("done", False),
+                                is_adult=info.get("is_adult", False),
+                                planned_chapters=info.get("plan", 0),
+                                done_chapters=info.get("done_chapters", 0),
+                            )
+                        )
                 days[int(k)] = works_list
             return cls(year=data.get("year", year), month=data.get("month", month), days=days)
         return cls(year=year, month=month)
@@ -813,9 +834,12 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         self.setShowGrid(True)
         self.setWordWrap(True)
         self.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
-        wk_names = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "ВС"]
-        self.setColumnCount(7)
-        self.setHorizontalHeaderLabels(wk_names)
+        day_names = ["ПН", "ВТ", "СР", "ЧТ", "ПТ"]
+        headers = ["Неделя"]
+        for dn in day_names:
+            headers.extend([dn, f"{dn} План", f"{dn} Готово"])
+        self.setColumnCount(len(headers))
+        self.setHorizontalHeaderLabels(headers)
         self.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.setItemDelegate(MonthDelegate(self))
@@ -841,37 +865,45 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                 self.setRowHeight(r, height)
 
     def _format_cell_text(self, day_num: int, works):
-        lines = [str(day_num)]
+        work_lines = [str(day_num)]
+        plan_lines = [""]
+        done_lines = [""]
         for w in works:
             prefix = "[x]" if w.get("done") else "[ ]"
             txt = f"{prefix} {w.get('plan', '')}"
-            planned = w.get("planned_chapters", 0)
-            done = w.get("done_chapters", 0)
-            if planned or done:
-                txt += f" ({done}/{planned})"
             if w.get("is_adult"):
                 txt += " (18+)"
-            lines.append(txt)
-        return "\n".join(lines)
+            work_lines.append(txt)
+            planned = w.get("planned_chapters", 0)
+            done = w.get("done_chapters", 0)
+            plan_lines.append(str(planned) if planned else "")
+            done_lines.append(str(done) if done else "")
+        return ("\n".join(work_lines), "\n".join(plan_lines), "\n".join(done_lines))
 
     def edit_cell(self, item):
         row, col = item.row(), item.column()
         day = self.date_map.get((row, col))
-        if not day or day.month != self.month:
+        if not day or day.month != self.month or col == 0:
             return
-        works = item.data(WORK_ROLE) or []
+        base_col = col - 1 - (col - 1) % 3 + 1
+        base_item = self.item(row, base_col)
+        works = base_item.data(WORK_ROLE) or []
         dlg = WorkEditDialog(works, self)
         if dlg.exec() == QtWidgets.QDialog.Accepted:
             works = dlg.get_works()
-            item.setData(WORK_ROLE, works)
-            item.setData(ADULT_ROLE, any(w.get("is_adult") for w in works))
-            item.setText(self._format_cell_text(day.day, works))
+            texts = self._format_cell_text(day.day, works)
+            for offset in range(3):
+                sub_item = self.item(row, base_col + offset)
+                sub_item.setData(WORK_ROLE, works)
+                if offset == 0:
+                    sub_item.setData(ADULT_ROLE, any(w.get("is_adult") for w in works))
+                sub_item.setText(texts[offset])
 
     # ---------- Persistence ----------
     def save_current_month(self):
         md = MonthData(year=self.year, month=self.month)
         for (r, c), day in self.date_map.items():
-            if day.month != self.month:
+            if day.month != self.month or c == 0 or (c - 1) % 3 != 0:
                 continue
             it = self.item(r, c)
             works = it.data(WORK_ROLE) or []
@@ -897,15 +929,16 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         self.date_map.clear()
         self.setRowCount(len(weeks))
         for r, week in enumerate(weeks):
-            for c, day in enumerate(week):
-                self.date_map[(r, c)] = day
-                it = QtWidgets.QTableWidgetItem()
-                if day.month != month:
-                    it.setFlags(QtCore.Qt.NoItemFlags)
-                    it.setText(str(day.day))
-                    it.setForeground(QtGui.QBrush(QtGui.QColor(150, 150, 150)))
-                else:
-                    works = []
+            week_num = week[0].isocalendar()[1]
+            it_week = QtWidgets.QTableWidgetItem(str(week_num))
+            it_week.setFlags(QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
+            self.setItem(r, 0, it_week)
+            for i in range(5):
+                day = week[i]
+                base_col = 1 + i * 3
+                texts = ["", "", ""]
+                works = []
+                if day.month == month:
                     for w in md.days.get(day.day, []):
                         if isinstance(w, Work):
                             works.append(asdict(w))
@@ -919,10 +952,22 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                                     "done_chapters": w.get("done_chapters", 0),
                                 }
                             )
-                    it.setData(WORK_ROLE, works)
-                    it.setData(ADULT_ROLE, any(w.get("is_adult") for w in works))
-                    it.setText(self._format_cell_text(day.day, works))
-                self.setItem(r, c, it)
+                    texts = list(self._format_cell_text(day.day, works))
+                for offset in range(3):
+                    col = base_col + offset
+                    self.date_map[(r, col)] = day
+                    it = QtWidgets.QTableWidgetItem()
+                    if day.month != month:
+                        it.setFlags(QtCore.Qt.NoItemFlags)
+                        if offset == 0:
+                            it.setText(str(day.day))
+                            it.setForeground(QtGui.QBrush(QtGui.QColor(150, 150, 150)))
+                    else:
+                        it.setText(texts[offset])
+                        it.setData(WORK_ROLE, works)
+                        if offset == 0:
+                            it.setData(ADULT_ROLE, any(w.get("is_adult") for w in works))
+                    self.setItem(r, col, it)
         self._update_row_heights()
         return True
 
