@@ -1,5 +1,7 @@
-# Ignore data directory
-data/
+# Ignore data directory but keep stats placeholder
+data/*
+!data/stats/
+!data/stats/.gitkeep
 
 # Ignore temporary files
 *.tmp
