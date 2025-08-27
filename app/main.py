@@ -67,6 +67,7 @@ ICON_TM   = os.path.join(ASSETS, "ic_tm.png")
 ICON_TQ   = os.path.join(ASSETS, "ic_tq.png")
 ICON_TP   = os.path.join(ASSETS, "ic_tp.png")
 ICON_TG   = os.path.join(ASSETS, "ic_tg.png")
+ICON_VYK  = os.path.join(ASSETS, "ic_vykl.png")
 VERSION_FILE = os.path.join(os.path.dirname(__file__), "..", "VERSION")
 
 RU_MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"]
@@ -227,78 +228,79 @@ class WorkEditDialog(QtWidgets.QDialog):
 
 
 class ReleaseDialog(QtWidgets.QDialog):
-    """Диалог для управления выкладками."""
+    """Диалог для управления выкладками в формате «День × Работы»."""
 
-    def __init__(self, year, month, parent=None):
+    def __init__(self, year, month, works, parent=None):
         super().__init__(parent)
         self.year = year
         self.month = month
+        self.works = list(works)
         self.setWindowTitle("Выкладка")
-        self.resize(500, 300)
+        self.resize(600, 400)
 
         lay = QtWidgets.QVBoxLayout(self)
-        self.table = QtWidgets.QTableWidget(0, 4, self)
-        self.table.setHorizontalHeaderLabels(["Дата", "Работа", "Глав", "Время"])
+        self.days_in_month = calendar.monthrange(year, month)[1]
+        self.table = QtWidgets.QTableWidget(self.days_in_month, len(self.works) + 1, self)
+        self.table.verticalHeader().setVisible(False)
         self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.setEditTriggers(QtWidgets.QAbstractItemView.AllEditTriggers)
         lay.addWidget(self.table)
 
-        btn_row = QtWidgets.QHBoxLayout()
-        btn_add = QtWidgets.QPushButton("Добавить", self)
-        btn_add.clicked.connect(self.add_row)
-        btn_del = QtWidgets.QPushButton("Удалить", self)
-        btn_del.clicked.connect(self.remove_row)
-        btn_row.addWidget(btn_add)
-        btn_row.addWidget(btn_del)
-        btn_row.addStretch(1)
-        lay.addLayout(btn_row)
-
-        box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Close, self)
+        box = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Close, self
+        )
         box.accepted.connect(self.save)
         box.rejected.connect(self.reject)
         lay.addWidget(box)
 
+        self._update_structure()
         self.load()
+
+    def _update_structure(self):
+        self.table.setColumnCount(len(self.works) + 1)
+        self.table.setHorizontalHeaderLabels(["День"] + self.works)
+        for d in range(1, self.days_in_month + 1):
+            it = self.table.item(d - 1, 0)
+            if not it:
+                it = QtWidgets.QTableWidgetItem(str(d))
+                it.setFlags(QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
+                self.table.setItem(d - 1, 0, it)
+            else:
+                it.setText(str(d))
 
     def file_path(self):
         return os.path.join(release_dir(self.year), f"{self.month:02d}.json")
-
-    def add_row(self, data=None):
-        if data is None:
-            data = {"date": "", "work": "", "chapters": "", "time": ""}
-        row = self.table.rowCount()
-        self.table.insertRow(row)
-        self.table.setItem(row, 0, QtWidgets.QTableWidgetItem(str(data.get("date", ""))))
-        self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(data.get("work", "")))
-        self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(str(data.get("chapters", ""))))
-        self.table.setItem(row, 3, QtWidgets.QTableWidgetItem(data.get("time", "")))
-
-    def remove_row(self):
-        row = self.table.currentRow()
-        if row >= 0:
-            self.table.removeRow(row)
 
     def load(self):
         path = self.file_path()
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            for rec in data:
-                self.add_row(rec)
+            file_works = data.get("works", [])
+            for w in file_works:
+                if w not in self.works:
+                    self.works.append(w)
+            self._update_structure()
+            for day_str, works_dict in data.get("days", {}).items():
+                day = int(day_str)
+                for work, text in works_dict.items():
+                    if work in self.works:
+                        col = self.works.index(work) + 1
+                        self.table.setItem(day - 1, col, QtWidgets.QTableWidgetItem(str(text)))
 
     def save(self):
-        data = []
-        for r in range(self.table.rowCount()):
-            date = self.table.item(r, 0)
-            work = self.table.item(r, 1)
-            chapters = self.table.item(r, 2)
-            time = self.table.item(r, 3)
-            if any(it and it.text().strip() for it in [date, work, chapters, time]):
-                data.append({
-                    "date": date.text().strip() if date else "",
-                    "work": work.text().strip() if work else "",
-                    "chapters": chapters.text().strip() if chapters else "",
-                    "time": time.text().strip() if time else "",
-                })
+        data = {"works": self.works, "days": {}}
+        for day in range(1, self.days_in_month + 1):
+            row_data = {}
+            for col, work in enumerate(self.works, 1):
+                item = self.table.item(day - 1, col)
+                if item:
+                    txt = item.text().strip()
+                    if txt:
+                        row_data[work] = txt
+            if row_data:
+                data["days"][str(day)] = row_data
+        os.makedirs(os.path.dirname(self.file_path()), exist_ok=True)
         with open(self.file_path(), "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         self.accept()
@@ -941,11 +943,13 @@ class CollapsibleSidebar(QtWidgets.QFrame):
 
         items = [
             ("Вводные", ICON_TM),
+            ("Выкладка", ICON_VYK),
             ("Аналитика", ICON_TG),
             ("Топы", ICON_TP),
         ]
         self.buttons=[]
         self.btn_inputs=None
+        self.btn_release=None
         self.btn_analytics=None
         self.btn_tops=None
         for label, icon in items:
@@ -958,6 +962,8 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             lay.addWidget(b); self.buttons.append(b)
             if label == "Вводные":
                 self.btn_inputs = b
+            elif label == "Выкладка":
+                self.btn_release = b
             elif label == "Аналитика":
                 self.btn_analytics = b
             elif label == "Топы":
@@ -1119,6 +1125,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.topbar.next_clicked.connect(self.next_month)
         self.topbar.year_changed.connect(self.change_year)
         self.sidebar.btn_inputs.clicked.connect(self.open_input_dialog)
+        self.sidebar.btn_release.clicked.connect(self.open_release_dialog)
         self.sidebar.btn_analytics.clicked.connect(self.open_analytics_dialog)
         self.sidebar.btn_tops.clicked.connect(self.open_top_dialog)
         self.topbar.settings_clicked.connect(self.open_settings_dialog)
@@ -1181,6 +1188,25 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def open_analytics_dialog(self):
         dlg = AnalyticsDialog(self.table.year, self)
+        dlg.exec()
+
+    def _collect_work_names(self) -> List[str]:
+        names = set()
+        for (r, c), day in self.table.date_map.items():
+            if day.month != self.table.month:
+                continue
+            it = self.table.item(r, c)
+            if not it:
+                continue
+            for w in it.data(WORK_ROLE) or []:
+                name = w.get("plan", "").strip()
+                if name:
+                    names.add(name)
+        return sorted(names)
+
+    def open_release_dialog(self):
+        works = self._collect_work_names()
+        dlg = ReleaseDialog(self.table.year, self.table.month, works, self)
         dlg.exec()
 
     def open_top_dialog(self):
