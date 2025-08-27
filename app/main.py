@@ -4,7 +4,7 @@ from datetime import datetime, date
 from typing import Dict, List
 
 from PySide6 import QtWidgets, QtGui, QtCore
-from pydantic import BaseModel, Field
+from dataclasses import dataclass, field, asdict
 
 ASSETS = os.path.join(os.path.dirname(__file__), "..", "assets")
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
@@ -72,20 +72,22 @@ VERSION_FILE = os.path.join(os.path.dirname(__file__), "..", "VERSION")
 RU_MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"]
 
 # роли для хранения структуры работ и отметки "18+"
-WORK_ROLE  = QtCore.Qt.UserRole
+WORK_ROLE = QtCore.Qt.UserRole
 ADULT_ROLE = QtCore.Qt.UserRole + 1
 
 
-class Work(BaseModel):
+@dataclass
+class Work:
     plan: str
     done: bool = False
     is_adult: bool = False
 
 
-class MonthData(BaseModel):
+@dataclass
+class MonthData:
     year: int
     month: int
-    days: Dict[int, List[Work]] = Field(default_factory=dict)
+    days: Dict[int, List[Work]] = field(default_factory=dict)
 
     @property
     def path(self) -> str:
@@ -93,15 +95,22 @@ class MonthData(BaseModel):
         return os.path.join(DATA_DIR, f"{self.year:04d}-{self.month:02d}.json")
 
     def save(self) -> None:
+        data = {
+            "year": self.year,
+            "month": self.month,
+            "days": {str(k): [asdict(w) for w in v] for k, v in self.days.items()},
+        }
         with open(self.path, "w", encoding="utf-8") as f:
-            f.write(self.model_dump_json(indent=2, ensure_ascii=False))
+            json.dump(data, f, ensure_ascii=False, indent=2)
 
     @classmethod
     def load(cls, year: int, month: int) -> "MonthData":
         path = os.path.join(DATA_DIR, f"{year:04d}-{month:02d}.json")
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
-                return cls.model_validate_json(f.read())
+                data = json.load(f)
+            days = {int(k): [Work(**w) for w in v] for k, v in data.get("days", {}).items()}
+            return cls(year=data.get("year", year), month=data.get("month", month), days=days)
         return cls(year=year, month=month)
 
 
@@ -663,7 +672,7 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                     it.setText(str(day.day))
                     it.setForeground(QtGui.QBrush(QtGui.QColor(150, 150, 150)))
                 else:
-                    works = [w.model_dump() if isinstance(w, Work) else w for w in md.days.get(day.day, [])]
+                    works = [asdict(w) if isinstance(w, Work) else w for w in md.days.get(day.day, [])]
                     it.setData(WORK_ROLE, works)
                     it.setData(ADULT_ROLE, any(w.get("is_adult") for w in works))
                     it.setText(self._format_cell_text(day.day, works))
