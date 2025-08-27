@@ -8,6 +8,7 @@ from openpyxl.utils import get_column_letter
 ASSETS = os.path.join(os.path.dirname(__file__), "..", "assets")
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 STATS_DIR = os.path.join(DATA_DIR, "stats")
+RELEASE_DIR = os.path.join(DATA_DIR, "release")
 EXCEL_PATH = os.path.join(ASSETS, "пример блоков.xlsx")
 SHEET_NAME = "ЦЕНТРАЛЬНАЯ РАБОЧАЯ ОБЛАСТЬ"
 ICON_TOGGLE = os.path.join(ASSETS, "gpt_icon.png")
@@ -120,6 +121,85 @@ class WorkEditDialog(QtWidgets.QDialog):
                 continue
             works.append({"plan": txt, "done": cb_done.isChecked(), "is_adult": cb_adult.isChecked()})
         return works
+
+
+class ReleaseDialog(QtWidgets.QDialog):
+    """Диалог для управления выкладками."""
+
+    def __init__(self, year, month, parent=None):
+        super().__init__(parent)
+        self.year = year
+        self.month = month
+        self.setWindowTitle("Выкладка")
+        self.resize(500, 300)
+
+        lay = QtWidgets.QVBoxLayout(self)
+        self.table = QtWidgets.QTableWidget(0, 4, self)
+        self.table.setHorizontalHeaderLabels(["Дата", "Работа", "Глав", "Время"])
+        self.table.horizontalHeader().setStretchLastSection(True)
+        lay.addWidget(self.table)
+
+        btn_row = QtWidgets.QHBoxLayout()
+        btn_add = QtWidgets.QPushButton("Добавить", self)
+        btn_add.clicked.connect(self.add_row)
+        btn_del = QtWidgets.QPushButton("Удалить", self)
+        btn_del.clicked.connect(self.remove_row)
+        btn_row.addWidget(btn_add)
+        btn_row.addWidget(btn_del)
+        btn_row.addStretch(1)
+        lay.addLayout(btn_row)
+
+        box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Close, self)
+        box.accepted.connect(self.save)
+        box.rejected.connect(self.reject)
+        lay.addWidget(box)
+
+        self.load()
+
+    def file_path(self):
+        os.makedirs(RELEASE_DIR, exist_ok=True)
+        return os.path.join(RELEASE_DIR, f"{self.year:04d}-{self.month:02d}.json")
+
+    def add_row(self, data=None):
+        if data is None:
+            data = {"date": "", "work": "", "chapters": "", "time": ""}
+        row = self.table.rowCount()
+        self.table.insertRow(row)
+        self.table.setItem(row, 0, QtWidgets.QTableWidgetItem(str(data.get("date", ""))))
+        self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(data.get("work", "")))
+        self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(str(data.get("chapters", ""))))
+        self.table.setItem(row, 3, QtWidgets.QTableWidgetItem(data.get("time", "")))
+
+    def remove_row(self):
+        row = self.table.currentRow()
+        if row >= 0:
+            self.table.removeRow(row)
+
+    def load(self):
+        path = self.file_path()
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            for rec in data:
+                self.add_row(rec)
+
+    def save(self):
+        data = []
+        for r in range(self.table.rowCount()):
+            date = self.table.item(r, 0)
+            work = self.table.item(r, 1)
+            chapters = self.table.item(r, 2)
+            time = self.table.item(r, 3)
+            if any(it and it.text().strip() for it in [date, work, chapters, time]):
+                data.append({
+                    "date": date.text().strip() if date else "",
+                    "work": work.text().strip() if work else "",
+                    "chapters": chapters.text().strip() if chapters else "",
+                    "time": time.text().strip() if time else "",
+                })
+        with open(self.file_path(), "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        self.accept()
 
 class ExcelCalendarTable(QtWidgets.QTableWidget):
     """Рендер Excel + управление днями месяца и «хвостом» следующего/предыдущего месяца."""
@@ -405,6 +485,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             ("Топ года", ICON_TG),
         ]
         self.buttons=[]
+        self.btn_release=None
         for label, icon in items:
             b=QtWidgets.QToolButton(self)
             b.setIcon(QtGui.QIcon(icon)); b.setIconSize(QtCore.QSize(22,22))
@@ -413,6 +494,8 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             b.setCursor(QtCore.Qt.PointingHandCursor)
             b.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
             lay.addWidget(b); self.buttons.append(b)
+            if label == "Выкладка":
+                self.btn_release = b
 
         # --- stats table ---
         self.current_year = datetime.now().year
@@ -554,6 +637,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Connect topbar
         self.topbar.prev_clicked.connect(self.prev_month)
         self.topbar.next_clicked.connect(self.next_month)
+        self.sidebar.btn_release.clicked.connect(self.open_release_dialog)
         self._update_month_label()
         self.sidebar.set_period(self.table.year, self.table.month)
 
@@ -567,6 +651,10 @@ class MainWindow(QtWidgets.QMainWindow):
     def next_month(self):
         self.table.go_next_month(); self._update_month_label()
         self.sidebar.set_period(self.table.year, self.table.month)
+
+    def open_release_dialog(self):
+        dlg = ReleaseDialog(self.table.year, self.table.month, self)
+        dlg.exec()
 
 
 def main():
