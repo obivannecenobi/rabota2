@@ -7,6 +7,7 @@ from openpyxl.utils import get_column_letter
 
 ASSETS = os.path.join(os.path.dirname(__file__), "..", "assets")
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
+STATS_DIR = os.path.join(DATA_DIR, "stats")
 EXCEL_PATH = os.path.join(ASSETS, "пример блоков.xlsx")
 SHEET_NAME = "ЦЕНТРАЛЬНАЯ РАБОЧАЯ ОБЛАСТЬ"
 ICON_TOGGLE = os.path.join(ASSETS, "gpt_icon.png")
@@ -413,16 +414,106 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             b.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
             lay.addWidget(b); self.buttons.append(b)
 
+        # --- stats table ---
+        self.current_year = datetime.now().year
+        self.current_month = datetime.now().month
+        self.sorted_col = 0
+        self.sorted_order = QtCore.Qt.AscendingOrder
+
+        self.stats_table = QtWidgets.QTableWidget(0, 4, self)
+        self.stats_table.setHorizontalHeaderLabels(["Год", "Работа", "Статус", "18+"])
+        self.stats_table.horizontalHeader().setStretchLastSection(True)
+        self.stats_table.setSortingEnabled(True)
+        self.stats_table.horizontalHeader().sortIndicatorChanged.connect(self._update_sort)
+        lay.addWidget(self.stats_table)
+
+        # input fields below table
+        form = QtWidgets.QWidget(self)
+        form_lay = QtWidgets.QFormLayout(form)
+        self.edit_work = QtWidgets.QLineEdit(form)
+        self.edit_status = QtWidgets.QLineEdit(form)
+        self.edit_adult = QtWidgets.QCheckBox("", form)
+        form_lay.addRow("Работа", self.edit_work)
+        form_lay.addRow("Статус", self.edit_status)
+        form_lay.addRow("18+", self.edit_adult)
+        self.btn_save_stats = QtWidgets.QPushButton("Сохранить", form)
+        self.btn_save_stats.clicked.connect(self.save_stats)
+        form_lay.addRow(self.btn_save_stats)
+        lay.addWidget(form)
+        self.form_widget = form
+
         lay.addStretch(1)
         self._collapsed=False
         self.anim = QtCore.QPropertyAnimation(self, b"maximumWidth", self); self.anim.setDuration(160)
         self.setMaximumWidth(self.expanded_width)
+
+    def _update_sort(self, col, order):
+        self.sorted_col = col
+        self.sorted_order = order
+
+    def _add_row(self, work, status, adult):
+        row = self.stats_table.rowCount()
+        self.stats_table.insertRow(row)
+        self.stats_table.setItem(row, 0, QtWidgets.QTableWidgetItem(str(self.current_year)))
+        self.stats_table.setItem(row, 1, QtWidgets.QTableWidgetItem(work))
+        self.stats_table.setItem(row, 2, QtWidgets.QTableWidgetItem(status))
+        adult_item = QtWidgets.QTableWidgetItem("Да" if adult else "Нет")
+        adult_item.setData(QtCore.Qt.UserRole, adult)
+        self.stats_table.setItem(row, 3, adult_item)
+
+    def _load_stats(self):
+        path = os.path.join(STATS_DIR, f"{self.current_year}.json")
+        self.stats_table.setRowCount(0)
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            month_data = data.get(str(self.current_month), [])
+            for rec in month_data:
+                self._add_row(rec.get("work", ""), rec.get("status", ""), rec.get("adult", False))
+        if self.stats_table.rowCount() and self.sorted_col is not None:
+            self.stats_table.sortItems(self.sorted_col, self.sorted_order)
+
+    def _write_stats_file(self):
+        os.makedirs(STATS_DIR, exist_ok=True)
+        path = os.path.join(STATS_DIR, f"{self.current_year}.json")
+        data = {}
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        month_key = str(self.current_month)
+        data[month_key] = []
+        for row in range(self.stats_table.rowCount()):
+            data[month_key].append({
+                "work": self.stats_table.item(row,1).text(),
+                "status": self.stats_table.item(row,2).text(),
+                "adult": bool(self.stats_table.item(row,3).data(QtCore.Qt.UserRole))
+            })
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+    def save_stats(self):
+        work = self.edit_work.text().strip()
+        status = self.edit_status.text().strip()
+        adult = self.edit_adult.isChecked()
+        if not work:
+            return
+        self._add_row(work, status, adult)
+        self.stats_table.sortItems(self.sorted_col, self.sorted_order)
+        self.edit_work.clear(); self.edit_status.clear(); self.edit_adult.setChecked(False)
+        self._write_stats_file()
+
+    def set_period(self, year, month):
+        self.current_year = year
+        self.current_month = month
+        self._load_stats()
 
     def set_collapsed(self, collapsed: bool):
         self._collapsed=collapsed
         self.anim.stop(); self.anim.setStartValue(self.maximumWidth()); self.anim.setEndValue(self.collapsed_width if collapsed else self.expanded_width); self.anim.start()
         for b in self.buttons:
             b.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly if collapsed else QtCore.Qt.ToolButtonTextBesideIcon)
+        self.stats_table.setVisible(not collapsed)
+        self.form_widget.setVisible(not collapsed)
         self.toggled.emit(not collapsed)
 
     def toggle(self): self.set_collapsed(not self._collapsed)
@@ -464,15 +555,18 @@ class MainWindow(QtWidgets.QMainWindow):
         self.topbar.prev_clicked.connect(self.prev_month)
         self.topbar.next_clicked.connect(self.next_month)
         self._update_month_label()
+        self.sidebar.set_period(self.table.year, self.table.month)
 
     def _update_month_label(self):
         self.topbar.lbl_month.setText(f"{RU_MONTHS[self.table.month-1]} {self.table.year}")
 
     def prev_month(self):
         self.table.go_prev_month(); self._update_month_label()
+        self.sidebar.set_period(self.table.year, self.table.month)
 
     def next_month(self):
         self.table.go_next_month(); self._update_month_label()
+        self.sidebar.set_period(self.table.year, self.table.month)
 
 
 def main():
