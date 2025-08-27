@@ -18,6 +18,10 @@ ICON_TG   = os.path.join(ASSETS, "ic_tg.png")
 
 RU_MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"]
 
+# роли для хранения структуры работ и отметки "18+"
+WORK_ROLE  = QtCore.Qt.UserRole
+ADULT_ROLE = QtCore.Qt.UserRole + 1
+
 def excel_col_width_to_pixels(width):
     if width is None: return 64
     return max(20, int((width * 7) + 5))
@@ -36,16 +40,85 @@ class ExcelDelegate(QtWidgets.QStyledItemDelegate):
         super().__init__(parent); self.borders_map=borders_map; self.rows=rows; self.cols=cols
     def paint(self, painter, option, index):
         super().paint(painter, option, index)
-        r, c = index.row(), index.column(); sides = self.borders_map.get((r,c))
-        if not sides: return
-        pen = QtGui.QPen(QtGui.QColor(0,0,0)); pen.setWidth(1)
-        painter.save(); painter.setPen(pen)
-        rect = option.rect.adjusted(0,0,-1,-1)
-        if sides.get("top"): painter.drawLine(rect.topLeft(), rect.topRight())
-        if sides.get("left"): painter.drawLine(rect.topLeft(), rect.bottomLeft())
-        if c==self.cols-1 and sides.get("right"): painter.drawLine(rect.topRight(), rect.bottomRight())
-        if r==self.rows-1 and sides.get("bottom"): painter.drawLine(rect.bottomLeft(), rect.bottomRight())
-        painter.restore()
+
+        # borders from Excel
+        r, c = index.row(), index.column()
+        sides = self.borders_map.get((r, c))
+        if sides:
+            pen = QtGui.QPen(QtGui.QColor(0, 0, 0))
+            pen.setWidth(1)
+            painter.save()
+            painter.setPen(pen)
+            rect = option.rect.adjusted(0, 0, -1, -1)
+            if sides.get("top"):
+                painter.drawLine(rect.topLeft(), rect.topRight())
+            if sides.get("left"):
+                painter.drawLine(rect.topLeft(), rect.bottomLeft())
+            if c == self.cols - 1 and sides.get("right"):
+                painter.drawLine(rect.topRight(), rect.bottomRight())
+            if r == self.rows - 1 and sides.get("bottom"):
+                painter.drawLine(rect.bottomLeft(), rect.bottomRight())
+            painter.restore()
+
+        # mark 18+ cells
+        if index.data(ADULT_ROLE):
+            painter.save()
+            painter.setPen(QtCore.Qt.NoPen)
+            painter.setBrush(QtGui.QColor(200, 0, 0))
+            rect = option.rect
+            tri = QtGui.QPolygon(
+                [rect.topRight(), rect.topRight() + QtCore.QPoint(-10, 0), rect.topRight() + QtCore.QPoint(0, 10)]
+            )
+            painter.drawPolygon(tri)
+            painter.restore()
+
+class WorkEditDialog(QtWidgets.QDialog):
+    """Простое редактирование списка работ в ячейке."""
+
+    def __init__(self, works, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Работы")
+        self.resize(300, 200)
+        self.works = works[:]
+
+        self.lay = QtWidgets.QVBoxLayout(self)
+        self.rows = []
+
+        for w in self.works:
+            self._add_row(w)
+
+        btn_add = QtWidgets.QPushButton("Добавить", self)
+        btn_add.clicked.connect(lambda: self._add_row({"plan": "", "done": False, "is_adult": False}))
+        self.lay.addWidget(btn_add)
+
+        box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel, self)
+        box.accepted.connect(self.accept)
+        box.rejected.connect(self.reject)
+        self.lay.addWidget(box)
+
+    def _add_row(self, data):
+        row_w = QtWidgets.QWidget(self)
+        hl = QtWidgets.QHBoxLayout(row_w)
+        hl.setContentsMargins(0, 0, 0, 0)
+        cb_done = QtWidgets.QCheckBox("", row_w)
+        cb_done.setChecked(data.get("done", False))
+        hl.addWidget(cb_done)
+        le = QtWidgets.QLineEdit(data.get("plan", ""), row_w)
+        hl.addWidget(le, 1)
+        cb_adult = QtWidgets.QCheckBox("18+", row_w)
+        cb_adult.setChecked(data.get("is_adult", False))
+        hl.addWidget(cb_adult)
+        self.lay.addWidget(row_w)
+        self.rows.append((cb_done, le, cb_adult))
+
+    def get_works(self):
+        works = []
+        for cb_done, le, cb_adult in self.rows:
+            txt = le.text().strip()
+            if not txt:
+                continue
+            works.append({"plan": txt, "done": cb_done.isChecked(), "is_adult": cb_adult.isChecked()})
+        return works
 
 class ExcelCalendarTable(QtWidgets.QTableWidget):
     """Рендер Excel + управление днями месяца и «хвостом» следующего/предыдущего месяца."""
@@ -68,6 +141,28 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         self.load_excel(EXCEL_PATH, SHEET_NAME)
         self.apply_month_numbers()
 
+        # редактирование содержимого ячеек (список работ)
+        self.itemDoubleClicked.connect(self.edit_cell)
+
+    def _works_to_text(self, works):
+        lines = []
+        for w in works:
+            prefix = "[x]" if w.get("done") else "[ ]"
+            txt = f"{prefix} {w.get('plan','')}"
+            if w.get("is_adult"):
+                txt += " (18+)"
+            lines.append(txt)
+        return "\n".join(lines)
+
+    def edit_cell(self, item):
+        works = item.data(WORK_ROLE) or []
+        dlg = WorkEditDialog(works, self)
+        if dlg.exec() == QtWidgets.QDialog.Accepted:
+            works = dlg.get_works()
+            item.setData(WORK_ROLE, works)
+            item.setText(self._works_to_text(works))
+            item.setData(ADULT_ROLE, any(w.get("is_adult") for w in works))
+
     # ---------- Persistence ----------
     def month_key(self, year=None, month=None):
         y = year or self.year; m = month or self.month
@@ -75,12 +170,16 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
 
     def save_current_month(self):
         path = os.path.join(DATA_DIR, self.month_key()+".json")
-        data = {"rows": self.rowCount(), "cols": self.columnCount(), "grid": []}
+        data = {"rows": self.rowCount(), "cols": self.columnCount(), "grid": [], "works": {}}
         for r in range(self.rowCount()):
             row = []
             for c in range(self.columnCount()):
-                it = self.item(r,c)
+                it = self.item(r, c)
                 row.append("" if it is None else it.text())
+                if it:
+                    works = it.data(WORK_ROLE) or []
+                    if works:
+                        data["works"][f"{r},{c}"] = works
             data["grid"].append(row)
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False)
@@ -90,11 +189,18 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         if not os.path.exists(path): return False
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
+        works_map = data.get("works", {})
         for r, row in enumerate(data.get("grid", [])):
             for c, txt in enumerate(row):
-                it = self.item(r,c) or QtWidgets.QTableWidgetItem()
-                it.setText(txt)
-                self.setItem(r,c,it)
+                it = self.item(r, c) or QtWidgets.QTableWidgetItem()
+                works = works_map.get(f"{r},{c}", [])
+                it.setData(WORK_ROLE, works)
+                it.setData(ADULT_ROLE, any(w.get("is_adult") for w in works))
+                if works:
+                    it.setText(self._works_to_text(works))
+                else:
+                    it.setText(txt)
+                self.setItem(r, c, it)
         return True
 
     # ---------- Excel load ----------
