@@ -609,6 +609,8 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         wk_names = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "ВС"]
         self.setColumnCount(7)
         self.setHorizontalHeaderLabels(wk_names)
+        self.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        self.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.setItemDelegate(MonthDelegate(self))
 
         now = datetime.now()
@@ -619,6 +621,17 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         self.load_month_data(self.year, self.month)
 
         self.itemDoubleClicked.connect(self.edit_cell)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._update_row_heights()
+
+    def _update_row_heights(self):
+        rows = self.rowCount()
+        if rows:
+            height = self.viewport().height() // rows
+            for r in range(rows):
+                self.setRowHeight(r, height)
 
     def _format_cell_text(self, day_num: int, works):
         lines = [str(day_num)]
@@ -677,6 +690,7 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                     it.setData(ADULT_ROLE, any(w.get("is_adult") for w in works))
                     it.setText(self._format_cell_text(day.day, works))
                 self.setItem(r, c, it)
+        self._update_row_heights()
         return True
 
     # ---------- Navigation ----------
