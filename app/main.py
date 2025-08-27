@@ -81,6 +81,8 @@ class Work:
     plan: str
     done: bool = False
     is_adult: bool = False
+    planned_chapters: int = 0
+    done_chapters: int = 0
 
 
 @dataclass
@@ -109,7 +111,20 @@ class MonthData:
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            days = {int(k): [Work(**w) for w in v] for k, v in data.get("days", {}).items()}
+            days: Dict[int, List[Work]] = {}
+            for k, v in data.get("days", {}).items():
+                works_list = []
+                for w in v:
+                    works_list.append(
+                        Work(
+                            plan=w.get("plan", ""),
+                            done=w.get("done", False),
+                            is_adult=w.get("is_adult", False),
+                            planned_chapters=w.get("planned_chapters", 0),
+                            done_chapters=w.get("done_chapters", 0),
+                        )
+                    )
+                days[int(k)] = works_list
             return cls(year=data.get("year", year), month=data.get("month", month), days=days)
         return cls(year=year, month=month)
 
@@ -145,7 +160,17 @@ class WorkEditDialog(QtWidgets.QDialog):
             self._add_row(w)
 
         btn_add = QtWidgets.QPushButton("Добавить", self)
-        btn_add.clicked.connect(lambda: self._add_row({"plan": "", "done": False, "is_adult": False}))
+        btn_add.clicked.connect(
+            lambda: self._add_row(
+                {
+                    "plan": "",
+                    "done": False,
+                    "is_adult": False,
+                    "planned_chapters": 0,
+                    "done_chapters": 0,
+                }
+            )
+        )
         self.lay.addWidget(btn_add)
 
         box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel, self)
@@ -160,21 +185,44 @@ class WorkEditDialog(QtWidgets.QDialog):
         cb_done = QtWidgets.QCheckBox("", row_w)
         cb_done.setChecked(data.get("done", False))
         hl.addWidget(cb_done)
+
         le = QtWidgets.QLineEdit(data.get("plan", ""), row_w)
         hl.addWidget(le, 1)
+
+        sp_plan = QtWidgets.QSpinBox(row_w)
+        sp_plan.setRange(0, 9999)
+        sp_plan.setValue(data.get("planned_chapters", 0))
+        sp_plan.setPrefix("П:")
+        hl.addWidget(sp_plan)
+
+        sp_done = QtWidgets.QSpinBox(row_w)
+        sp_done.setRange(0, 9999)
+        sp_done.setValue(data.get("done_chapters", 0))
+        sp_done.setPrefix("Г:")
+        hl.addWidget(sp_done)
+
         cb_adult = QtWidgets.QCheckBox("18+", row_w)
         cb_adult.setChecked(data.get("is_adult", False))
         hl.addWidget(cb_adult)
+
         self.lay.addWidget(row_w)
-        self.rows.append((cb_done, le, cb_adult))
+        self.rows.append((cb_done, le, sp_plan, sp_done, cb_adult))
 
     def get_works(self):
         works = []
-        for cb_done, le, cb_adult in self.rows:
+        for cb_done, le, sp_plan, sp_done, cb_adult in self.rows:
             txt = le.text().strip()
-            if not txt:
+            if not txt and sp_plan.value() == 0 and sp_done.value() == 0:
                 continue
-            works.append({"plan": txt, "done": cb_done.isChecked(), "is_adult": cb_adult.isChecked()})
+            works.append(
+                {
+                    "plan": txt,
+                    "done": cb_done.isChecked(),
+                    "is_adult": cb_adult.isChecked(),
+                    "planned_chapters": sp_plan.value(),
+                    "done_chapters": sp_done.value(),
+                }
+            )
         return works
 
 
@@ -765,6 +813,10 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         for w in works:
             prefix = "[x]" if w.get("done") else "[ ]"
             txt = f"{prefix} {w.get('plan', '')}"
+            planned = w.get("planned_chapters", 0)
+            done = w.get("done_chapters", 0)
+            if planned or done:
+                txt += f" ({done}/{planned})"
             if w.get("is_adult"):
                 txt += " (18+)"
             lines.append(txt)
@@ -792,7 +844,16 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
             it = self.item(r, c)
             works = it.data(WORK_ROLE) or []
             if works:
-                md.days[day.day] = [Work(**w) for w in works]
+                md.days[day.day] = [
+                    Work(
+                        plan=w.get("plan", ""),
+                        done=w.get("done", False),
+                        is_adult=w.get("is_adult", False),
+                        planned_chapters=w.get("planned_chapters", 0),
+                        done_chapters=w.get("done_chapters", 0),
+                    )
+                    for w in works
+                ]
         md.save()
 
     def load_month_data(self, year: int, month: int):
@@ -812,7 +873,20 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                     it.setText(str(day.day))
                     it.setForeground(QtGui.QBrush(QtGui.QColor(150, 150, 150)))
                 else:
-                    works = [asdict(w) if isinstance(w, Work) else w for w in md.days.get(day.day, [])]
+                    works = []
+                    for w in md.days.get(day.day, []):
+                        if isinstance(w, Work):
+                            works.append(asdict(w))
+                        else:
+                            works.append(
+                                {
+                                    "plan": w.get("plan", ""),
+                                    "done": w.get("done", False),
+                                    "is_adult": w.get("is_adult", False),
+                                    "planned_chapters": w.get("planned_chapters", 0),
+                                    "done_chapters": w.get("done_chapters", 0),
+                                }
+                            )
                     it.setData(WORK_ROLE, works)
                     it.setData(ADULT_ROLE, any(w.get("is_adult") for w in works))
                     it.setText(self._format_cell_text(day.day, works))
