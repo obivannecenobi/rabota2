@@ -487,6 +487,84 @@ class InputDialog(QtWidgets.QDialog):
         self.accept()
 
 
+class StatsEntryForm(QtWidgets.QWidget):
+    """Форма для ввода/редактирования статистики месяца."""
+
+    # ключ, заголовок, класс виджета
+    INPUT_FIELDS = [
+        ("work", "Работа", QtWidgets.QLineEdit),
+        ("status", "Статус", QtWidgets.QLineEdit),
+        ("adult", "18+", QtWidgets.QCheckBox),
+        ("total_chapters", "Всего глав", QtWidgets.QSpinBox),
+        ("chars_per_chapter", "Знаков глава", QtWidgets.QSpinBox),
+        ("planned", "Запланировано", QtWidgets.QSpinBox),
+        ("chapters", "Сделано глав", QtWidgets.QSpinBox),
+        ("progress", "Прогресс перевода", QtWidgets.QDoubleSpinBox),
+        ("release", "Выпуск", QtWidgets.QLineEdit),
+        ("profit", "Профит", QtWidgets.QDoubleSpinBox),
+        ("ads", "Затраты на рекламу", QtWidgets.QDoubleSpinBox),
+        ("views", "Просмотры", QtWidgets.QSpinBox),
+        ("likes", "Лайки", QtWidgets.QSpinBox),
+        ("thanks", "Спасибо", QtWidgets.QSpinBox),
+    ]
+
+    # колонки таблицы: все поля + вычисляемое "chars"
+    TABLE_COLUMNS = [(key, label) for key, label, _ in INPUT_FIELDS] + [
+        ("chars", "Знаков"),
+    ]
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        form = QtWidgets.QFormLayout(self)
+        self.widgets = {}
+        for key, label, cls in self.INPUT_FIELDS:
+            w = cls(self)
+            if isinstance(w, QtWidgets.QSpinBox):
+                w.setRange(0, 1_000_000_000)
+            if isinstance(w, QtWidgets.QDoubleSpinBox):
+                w.setRange(0, 1_000_000_000)
+                w.setDecimals(2)
+            if key == "progress" and isinstance(w, QtWidgets.QDoubleSpinBox):
+                w.setRange(0, 100)
+                w.setSuffix("%")
+            form.addRow(label, w)
+            self.widgets[key] = w
+
+    def get_record(self) -> Dict[str, int | float | str | bool]:
+        record: Dict[str, int | float | str | bool] = {}
+        for key, _, _ in self.INPUT_FIELDS:
+            w = self.widgets[key]
+            if isinstance(w, QtWidgets.QLineEdit):
+                record[key] = w.text().strip()
+            elif isinstance(w, QtWidgets.QCheckBox):
+                record[key] = w.isChecked()
+            else:  # spinboxes
+                record[key] = w.value()
+        record["chars"] = record["chapters"] * record["chars_per_chapter"]
+        return record
+
+    def set_record(self, record: Dict[str, int | float | str | bool]):
+        for key, _, _ in self.INPUT_FIELDS:
+            w = self.widgets[key]
+            val = record.get(key)
+            if isinstance(w, QtWidgets.QLineEdit):
+                w.setText(str(val) if val is not None else "")
+            elif isinstance(w, QtWidgets.QCheckBox):
+                w.setChecked(bool(val))
+            else:
+                w.setValue(val if isinstance(val, (int, float)) else 0)
+
+    def clear(self):
+        for key, _, _ in self.INPUT_FIELDS:
+            w = self.widgets[key]
+            if isinstance(w, QtWidgets.QLineEdit):
+                w.clear()
+            elif isinstance(w, QtWidgets.QCheckBox):
+                w.setChecked(False)
+            else:
+                w.setValue(0)
+
+
 class AnalyticsDialog(QtWidgets.QDialog):
     """Годовая статистика: месяцы × показатели с колонкой "Итого за год"."""
 
@@ -1177,7 +1255,29 @@ class CollapsibleSidebar(QtWidgets.QFrame):
                 self.btn_analytics = b
             elif label == "Топы":
                 self.btn_tops = b
+        # таблица статистики
+        self.table_stats = QtWidgets.QTableWidget(self)
+        self.table_stats.setColumnCount(len(StatsEntryForm.TABLE_COLUMNS))
+        self.table_stats.setHorizontalHeaderLabels([h for _, h in StatsEntryForm.TABLE_COLUMNS])
+        self.table_stats.setSortingEnabled(True)
+        self.table_stats.verticalHeader().setVisible(False)
+        self.table_stats.itemSelectionChanged.connect(self.on_table_selection)
+        lay.addWidget(self.table_stats, 1)
+
+        # форма ввода/редактирования
+        self.form_stats = StatsEntryForm(self)
+        lay.addWidget(self.form_stats)
+
+        self.btn_save_stats = QtWidgets.QPushButton("Сохранить", self)
+        self.btn_save_stats.setCursor(QtCore.Qt.PointingHandCursor)
+        self.btn_save_stats.clicked.connect(self.save_record)
+        lay.addWidget(self.btn_save_stats)
+
         lay.addStretch(1)
+        self.records = []
+        self.current_index = None
+        self.year = datetime.now().year
+        self.month = datetime.now().month
         self._collapsed = False
         self.anim = QtCore.QPropertyAnimation(self, b"maximumWidth", self)
         self.anim.setDuration(160)
@@ -1199,6 +1299,59 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         self.toggled.emit(not collapsed)
 
     def toggle(self): self.set_collapsed(not self._collapsed)
+
+    def on_table_selection(self):
+        sel = self.table_stats.selectionModel().selectedRows()
+        if sel:
+            row = sel[0].row()
+            self.current_index = row
+            self.form_stats.set_record(self.records[row])
+        else:
+            self.current_index = None
+            self.form_stats.clear()
+
+    def load_stats(self, year: int, month: int):
+        self.year = year
+        self.month = month
+        path = os.path.join(stats_dir(year), f"{year}.json")
+        data = {}
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        self.records = data.get(str(month), [])
+        self.table_stats.setRowCount(len(self.records))
+        for r, rec in enumerate(self.records):
+            for c, (key, _) in enumerate(StatsEntryForm.TABLE_COLUMNS):
+                val = rec.get(key, "")
+                if isinstance(val, bool):
+                    text = "✓" if val else ""
+                    item = QtWidgets.QTableWidgetItem(text)
+                    item.setData(QtCore.Qt.EditRole, int(val))
+                elif isinstance(val, (int, float)):
+                    item = QtWidgets.QTableWidgetItem()
+                    item.setData(QtCore.Qt.EditRole, val)
+                else:
+                    item = QtWidgets.QTableWidgetItem(str(val))
+                self.table_stats.setItem(r, c, item)
+        self.table_stats.resizeColumnsToContents()
+        self.current_index = None
+        self.form_stats.clear()
+
+    def save_record(self):
+        record = self.form_stats.get_record()
+        if self.current_index is None:
+            self.records.append(record)
+        else:
+            self.records[self.current_index] = record
+        path = os.path.join(stats_dir(self.year), f"{self.year}.json")
+        data = {}
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        data[str(self.month)] = self.records
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        self.load_stats(self.year, self.month)
 
 
 class SettingsDialog(QtWidgets.QDialog):
@@ -1423,6 +1576,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sidebar.btn_tops.clicked.connect(self.open_top_dialog)
         self.topbar.settings_clicked.connect(self.open_settings_dialog)
         self._update_month_label()
+        self.sidebar.load_stats(self.table.year, self.table.month)
 
         # status bar with timer and version info
         self._start_dt = QtCore.QDateTime.currentDateTime()
@@ -1463,15 +1617,18 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def prev_month(self):
         self.table.go_prev_month(); self._update_month_label()
+        self.sidebar.load_stats(self.table.year, self.table.month)
 
     def next_month(self):
         self.table.go_next_month(); self._update_month_label()
+        self.sidebar.load_stats(self.table.year, self.table.month)
 
     def change_year(self, year):
         self.table.save_current_month()
         self.table.year = year
         self.table.load_month_data(year, self.table.month)
         self._update_month_label()
+        self.sidebar.load_stats(self.table.year, self.table.month)
 
     def open_input_dialog(self):
         dlg = InputDialog(self)
