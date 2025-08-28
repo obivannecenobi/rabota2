@@ -83,9 +83,13 @@ RU_MONTHS = ["Январь","Февраль","Март","Апрель","Май",
 
 def apply_neon_effect(widget: QtWidgets.QWidget, enable: bool) -> None:
     """Apply or clear neon effect on *widget* based on CONFIG."""
+    orig = widget.property("orig_style") or widget.styleSheet()
+    widget.setProperty("orig_style", orig)
+    base = widget.property("neon_base")
+    thickness = CONFIG.get("neon_thickness", 1)
+
     if enable and CONFIG.get("neon", False):
         accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
-        thickness = CONFIG.get("neon_thickness", 1)
         size = CONFIG.get("neon_size", 10)
         intensity = CONFIG.get("neon_intensity", 255)
         eff = QtWidgets.QGraphicsDropShadowEffect(widget)
@@ -95,24 +99,18 @@ def apply_neon_effect(widget: QtWidgets.QWidget, enable: bool) -> None:
         c.setAlpha(intensity)
         eff.setColor(c)
         widget.setGraphicsEffect(eff)
-        orig = widget.property("orig_style")
-        if orig is None:
-            widget.setProperty("orig_style", widget.styleSheet())
-            widget.setProperty("neon_base", f"border:{thickness}px solid transparent;")
-            widget.setStyleSheet(widget.property("neon_base") + widget.styleSheet())
-        base = widget.property("neon_base") or ""
-        radius = re.search(r"border-radius:(\d+)px", orig or "")
-        radius = radius.group(1) if radius else "8"
-        widget.setStyleSheet(
-            f"{base}border-radius:{radius}px; border-color:{accent.name()};"
-        )
+        if base is None:
+            radius = re.search(r"border-radius:(\d+)px", orig)
+            base = (
+                f"border:{thickness}px solid transparent; "
+                f"border-radius:{radius.group(1) if radius else 8}px;"
+            )
+            widget.setProperty("neon_base", base)
+        widget.setStyleSheet(orig + base.replace("transparent", accent.name()))
     else:
+        base = base or ""
+        widget.setStyleSheet(orig + base)
         widget.setGraphicsEffect(None)
-        orig = widget.property("orig_style")
-        if orig is not None:
-            widget.setStyleSheet(orig)
-        else:
-            widget.setStyleSheet("")
 
 
 class NeonEventFilter(QtCore.QObject):
