@@ -1018,7 +1018,11 @@ class NeonTableWidget(QtWidgets.QTableWidget):
         return super().event(ev)
 
     def eventFilter(self, obj, ev):
-        if ev.type() in (QtCore.QEvent.HoverLeave, QtCore.QEvent.FocusOut):
+        if ev.type() in (
+            QtCore.QEvent.HoverLeave,
+            QtCore.QEvent.Leave,
+            QtCore.QEvent.FocusOut,
+        ):
             self._clear_neon()
         return super().eventFilter(obj, ev)
 
