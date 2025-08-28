@@ -20,7 +20,7 @@ def load_config():
         "accent_color": "#39ff14",
         "theme": "dark",
         "header_font": "Arial",
-        "text_font": "Arial",
+        "text_font": "DejaVu Sans",
         "save_path": DATA_DIR,
         "day_rows": 6,
         "workspace_color": "#1e1e21",
@@ -1243,7 +1243,7 @@ class SettingsDialog(QtWidgets.QDialog):
         form.addRow("Шрифт заголовков", self.font_header)
 
         self.font_text = QtWidgets.QFontComboBox(self)
-        self.font_text.setCurrentFont(QtGui.QFont(CONFIG.get("text_font", "Arial")))
+        self.font_text.setCurrentFont(QtGui.QFont(CONFIG.get("text_font", "DejaVu Sans")))
         form.addRow("Шрифт текста", self.font_text)
 
         self.spin_day_rows = QtWidgets.QSpinBox(self)
@@ -1453,6 +1453,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setStatusBar(bar)
         self.lbl_timer = QtWidgets.QLabel("000:00:00:00", self)
         bar.addWidget(self.lbl_timer)
+        self.lbl_cyrillic = QtWidgets.QLabel("Пример кириллицы", self)
+        bar.addWidget(self.lbl_cyrillic)
         self.lbl_version = QtWidgets.QLabel("", self)
         bar.addPermanentWidget(self.lbl_version)
         self._timer = QtCore.QTimer(self)
@@ -1536,11 +1538,22 @@ class MainWindow(QtWidgets.QMainWindow):
             CONFIG = load_config()
             BASE_SAVE_PATH = os.path.abspath(CONFIG.get("save_path", DATA_DIR))
             app = QtWidgets.QApplication.instance()
-            app.setFont(QtGui.QFont(CONFIG.get("text_font", "Arial")))
+            app.setFont(QtGui.QFont(CONFIG.get("text_font", "DejaVu Sans")))
             self.apply_settings()
 
     def apply_settings(self):
         self.topbar.apply_fonts()
+        header_font = QtGui.QFont(CONFIG.get("header_font"))
+        self.table.horizontalHeader().setFont(header_font)
+        for tbl in self.table.cell_tables.values():
+            tbl.horizontalHeader().setFont(header_font)
+        for w in [
+            self.sidebar.btn_inputs,
+            self.sidebar.btn_release,
+            self.sidebar.btn_analytics,
+            self.sidebar.btn_tops,
+        ]:
+            w.setFont(header_font)
         self.topbar.apply_style(CONFIG.get("neon", False))
         self.table.update_day_rows()
         self.apply_theme()
@@ -1588,7 +1601,7 @@ class MainWindow(QtWidgets.QMainWindow):
 def main():
     QtCore.QLocale.setDefault(QtCore.QLocale("ru_RU"))
     app = QtWidgets.QApplication(sys.argv)
-    app.setFont(QtGui.QFont(CONFIG.get("text_font", "Arial")))
+    app.setFont(QtGui.QFont(CONFIG.get("text_font", "DejaVu Sans")))
     w = MainWindow()
     w.apply_settings()
     w.show()
