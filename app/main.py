@@ -1107,6 +1107,39 @@ class CollapsibleSidebar(QtWidgets.QFrame):
 
     def toggle(self): self.set_collapsed(not self._collapsed)
 
+    def apply_style(self, neon: bool, accent: QtGui.QColor):
+        thickness = CONFIG.get("neon_thickness", 1)
+        size = CONFIG.get("neon_size", 10)
+        intensity = CONFIG.get("neon_intensity", 255)
+        sidebar_color = CONFIG.get("sidebar_color", "#1f1f23")
+        if neon:
+            style = (
+                f"#Sidebar {{ background-color: {sidebar_color}; }}"
+                f"QToolButton {{ color: {accent.name()}; border:{thickness}px solid {accent.name()}; padding: 10px; border-radius: 8px; }}"
+                "QToolButton:hover { background-color: rgba(255,255,255,0.08); }"
+                f"QLabel {{ color: {accent.name()}; }}"
+            )
+            self.setStyleSheet(style)
+            widgets = [self.btn_toggle] + self.buttons
+            for w in widgets:
+                eff = QtWidgets.QGraphicsDropShadowEffect(self)
+                eff.setOffset(0, 0)
+                eff.setBlurRadius(size)
+                c = QtGui.QColor(accent)
+                c.setAlpha(intensity)
+                eff.setColor(c)
+                w.setGraphicsEffect(eff)
+        else:
+            style = (
+                f"#Sidebar {{ background-color: {sidebar_color}; }}\n"
+                "QToolButton { color: white; border: none; padding: 10px; border-radius: 8px; }\n"
+                "QToolButton:hover { background-color: rgba(255,255,255,0.08); }\n"
+                "QLabel { color: #c7c7c7; }\n"
+            )
+            self.setStyleSheet(style)
+            for w in [self.btn_toggle] + self.buttons:
+                w.setGraphicsEffect(None)
+
 
 class SettingsDialog(QtWidgets.QDialog):
     """Окно настроек приложения."""
@@ -1478,6 +1511,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.topbar.apply_style(CONFIG.get("neon", False))
         self.table.update_day_rows()
         self.apply_theme()
+        accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
+        self.sidebar.apply_style(CONFIG.get("neon", False), accent)
 
     def apply_theme(self):
         accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
