@@ -1187,10 +1187,34 @@ class SettingsDialog(QtWidgets.QDialog):
 
         # color selection for neon/accent color
         self._accent_color = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
-        self.btn_accent = QtWidgets.QPushButton(self)
-        self._update_color_button()
-        self.btn_accent.clicked.connect(self.choose_accent_color)
-        form.addRow("Цвет подсветки", self.btn_accent)
+        self._preset_colors = [
+            ("Зелёный", QtGui.QColor("#39ff14")),
+            ("Красный", QtGui.QColor("#ff5555")),
+            ("Синий", QtGui.QColor("#2d7cdb")),
+            ("Жёлтый", QtGui.QColor("#ffd700")),
+            ("Фиолетовый", QtGui.QColor("#8a2be2")),
+        ]
+        self.combo_accent = QtWidgets.QComboBox(self)
+        for name, color in self._preset_colors:
+            pix = QtGui.QPixmap(16, 16)
+            pix.fill(color)
+            self.combo_accent.addItem(QtGui.QIcon(pix), name)
+        self.combo_accent.addItem("Другой…")
+        other_index = self.combo_accent.count() - 1
+        self.combo_accent.currentIndexChanged.connect(self._on_accent_changed)
+        # select current color
+        current = self._accent_color.name().lower()
+        idx = next(
+            (i for i, (_, c) in enumerate(self._preset_colors) if c.name().lower() == current),
+            other_index,
+        )
+        self.combo_accent.setCurrentIndex(idx)
+        if idx == other_index:
+            pix = QtGui.QPixmap(16, 16)
+            pix.fill(self._accent_color)
+            self.combo_accent.setItemIcon(other_index, QtGui.QIcon(pix))
+        self._accent_index = idx
+        form.addRow("Цвет подсветки", self.combo_accent)
 
         self._workspace_color = QtGui.QColor(
             CONFIG.get("workspace_color", "#1e1e21")
@@ -1268,16 +1292,25 @@ class SettingsDialog(QtWidgets.QDialog):
             json.dump(config, f, ensure_ascii=False, indent=2)
         super().accept()
 
-    def _update_color_button(self):
-        self.btn_accent.setStyleSheet(
-            f"background:{self._accent_color.name()}; border:1px solid #555;"
-        )
-
-    def choose_accent_color(self):
-        color = QtWidgets.QColorDialog.getColor(self._accent_color, self, "Цвет")
-        if color.isValid():
-            self._accent_color = color
-            self._update_color_button()
+    def _on_accent_changed(self, idx):
+        other_index = self.combo_accent.count() - 1
+        if idx == other_index:
+            color = QtWidgets.QColorDialog.getColor(
+                self._accent_color, self, "Цвет"
+            )
+            if color.isValid():
+                self._accent_color = color
+                pix = QtGui.QPixmap(16, 16)
+                pix.fill(color)
+                self.combo_accent.setItemIcon(idx, QtGui.QIcon(pix))
+                self._accent_index = idx
+            else:
+                self.combo_accent.blockSignals(True)
+                self.combo_accent.setCurrentIndex(self._accent_index)
+                self.combo_accent.blockSignals(False)
+        else:
+            self._accent_color = self._preset_colors[idx][1]
+            self._accent_index = idx
 
     def _update_workspace_button(self):
         self.btn_workspace.setStyleSheet(
