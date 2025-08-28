@@ -85,8 +85,16 @@ def apply_neon_effect(widget: QtWidgets.QWidget, enable: bool) -> None:
     """Apply or clear neon effect on *widget* based on CONFIG."""
     orig = widget.property("orig_style") or widget.styleSheet()
     widget.setProperty("orig_style", orig)
-    base = widget.property("neon_base")
+    radius = widget.property("neon_radius")
+    if radius is None:
+        m = re.search(r"border-radius:(\d+)px", orig)
+        radius = int(m.group(1)) if m else 8
+        widget.setProperty("neon_radius", radius)
     thickness = CONFIG.get("neon_thickness", 1)
+    base = (
+        f"border:{thickness}px solid transparent; "
+        f"border-radius:{radius}px;"
+    )
 
     if enable and CONFIG.get("neon", False):
         accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
@@ -99,16 +107,8 @@ def apply_neon_effect(widget: QtWidgets.QWidget, enable: bool) -> None:
         c.setAlpha(intensity)
         eff.setColor(c)
         widget.setGraphicsEffect(eff)
-        if base is None:
-            radius = re.search(r"border-radius:(\d+)px", orig)
-            base = (
-                f"border:{thickness}px solid transparent; "
-                f"border-radius:{radius.group(1) if radius else 8}px;"
-            )
-            widget.setProperty("neon_base", base)
         widget.setStyleSheet(orig + base.replace("transparent", accent.name()))
     else:
-        base = base or ""
         widget.setStyleSheet(orig + base)
         widget.setGraphicsEffect(None)
 
@@ -1756,6 +1756,15 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             app.setPalette(app.style().standardPalette())
         workspace = CONFIG.get("workspace_color", "#1e1e21")
+        base = (
+            f"border:1px solid #555; border-radius:8px; "
+            f"background-color:{workspace};"
+        )
+        self.setStyleSheet(
+            "QPushButton,"
+            "QToolButton,QSpinBox,QDoubleSpinBox,QTimeEdit,"
+            "QComboBox,QLineEdit{" + base + "}"
+        )
         self.table.setStyleSheet(f"QTableWidget {{ background-color: {workspace}; }}")
         for tbl in self.table.cell_tables.values():
             tbl.setStyleSheet(f"QTableWidget {{ background-color: {workspace}; }}")
