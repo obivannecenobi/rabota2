@@ -1453,8 +1453,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setStatusBar(bar)
         self.lbl_timer = QtWidgets.QLabel("000:00:00:00", self)
         bar.addWidget(self.lbl_timer)
-        self.lbl_cyrillic = QtWidgets.QLabel("Пример кириллицы", self)
-        bar.addWidget(self.lbl_cyrillic)
         self.lbl_version = QtWidgets.QLabel("", self)
         bar.addPermanentWidget(self.lbl_version)
         self._timer = QtCore.QTimer(self)
