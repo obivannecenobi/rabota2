@@ -207,7 +207,6 @@ class ReleaseDialog(QtWidgets.QDialog):
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.verticalHeader().setVisible(False)
         self.table.setRowCount(self.days_in_month)
-        self.table.installEventFilter(NeonEventFilter(self.table))
 
         app = QtWidgets.QApplication.instance()
         self.setFont(app.font())
@@ -257,8 +256,6 @@ class ReleaseDialog(QtWidgets.QDialog):
         box.accepted.connect(self.save)
         box.rejected.connect(self.reject)
         lay.addWidget(box)
-        btn_save.installEventFilter(NeonEventFilter(btn_save))
-        btn_close.installEventFilter(NeonEventFilter(btn_close))
 
         self.load()
 
