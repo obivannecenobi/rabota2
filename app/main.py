@@ -180,8 +180,12 @@ class ReleaseDialog(QtWidgets.QDialog):
 
         lay.addWidget(self.table)
 
-        box = QtWidgets.QDialogButtonBox(
-            QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Close, self
+        box = QtWidgets.QDialogButtonBox(self)
+        btn_save = box.addButton(
+            "Сохранить", QtWidgets.QDialogButtonBox.AcceptRole
+        )
+        btn_close = box.addButton(
+            "Закрыть", QtWidgets.QDialogButtonBox.RejectRole
         )
         box.accepted.connect(self.save)
         box.rejected.connect(self.reject)
@@ -361,8 +365,12 @@ class StatsDialog(QtWidgets.QDialog):
         self.form_stats = StatsEntryForm(self)
         lay.addWidget(self.form_stats)
 
-        self.btn_box = QtWidgets.QDialogButtonBox(
-            QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Close, self
+        self.btn_box = QtWidgets.QDialogButtonBox(self)
+        btn_save = self.btn_box.addButton(
+            "Сохранить", QtWidgets.QDialogButtonBox.AcceptRole
+        )
+        btn_close = self.btn_box.addButton(
+            "Закрыть", QtWidgets.QDialogButtonBox.RejectRole
         )
         self.btn_box.accepted.connect(self.save_record)
         self.btn_box.rejected.connect(self.reject)
@@ -463,9 +471,6 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self.spin_year.valueChanged.connect(self._year_changed)
         top.addWidget(self.spin_year)
         top.addStretch(1)
-        self.btn_save = QtWidgets.QPushButton("Сохранить", self)
-        self.btn_save.clicked.connect(self.save)
-        top.addWidget(self.btn_save)
         lay.addLayout(top)
 
         cols = len(RU_MONTHS) + 1
@@ -475,6 +480,17 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         lay.addWidget(self.table, 1)
+
+        box = QtWidgets.QDialogButtonBox(self)
+        btn_save = box.addButton(
+            "Сохранить", QtWidgets.QDialogButtonBox.AcceptRole
+        )
+        btn_close = box.addButton(
+            "Закрыть", QtWidgets.QDialogButtonBox.RejectRole
+        )
+        box.accepted.connect(self.save)
+        box.rejected.connect(self.reject)
+        lay.addWidget(box)
 
         # prepare items
         for r, name in enumerate(self.INDICATORS):
@@ -680,8 +696,12 @@ class TopDialog(QtWidgets.QDialog):
         self.table.setSortingEnabled(True)
         lay.addWidget(self.table, 1)
 
-        box = QtWidgets.QDialogButtonBox(
-            QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Close, self
+        box = QtWidgets.QDialogButtonBox(self)
+        btn_save = box.addButton(
+            "Сохранить", QtWidgets.QDialogButtonBox.AcceptRole
+        )
+        btn_close = box.addButton(
+            "Закрыть", QtWidgets.QDialogButtonBox.RejectRole
         )
         box.accepted.connect(self.save)
         box.rejected.connect(self.reject)
@@ -1433,6 +1453,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
 def main():
+    QtCore.QLocale.setDefault(QtCore.QLocale("ru_RU"))
     app = QtWidgets.QApplication(sys.argv)
     app.setFont(QtGui.QFont(CONFIG.get("text_font", "Arial")))
     w = MainWindow()
