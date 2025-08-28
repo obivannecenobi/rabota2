@@ -966,7 +966,7 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                 lay = QtWidgets.QVBoxLayout(container)
                 lay.setContentsMargins(0, 0, 0, 0)
                 lbl = QtWidgets.QLabel(str(day.day), container)
-                lay.addWidget(lbl, alignment=QtCore.Qt.AlignLeft)
+                lay.addWidget(lbl, alignment=QtCore.Qt.AlignHCenter | QtCore.Qt.AlignTop)
                 inner = self._create_inner_table()
                 lay.addWidget(inner)
                 self.setCellWidget(r, c, container)
