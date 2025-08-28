@@ -7,6 +7,8 @@ from PySide6 import QtWidgets, QtGui, QtCore
 from dataclasses import dataclass, field
 
 from widgets import StyledPushButton, StyledToolButton
+from resources import register_fonts
+import theme_manager
 
 ASSETS = os.path.join(os.path.dirname(__file__), "..", "assets")
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
@@ -21,8 +23,8 @@ def load_config():
         "neon_intensity": 255,
         "accent_color": "#39ff14",
         "theme": "dark",
-        "header_font": "Arial",
-        "text_font": "DejaVu Sans",
+        "header_font": "Exo 2",
+        "text_font": "Inter",
         "save_path": DATA_DIR,
         "day_rows": 6,
         "workspace_color": "#1e1e21",
@@ -1135,7 +1137,7 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                 lay.setContentsMargins(0, 0, 0, 0)
                 lay.setSpacing(2)
                 lbl = QtWidgets.QLabel(str(day.day), container)
-                lbl.setFont(QtGui.QFont(CONFIG.get("header_font", "Arial")))
+                lbl.setFont(QtGui.QFont(CONFIG.get("header_font", "Exo 2")))
                 lbl.setAlignment(QtCore.Qt.AlignCenter)
                 lay.addWidget(lbl, alignment=QtCore.Qt.AlignHCenter)
                 inner = self._create_inner_table()
@@ -1395,12 +1397,15 @@ class SettingsDialog(QtWidgets.QDialog):
         self.combo_theme.setCurrentIndex(0 if CONFIG.get("theme","dark")=="dark" else 1)
         form.addRow("Тема", self.combo_theme)
 
-        self.font_header = QtWidgets.QFontComboBox(self)
-        self.font_header.setCurrentFont(QtGui.QFont(CONFIG.get("header_font", "Arial")))
+        db = QtGui.QFontDatabase()
+        self.font_header = QtWidgets.QComboBox(self)
+        self.font_header.addItems(db.families())
+        self.font_header.setCurrentText(CONFIG.get("header_font", "Exo 2"))
         form.addRow("Шрифт заголовков", self.font_header)
 
-        self.font_text = QtWidgets.QFontComboBox(self)
-        self.font_text.setCurrentFont(QtGui.QFont(CONFIG.get("text_font", "DejaVu Sans")))
+        self.font_text = QtWidgets.QComboBox(self)
+        self.font_text.addItems(db.families())
+        self.font_text.setCurrentText(CONFIG.get("text_font", "Inter"))
         form.addRow("Шрифт текста", self.font_text)
 
         self.spin_day_rows = QtWidgets.QSpinBox(self)
@@ -1442,8 +1447,8 @@ class SettingsDialog(QtWidgets.QDialog):
             "workspace_color": self._workspace_color.name(),
             "sidebar_color": self._sidebar_color.name(),
             "theme": "dark" if self.combo_theme.currentIndex() == 0 else "light",
-            "header_font": self.font_header.currentFont().family(),
-            "text_font": self.font_text.currentFont().family(),
+            "header_font": self.font_header.currentText(),
+            "text_font": self.font_text.currentText(),
             "day_rows": self.spin_day_rows.value(),
             "save_path": self.edit_path.text().strip() or DATA_DIR,
         }
@@ -1547,7 +1552,7 @@ class TopBar(QtWidgets.QWidget):
         self.apply_fonts()
 
     def apply_fonts(self):
-        font = QtGui.QFont(CONFIG.get("header_font", "Arial"))
+        font = QtGui.QFont(CONFIG.get("header_font", "Exo 2"))
         font.setBold(True)
         self.lbl_month.setFont(font)
 
@@ -1703,9 +1708,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.apply_settings()
 
     def apply_settings(self):
+        theme_manager.set_text_font(CONFIG.get("text_font", "Inter"))
+        theme_manager.set_header_font(CONFIG.get("header_font", "Exo 2"))
         app = QtWidgets.QApplication.instance()
-        app.setFont(QtGui.QFont(CONFIG.get("text_font", "DejaVu Sans")))
-
         self.topbar.apply_fonts()
         header_font = QtGui.QFont(CONFIG.get("header_font"))
         self.table.setFont(app.font())
@@ -1786,7 +1791,8 @@ class MainWindow(QtWidgets.QMainWindow):
 def main():
     QtCore.QLocale.setDefault(QtCore.QLocale("ru_RU"))
     app = QtWidgets.QApplication(sys.argv)
-    app.setFont(QtGui.QFont(CONFIG.get("text_font", "DejaVu Sans")))
+    register_fonts()
+    theme_manager.set_text_font(CONFIG.get("text_font", "Inter"))
     w = MainWindow()
     w.apply_settings()
     w.show()
