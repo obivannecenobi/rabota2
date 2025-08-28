@@ -224,6 +224,7 @@ class ReleaseDialog(QtWidgets.QDialog):
             sp_day.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
             sp_day.setMinimumWidth(sp_day.sizeHint().width())
             self.table.setCellWidget(row, 0, sp_day)
+            sp_day.setAttribute(QtCore.Qt.WA_Hover, True)
             sp_day.installEventFilter(NeonEventFilter(sp_day))
 
             cb_work = QtWidgets.QComboBox(self.table)
@@ -231,12 +232,14 @@ class ReleaseDialog(QtWidgets.QDialog):
             cb_work.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
             cb_work.setMinimumWidth(cb_work.sizeHint().width())
             self.table.setCellWidget(row, 1, cb_work)
+            cb_work.setAttribute(QtCore.Qt.WA_Hover, True)
             cb_work.installEventFilter(NeonEventFilter(cb_work))
 
             sp_ch = QtWidgets.QSpinBox(self.table)
             sp_ch.setRange(0, 9999)
             sp_ch.setMinimumWidth(sp_ch.sizeHint().width())
             self.table.setCellWidget(row, 2, sp_ch)
+            sp_ch.setAttribute(QtCore.Qt.WA_Hover, True)
             sp_ch.installEventFilter(NeonEventFilter(sp_ch))
 
             te_time = QtWidgets.QTimeEdit(self.table)
@@ -244,6 +247,7 @@ class ReleaseDialog(QtWidgets.QDialog):
             te_time.setTime(QtCore.QTime.currentTime())
             te_time.setMinimumWidth(te_time.sizeHint().width())
             self.table.setCellWidget(row, 3, te_time)
+            te_time.setAttribute(QtCore.Qt.WA_Hover, True)
             te_time.installEventFilter(NeonEventFilter(te_time))
 
         lay.addWidget(self.table)
@@ -258,6 +262,10 @@ class ReleaseDialog(QtWidgets.QDialog):
         box.accepted.connect(self.save)
         box.rejected.connect(self.reject)
         lay.addWidget(box)
+
+        for b in (btn_save, btn_close):
+            b.setAttribute(QtCore.Qt.WA_Hover, True)
+            b.installEventFilter(NeonEventFilter(b))
 
         self.load()
 
@@ -381,6 +389,7 @@ class StatsEntryForm(QtWidgets.QWidget):
             w.setMinimumWidth(w.sizeHint().width())
             form.addRow(label, w)
             self.widgets[key] = w
+            w.setAttribute(QtCore.Qt.WA_Hover, True)
             w.installEventFilter(NeonEventFilter(w))
 
     def get_record(self) -> Dict[str, int | float | str | bool]:
