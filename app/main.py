@@ -924,6 +924,7 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         self.date_map: Dict[tuple[int, int], date] = {}
         self.cell_tables: Dict[tuple[int, int], QtWidgets.QTableWidget] = {}
         self.day_labels: Dict[tuple[int, int], QtWidgets.QLabel] = {}
+        self.cell_containers: Dict[tuple[int, int], QtWidgets.QWidget] = {}
 
         self.load_month_data(self.year, self.month)
 
@@ -981,6 +982,7 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         self.date_map.clear()
         self.cell_tables.clear()
         self.day_labels.clear()
+        self.cell_containers.clear()
         self.setRowCount(len(weeks))
         for r, week in enumerate(weeks):
             for c, day in enumerate(week):
@@ -998,6 +1000,7 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                 self.date_map[(r, c)] = day
                 self.cell_tables[(r, c)] = inner
                 self.day_labels[(r, c)] = lbl
+                self.cell_containers[(r, c)] = container
                 if day.month != month:
                     container.setEnabled(False)
                     container.setStyleSheet("background-color:#2a2a2a; color:#777;")
@@ -1562,9 +1565,9 @@ class MainWindow(QtWidgets.QMainWindow):
             w.setFont(header_font)
         self.topbar.apply_style(CONFIG.get("neon", False))
         self.table.update_day_rows()
-        self.apply_theme()
         accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
         self.sidebar.apply_style(CONFIG.get("neon", False), accent)
+        self.apply_theme()
 
     def apply_theme(self):
         accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
@@ -1589,6 +1592,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.table.setStyleSheet(f"QTableWidget {{ background-color: {workspace}; }}")
         for tbl in self.table.cell_tables.values():
             tbl.setStyleSheet(f"QTableWidget {{ background-color: {workspace}; }}")
+        for container in self.table.cell_containers.values():
+            container.setStyleSheet(f"background-color: {workspace};")
         sidebar = CONFIG.get("sidebar_color", "#1f1f23")
         self.sidebar.setStyleSheet(
             f"#Sidebar {{ background-color: {sidebar}; }}\n"
