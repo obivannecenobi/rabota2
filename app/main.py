@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import sys, os, math, json, calendar
+import sys, os, math, json, calendar, re
 from datetime import datetime, date
 from typing import Dict, List
 
@@ -101,7 +101,11 @@ def apply_neon_effect(widget: QtWidgets.QWidget, enable: bool) -> None:
             widget.setProperty("neon_base", f"border:{thickness}px solid transparent;")
             widget.setStyleSheet(widget.property("neon_base") + widget.styleSheet())
         base = widget.property("neon_base") or ""
-        widget.setStyleSheet(f"{base}border-color:{accent.name()};")
+        radius = re.search(r"border-radius:(\d+)px", orig or "")
+        radius = radius.group(1) if radius else "8"
+        widget.setStyleSheet(
+            f"{base}border-radius:{radius}px; border-color:{accent.name()};"
+        )
     else:
         widget.setGraphicsEffect(None)
         orig = widget.property("orig_style")
