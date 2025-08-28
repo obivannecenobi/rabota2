@@ -487,7 +487,7 @@ class AnalyticsDialog(QtWidgets.QDialog):
 
     INDICATORS = [
         "Работ", "Завершенных", "Онгоингов", "Глав", "Знаков",
-        "Просмотров", "Профит", "РК", "Лайков", "Спасибо",
+        "Просмотров", "Профит", "РК", "Чистыми", "Лайков", "Спасибо",
         "Камса", "Потрачено на софт",
     ]
 
@@ -530,6 +530,7 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self._loading = False
         self._commissions = {str(m): 0.0 for m in range(1, 13)}
         self._software = {str(m): 0.0 for m in range(1, 13)}
+        self._net = {str(m): 0.0 for m in range(1, 13)}
         self.load(year)
 
     def _year_changed(self, val):
@@ -544,12 +545,14 @@ class AnalyticsDialog(QtWidgets.QDialog):
         # load manual values
         self._commissions = {str(m): 0.0 for m in range(1, 13)}
         self._software = {str(m): 0.0 for m in range(1, 13)}
+        self._net = {str(m): 0.0 for m in range(1, 13)}
         path = os.path.join(year_dir(year), f"{year}.json")
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
             self._commissions.update({str(k): float(v) for k, v in data.get("commission", {}).items()})
             self._software.update({str(k): float(v) for k, v in data.get("software", {}).items()})
+            self._net.update({str(k): float(v) for k, v in data.get("net", {}).items()})
 
         # fill table with monthly values
         for m in range(1, 13):
@@ -559,6 +562,9 @@ class AnalyticsDialog(QtWidgets.QDialog):
                 self.table.item(row, m - 1).setText(str(val))
             self.table.item(self.INDICATORS.index("Камса"), m - 1).setText(str(self._commissions[str(m)]))
             self.table.item(self.INDICATORS.index("Потрачено на софт"), m - 1).setText(str(self._software[str(m)]))
+            self.table.item(self.INDICATORS.index("Чистыми"), m - 1).setText(
+                str(self._net.get(str(m), stats.get("Чистыми", 0)))
+            )
 
         self._recalculate()
         self._loading = False
@@ -568,6 +574,7 @@ class AnalyticsDialog(QtWidgets.QDialog):
         data = {
             "commission": self._commissions,
             "software": self._software,
+            "net": self._net,
         }
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
@@ -595,6 +602,9 @@ class AnalyticsDialog(QtWidgets.QDialog):
                 res["РК"] += float(rec.get("ads", 0) or 0)
                 res["Лайков"] += int(rec.get("likes", 0) or 0)
                 res["Спасибо"] += int(rec.get("thanks", 0) or 0)
+        res["Чистыми"] = round(
+            res["Профит"] - res["РК"] - self._software.get(str(month), 0.0), 2
+        )
         return res
 
     def _item_changed(self, item):
@@ -617,6 +627,27 @@ class AnalyticsDialog(QtWidgets.QDialog):
 
     def _recalculate(self):
         cols = len(RU_MONTHS)
+        r_profit = self.INDICATORS.index("Профит")
+        r_rk = self.INDICATORS.index("РК")
+        r_soft = self.INDICATORS.index("Потрачено на софт")
+        r_net = self.INDICATORS.index("Чистыми")
+        # recompute net values
+        for c in range(cols):
+            try:
+                profit = float(self.table.item(r_profit, c).text())
+            except ValueError:
+                profit = 0.0
+            try:
+                rk = float(self.table.item(r_rk, c).text())
+            except ValueError:
+                rk = 0.0
+            try:
+                soft = float(self.table.item(r_soft, c).text())
+            except ValueError:
+                soft = 0.0
+            net = round(profit - rk - soft, 2)
+            self.table.item(r_net, c).setText(str(net))
+            self._net[str(c + 1)] = net
 
         # totals
         for r in range(len(self.INDICATORS)):
