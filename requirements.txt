@@ -1,1 +1,2 @@
 PySide6
+bump2version
