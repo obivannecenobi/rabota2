@@ -125,7 +125,7 @@ class NeonEventFilter(QtCore.QObject):
     def eventFilter(self, obj, ev):
         if ev.type() in (QtCore.QEvent.Enter, QtCore.QEvent.FocusIn):
             apply_neon_effect(self._widget, True)
-        elif ev.type() in (QtCore.QEvent.Leave, QtCore.QEvent.FocusOut):
+        elif ev.type() in (QtCore.QEvent.Leave, QtCore.QEvent.FocusOut, QtCore.QEvent.HoverLeave):
             apply_neon_effect(self._widget, False)
         return False
 
@@ -1218,6 +1218,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             b.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
             b.setCursor(QtCore.Qt.PointingHandCursor)
             b.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+            b.setAttribute(QtCore.Qt.WA_Hover, True)
             lay.addWidget(b); self.buttons.append(b)
             b.installEventFilter(NeonEventFilter(b))
             if label == "Вводные":
