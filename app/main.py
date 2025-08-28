@@ -155,11 +155,30 @@ class ReleaseDialog(QtWidgets.QDialog):
         self.table.setHorizontalHeaderLabels(["День", "Работа", "Глав", "Время"])
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.verticalHeader().setVisible(False)
-        lay.addWidget(self.table)
+        self.table.setRowCount(self.days_in_month)
 
-        btn_add = QtWidgets.QPushButton("Добавить", self)
-        btn_add.clicked.connect(self._add_row)
-        lay.addWidget(btn_add)
+        for row in range(self.days_in_month):
+            sp_day = QtWidgets.QSpinBox(self.table)
+            sp_day.setRange(1, self.days_in_month)
+            sp_day.setValue(row + 1)
+            sp_day.setReadOnly(True)
+            sp_day.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
+            self.table.setCellWidget(row, 0, sp_day)
+
+            cb_work = QtWidgets.QComboBox(self.table)
+            cb_work.setEditable(True)
+            self.table.setCellWidget(row, 1, cb_work)
+
+            sp_ch = QtWidgets.QSpinBox(self.table)
+            sp_ch.setRange(0, 9999)
+            self.table.setCellWidget(row, 2, sp_ch)
+
+            te_time = QtWidgets.QTimeEdit(self.table)
+            te_time.setDisplayFormat("HH:mm")
+            te_time.setTime(QtCore.QTime.currentTime())
+            self.table.setCellWidget(row, 3, te_time)
+
+        lay.addWidget(self.table)
 
         box = QtWidgets.QDialogButtonBox(
             QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Close, self
@@ -170,77 +189,65 @@ class ReleaseDialog(QtWidgets.QDialog):
 
         self.load()
 
-    def _add_row(self, day: int | None = None, work: str = "", chapters: int = 0, time: QtCore.QTime | None = None):
-        row = self.table.rowCount()
-        self.table.insertRow(row)
-
-        sp_day = QtWidgets.QSpinBox(self.table)
-        sp_day.setRange(1, self.days_in_month)
-        if day:
-            sp_day.setValue(day)
-        self.table.setCellWidget(row, 0, sp_day)
-
-        cb_work = QtWidgets.QComboBox(self.table)
-        cb_work.setEditable(True)
-        cb_work.addItems(self.works)
-        if work:
-            idx = cb_work.findText(work)
-            if idx >= 0:
-                cb_work.setCurrentIndex(idx)
-            else:
-                cb_work.setEditText(work)
-        self.table.setCellWidget(row, 1, cb_work)
-
-        sp_ch = QtWidgets.QSpinBox(self.table)
-        sp_ch.setRange(0, 9999)
-        sp_ch.setValue(chapters)
-        self.table.setCellWidget(row, 2, sp_ch)
-
-        te_time = QtWidgets.QTimeEdit(self.table)
-        te_time.setDisplayFormat("HH:mm")
-        te_time.setTime(time or QtCore.QTime.currentTime())
-        self.table.setCellWidget(row, 3, te_time)
-
     def file_path(self):
         return os.path.join(release_dir(self.year), f"{self.month:02d}.json")
 
     def load(self):
         path = self.file_path()
+        data = {}
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
-            file_works = data.get("works", [])
-            for w in file_works:
-                if w not in self.works:
-                    self.works.append(w)
+        file_works = data.get("works", [])
+        for w in file_works:
+            if w not in self.works:
+                self.works.append(w)
 
-            for day_str, entries in data.get("days", {}).items():
-                day = int(day_str)
-                for entry in entries:
-                    time_str = entry.get("time", "00:00")
-                    qt = QtCore.QTime.fromString(time_str, "HH:mm")
-                    self._add_row(day, entry.get("work", ""), entry.get("chapters", 0), qt)
+        for row in range(self.days_in_month):
+            cb = self.table.cellWidget(row, 1)
+            if isinstance(cb, QtWidgets.QComboBox):
+                cb.clear()
+                cb.addItems(self.works)
+                cb.setCurrentIndex(-1)
+
+        for day_str, entries in data.get("days", {}).items():
+            day = int(day_str)
+            if 1 <= day <= self.days_in_month and entries:
+                entry = entries[0]
+                cb_work = self.table.cellWidget(day - 1, 1)
+                sp_ch = self.table.cellWidget(day - 1, 2)
+                te_time = self.table.cellWidget(day - 1, 3)
+                work = entry.get("work", "")
+                if isinstance(cb_work, QtWidgets.QComboBox):
+                    if work and cb_work.findText(work) < 0:
+                        cb_work.addItem(work)
+                    cb_work.setCurrentText(work)
+                if isinstance(sp_ch, QtWidgets.QSpinBox):
+                    sp_ch.setValue(entry.get("chapters", 0))
+                if isinstance(te_time, QtWidgets.QTimeEdit):
+                    qt = QtCore.QTime.fromString(entry.get("time", "00:00"), "HH:mm")
+                    if qt.isValid():
+                        te_time.setTime(qt)
 
     def save(self):
         days: Dict[str, List[Dict[str, str | int]]] = {}
-        for row in range(self.table.rowCount()):
-            sp_day = self.table.cellWidget(row, 0)
+        for row in range(self.days_in_month):
             cb_work = self.table.cellWidget(row, 1)
             sp_ch = self.table.cellWidget(row, 2)
             te_time = self.table.cellWidget(row, 3)
-            if not (sp_day and cb_work and sp_ch and te_time):
+            if not (cb_work and sp_ch and te_time):
                 continue
             work_name = cb_work.currentText().strip()
             if not work_name:
                 continue
-            day = sp_day.value()
+            day = row + 1
             entry = {
                 "work": work_name,
                 "chapters": sp_ch.value(),
                 "time": te_time.time().toString("HH:mm"),
             }
-            days.setdefault(str(day), []).append(entry)
+            days[str(day)] = [entry]
 
         works = sorted({e["work"] for entries in days.values() for e in entries})
         data = {"works": works, "days": days}
