@@ -14,6 +14,11 @@ CONFIG_PATH = os.path.join(DATA_DIR, "config.json")
 def load_config():
     default = {
         "neon": False,
+        "neon_size": 10,
+        "neon_thickness": 1,
+        "neon_intensity": 255,
+        "accent_color": "#39ff14",
+        "theme": "dark",
         "header_font": "Arial",
         "text_font": "Arial",
         "save_path": DATA_DIR,
@@ -1209,6 +1214,50 @@ class SettingsDialog(QtWidgets.QDialog):
         self.chk_neon.setChecked(CONFIG.get("neon", False))
         form.addRow("Неоновая подсветка", self.chk_neon)
 
+        # sliders for neon parameters
+        self.sld_neon_size = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.sld_neon_size.setRange(1, 50)
+        self.sld_neon_size.setValue(CONFIG.get("neon_size", 10))
+        self.lbl_neon_size = QtWidgets.QLabel(str(self.sld_neon_size.value()), self)
+        self.sld_neon_size.valueChanged.connect(
+            lambda v: self.lbl_neon_size.setText(str(v))
+        )
+        lay_size = QtWidgets.QHBoxLayout(); lay_size.addWidget(self.sld_neon_size, 1); lay_size.addWidget(self.lbl_neon_size)
+        form.addRow("Размер подсветки", lay_size)
+
+        self.sld_neon_thickness = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.sld_neon_thickness.setRange(1, 10)
+        self.sld_neon_thickness.setValue(CONFIG.get("neon_thickness", 1))
+        self.lbl_neon_thickness = QtWidgets.QLabel(str(self.sld_neon_thickness.value()), self)
+        self.sld_neon_thickness.valueChanged.connect(
+            lambda v: self.lbl_neon_thickness.setText(str(v))
+        )
+        lay_thick = QtWidgets.QHBoxLayout(); lay_thick.addWidget(self.sld_neon_thickness,1); lay_thick.addWidget(self.lbl_neon_thickness)
+        form.addRow("Толщина подсветки", lay_thick)
+
+        self.sld_neon_intensity = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.sld_neon_intensity.setRange(0, 255)
+        self.sld_neon_intensity.setValue(CONFIG.get("neon_intensity", 255))
+        self.lbl_neon_intensity = QtWidgets.QLabel(str(self.sld_neon_intensity.value()), self)
+        self.sld_neon_intensity.valueChanged.connect(
+            lambda v: self.lbl_neon_intensity.setText(str(v))
+        )
+        lay_intensity = QtWidgets.QHBoxLayout(); lay_intensity.addWidget(self.sld_neon_intensity,1); lay_intensity.addWidget(self.lbl_neon_intensity)
+        form.addRow("Интенсивность подсветки", lay_intensity)
+
+        # color selection for neon/accent color
+        self._accent_color = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
+        self.btn_accent = QtWidgets.QPushButton(self)
+        self._update_color_button()
+        self.btn_accent.clicked.connect(self.choose_accent_color)
+        form.addRow("Цвет подсветки", self.btn_accent)
+
+        # theme selection
+        self.combo_theme = QtWidgets.QComboBox(self)
+        self.combo_theme.addItems(["Темная", "Светлая"])
+        self.combo_theme.setCurrentIndex(0 if CONFIG.get("theme","dark")=="dark" else 1)
+        form.addRow("Тема", self.combo_theme)
+
         self.font_header = QtWidgets.QFontComboBox(self)
         self.font_header.setCurrentFont(QtGui.QFont(CONFIG.get("header_font", "Arial")))
         form.addRow("Шрифт заголовков", self.font_header)
@@ -1242,6 +1291,11 @@ class SettingsDialog(QtWidgets.QDialog):
     def accept(self):
         config = {
             "neon": self.chk_neon.isChecked(),
+            "neon_size": self.sld_neon_size.value(),
+            "neon_thickness": self.sld_neon_thickness.value(),
+            "neon_intensity": self.sld_neon_intensity.value(),
+            "accent_color": self._accent_color.name(),
+            "theme": "dark" if self.combo_theme.currentIndex() == 0 else "light",
             "header_font": self.font_header.currentFont().family(),
             "text_font": self.font_text.currentFont().family(),
             "save_path": self.edit_path.text().strip() or DATA_DIR,
@@ -1249,6 +1303,17 @@ class SettingsDialog(QtWidgets.QDialog):
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(config, f, ensure_ascii=False, indent=2)
         super().accept()
+
+    def _update_color_button(self):
+        self.btn_accent.setStyleSheet(
+            f"background:{self._accent_color.name()}; border:1px solid #555;"
+        )
+
+    def choose_accent_color(self):
+        color = QtWidgets.QColorDialog.getColor(self._accent_color, self, "Цвет")
+        if color.isValid():
+            self._accent_color = color
+            self._update_color_button()
 
 
 class TopBar(QtWidgets.QWidget):
@@ -1286,9 +1351,6 @@ class TopBar(QtWidgets.QWidget):
         self.default_style = (
             "QLabel{color:#e5e5e5;} QToolButton{color:#e5e5e5; border:1px solid #555; border-radius:6px; padding:4px 10px;}"
         )
-        self.neon_style = (
-            "QLabel{color:#39ff14;} QToolButton{color:#39ff14; border:1px solid #39ff14; border-radius:6px; padding:4px 10px;}"
-        )
         pal = self.palette()
         pal.setColor(self.backgroundRole(), QtGui.QColor(30, 30, 33))
         self.setAutoFillBackground(True)
@@ -1302,7 +1364,34 @@ class TopBar(QtWidgets.QWidget):
         self.lbl_month.setFont(font)
 
     def apply_style(self, neon):
-        self.setStyleSheet(self.neon_style if neon else self.default_style)
+        accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
+        thickness = CONFIG.get("neon_thickness", 1)
+        size = CONFIG.get("neon_size", 10)
+        intensity = CONFIG.get("neon_intensity", 255)
+        if neon:
+            style = (
+                f"QLabel{{color:{accent.name()};}} "
+                f"QToolButton{{color:{accent.name()}; border:{thickness}px solid {accent.name()}; border-radius:6px; padding:4px 10px;}}"
+            )
+            self.setStyleSheet(style)
+            for w in (self.lbl_month, self.btn_prev, self.btn_next, self.btn_settings):
+                eff = QtWidgets.QGraphicsDropShadowEffect(self)
+                eff.setOffset(0, 0)
+                eff.setBlurRadius(size)
+                c = QtGui.QColor(accent)
+                c.setAlpha(intensity)
+                eff.setColor(c)
+                w.setGraphicsEffect(eff)
+        else:
+            if CONFIG.get("theme", "dark") == "dark":
+                style = self.default_style
+            else:
+                style = (
+                    "QLabel{color:#000;} QToolButton{color:#000; border:1px solid #999; border-radius:6px; padding:4px 10px;}"
+                )
+            self.setStyleSheet(style)
+            for w in (self.lbl_month, self.btn_prev, self.btn_next, self.btn_settings):
+                w.setGraphicsEffect(None)
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -1430,6 +1519,27 @@ class MainWindow(QtWidgets.QMainWindow):
     def apply_settings(self):
         self.topbar.apply_fonts()
         self.topbar.apply_style(CONFIG.get("neon", False))
+        self.apply_theme()
+
+    def apply_theme(self):
+        accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
+        app = QtWidgets.QApplication.instance()
+        if CONFIG.get("theme", "dark") == "dark":
+            pal = QtGui.QPalette()
+            pal.setColor(QtGui.QPalette.Window, QtGui.QColor(30, 30, 33))
+            pal.setColor(QtGui.QPalette.WindowText, QtGui.QColor("#e5e5e5"))
+            pal.setColor(QtGui.QPalette.Base, QtGui.QColor(30, 30, 33))
+            pal.setColor(QtGui.QPalette.AlternateBase, QtGui.QColor(45, 45, 48))
+            pal.setColor(QtGui.QPalette.ToolTipBase, QtGui.QColor("#e5e5e5"))
+            pal.setColor(QtGui.QPalette.ToolTipText, QtGui.QColor("#e5e5e5"))
+            pal.setColor(QtGui.QPalette.Text, QtGui.QColor("#e5e5e5"))
+            pal.setColor(QtGui.QPalette.Button, QtGui.QColor(45, 45, 48))
+            pal.setColor(QtGui.QPalette.ButtonText, QtGui.QColor("#e5e5e5"))
+            pal.setColor(QtGui.QPalette.Highlight, accent)
+            pal.setColor(QtGui.QPalette.HighlightedText, QtGui.QColor(0, 0, 0))
+            app.setPalette(pal)
+        else:
+            app.setPalette(app.style().standardPalette())
 
     def closeEvent(self, event):
         self.table.save_current_month()
