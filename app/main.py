@@ -922,6 +922,8 @@ class NeonTableWidget(QtWidgets.QTableWidget):
     def __init__(self, rows, cols, parent=None):
         super().__init__(rows, cols, parent)
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
+        self.setAttribute(QtCore.Qt.WA_Hover, True)
+        self.viewport().installEventFilter(self)
 
     def _apply_neon(self):
         accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
@@ -941,21 +943,19 @@ class NeonTableWidget(QtWidgets.QTableWidget):
         self.setGraphicsEffect(None)
         self.setStyleSheet("")
 
-    def enterEvent(self, event):
-        super().enterEvent(event)
-        self._apply_neon()
+    def event(self, ev):
+        if ev.type() == QtCore.QEvent.HoverEnter:
+            self._apply_neon()
+        return super().event(ev)
 
-    def leaveEvent(self, event):
-        super().leaveEvent(event)
-        self._clear_neon()
+    def eventFilter(self, obj, ev):
+        if ev.type() in (QtCore.QEvent.HoverLeave, QtCore.QEvent.FocusOut):
+            self._clear_neon()
+        return super().eventFilter(obj, ev)
 
     def focusInEvent(self, event):
         super().focusInEvent(event)
         self._apply_neon()
-
-    def focusOutEvent(self, event):
-        super().focusOutEvent(event)
-        self._clear_neon()
 
 class ExcelCalendarTable(QtWidgets.QTableWidget):
     """Таблица календаря месяца с вложенными таблицами по дням."""
