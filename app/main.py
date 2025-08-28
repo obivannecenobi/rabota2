@@ -6,6 +6,8 @@ from typing import Dict, List
 from PySide6 import QtWidgets, QtGui, QtCore
 from dataclasses import dataclass, field
 
+from widgets import StyledPushButton, StyledToolButton
+
 ASSETS = os.path.join(os.path.dirname(__file__), "..", "assets")
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 CONFIG_PATH = os.path.join(DATA_DIR, "config.json")
@@ -253,12 +255,10 @@ class ReleaseDialog(QtWidgets.QDialog):
         lay.addWidget(self.table)
 
         box = QtWidgets.QDialogButtonBox(self)
-        btn_save = box.addButton(
-            "Сохранить", QtWidgets.QDialogButtonBox.AcceptRole
-        )
-        btn_close = box.addButton(
-            "Закрыть", QtWidgets.QDialogButtonBox.RejectRole
-        )
+        btn_save = StyledPushButton("Сохранить", self)
+        btn_close = StyledPushButton("Закрыть", self)
+        box.addButton(btn_save, QtWidgets.QDialogButtonBox.AcceptRole)
+        box.addButton(btn_close, QtWidgets.QDialogButtonBox.RejectRole)
         box.accepted.connect(self.save)
         box.rejected.connect(self.reject)
         lay.addWidget(box)
@@ -452,12 +452,10 @@ class StatsDialog(QtWidgets.QDialog):
         lay.addWidget(self.form_stats)
 
         self.btn_box = QtWidgets.QDialogButtonBox(self)
-        btn_save = self.btn_box.addButton(
-            "Сохранить", QtWidgets.QDialogButtonBox.AcceptRole
-        )
-        btn_close = self.btn_box.addButton(
-            "Закрыть", QtWidgets.QDialogButtonBox.RejectRole
-        )
+        btn_save = StyledPushButton("Сохранить", self)
+        btn_close = StyledPushButton("Закрыть", self)
+        self.btn_box.addButton(btn_save, QtWidgets.QDialogButtonBox.AcceptRole)
+        self.btn_box.addButton(btn_close, QtWidgets.QDialogButtonBox.RejectRole)
         self.btn_box.accepted.connect(self.save_record)
         self.btn_box.rejected.connect(self.reject)
         lay.addWidget(self.btn_box)
@@ -574,12 +572,10 @@ class AnalyticsDialog(QtWidgets.QDialog):
         lay.addWidget(self.table, 1)
 
         box = QtWidgets.QDialogButtonBox(self)
-        btn_save = box.addButton(
-            "Сохранить", QtWidgets.QDialogButtonBox.AcceptRole
-        )
-        btn_close = box.addButton(
-            "Закрыть", QtWidgets.QDialogButtonBox.RejectRole
-        )
+        btn_save = StyledPushButton("Сохранить", self)
+        btn_close = StyledPushButton("Закрыть", self)
+        box.addButton(btn_save, QtWidgets.QDialogButtonBox.AcceptRole)
+        box.addButton(btn_close, QtWidgets.QDialogButtonBox.RejectRole)
         box.accepted.connect(self.save)
         box.rejected.connect(self.reject)
         lay.addWidget(box)
@@ -766,7 +762,7 @@ class TopDialog(QtWidgets.QDialog):
         self.combo_period.installEventFilter(NeonEventFilter(self.combo_period))
         self._mode_changed()  # fill periods
 
-        self.btn_calc = QtWidgets.QPushButton("Сформировать", self)
+        self.btn_calc = StyledPushButton("Сформировать", self)
         self.btn_calc.clicked.connect(self.calculate)
         top.addWidget(self.btn_calc)
         self.btn_calc.installEventFilter(NeonEventFilter(self.btn_calc))
@@ -802,12 +798,10 @@ class TopDialog(QtWidgets.QDialog):
         lay.addWidget(self.table, 1)
 
         box = QtWidgets.QDialogButtonBox(self)
-        btn_save = box.addButton(
-            "Сохранить", QtWidgets.QDialogButtonBox.AcceptRole
-        )
-        btn_close = box.addButton(
-            "Закрыть", QtWidgets.QDialogButtonBox.RejectRole
-        )
+        btn_save = StyledPushButton("Сохранить", self)
+        btn_close = StyledPushButton("Закрыть", self)
+        box.addButton(btn_save, QtWidgets.QDialogButtonBox.AcceptRole)
+        box.addButton(btn_close, QtWidgets.QDialogButtonBox.RejectRole)
         box.accepted.connect(self.save)
         box.rejected.connect(self.reject)
         lay.addWidget(box)
@@ -1203,7 +1197,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         lay=QtWidgets.QVBoxLayout(self); lay.setContentsMargins(8,8,8,8); lay.setSpacing(6)
 
         # Toggle button — только иконка
-        self.btn_toggle = QtWidgets.QToolButton(self)
+        self.btn_toggle = StyledToolButton(self)
         self.btn_toggle.setIcon(QtGui.QIcon(ICON_TOGGLE))
         self.btn_toggle.setIconSize(QtCore.QSize(28,28))
         self.btn_toggle.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
@@ -1228,7 +1222,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         self.btn_analytics=None
         self.btn_tops=None
         for label, icon in items:
-            b=QtWidgets.QToolButton(self)
+            b=StyledToolButton(self)
             b.setIcon(QtGui.QIcon(icon)); b.setIconSize(QtCore.QSize(22,22))
             b.setText(" "+label)
             b.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
@@ -1382,7 +1376,7 @@ class SettingsDialog(QtWidgets.QDialog):
         self._workspace_color = QtGui.QColor(
             CONFIG.get("workspace_color", "#1e1e21")
         )
-        self.btn_workspace = QtWidgets.QPushButton(self)
+        self.btn_workspace = StyledPushButton(self)
         self._update_workspace_button()
         self.btn_workspace.clicked.connect(self.choose_workspace_color)
         form.addRow("Цвет рабочей области", self.btn_workspace)
@@ -1390,7 +1384,7 @@ class SettingsDialog(QtWidgets.QDialog):
         self._sidebar_color = QtGui.QColor(
             CONFIG.get("sidebar_color", "#1f1f23")
         )
-        self.btn_sidebar = QtWidgets.QPushButton(self)
+        self.btn_sidebar = StyledPushButton(self)
         self._update_sidebar_button()
         self.btn_sidebar.clicked.connect(self.choose_sidebar_color)
         form.addRow("Цвет боковой панели", self.btn_sidebar)
@@ -1416,15 +1410,17 @@ class SettingsDialog(QtWidgets.QDialog):
 
         path_lay = QtWidgets.QHBoxLayout()
         self.edit_path = QtWidgets.QLineEdit(CONFIG.get("save_path", DATA_DIR), self)
-        btn_browse = QtWidgets.QPushButton("...", self)
+        btn_browse = StyledPushButton("...", self)
         btn_browse.clicked.connect(self.browse_path)
         path_lay.addWidget(self.edit_path, 1)
         path_lay.addWidget(btn_browse)
         form.addRow("Путь сохранения", path_lay)
 
-        box = QtWidgets.QDialogButtonBox(
-            QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Cancel, self
-        )
+        box = QtWidgets.QDialogButtonBox(self)
+        btn_save = StyledPushButton("Сохранить", self)
+        btn_cancel = StyledPushButton("Отмена", self)
+        box.addButton(btn_save, QtWidgets.QDialogButtonBox.AcceptRole)
+        box.addButton(btn_cancel, QtWidgets.QDialogButtonBox.RejectRole)
         box.accepted.connect(self.accept)
         box.rejected.connect(self.reject)
         form.addRow(box)
@@ -1513,7 +1509,7 @@ class TopBar(QtWidgets.QWidget):
         lay = QtWidgets.QHBoxLayout(self)
         lay.setContentsMargins(8, 8, 8, 8)
         lay.setSpacing(8)
-        self.btn_prev = QtWidgets.QToolButton(self)
+        self.btn_prev = StyledToolButton(self)
         self.btn_prev.setText(" < ")
         self.btn_prev.clicked.connect(self.prev_clicked)
         lay.addWidget(self.btn_prev)
@@ -1530,12 +1526,12 @@ class TopBar(QtWidgets.QWidget):
         lay.addWidget(self.spin_year)
         self.spin_year.installEventFilter(NeonEventFilter(self.spin_year))
         lay.addStretch(1)
-        self.btn_next = QtWidgets.QToolButton(self)
+        self.btn_next = StyledToolButton(self)
         self.btn_next.setText(" > ")
         self.btn_next.clicked.connect(self.next_clicked)
         lay.addWidget(self.btn_next)
         self.btn_next.installEventFilter(NeonEventFilter(self.btn_next))
-        self.btn_settings = QtWidgets.QToolButton(self)
+        self.btn_settings = StyledToolButton(self)
         self.btn_settings.setText("⚙")
         self.btn_settings.clicked.connect(self.settings_clicked)
         lay.addWidget(self.btn_settings)
