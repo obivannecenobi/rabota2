@@ -451,12 +451,15 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self.table = QtWidgets.QTableWidget(len(self.INDICATORS), cols, self)
         self.table.setHorizontalHeaderLabels(RU_MONTHS + ["Итого за год"])
         self.table.setVerticalHeaderLabels(self.INDICATORS)
+        self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         lay.addWidget(self.table, 1)
 
         # prepare items
         for r, name in enumerate(self.INDICATORS):
             for c in range(cols):
                 it = QtWidgets.QTableWidgetItem("0")
+                it.setTextAlignment(QtCore.Qt.AlignCenter)
                 if name not in ("Камса", "Потрачено на софт") or c == cols - 1:
                     it.setFlags(QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled)
                 self.table.setItem(r, c, it)
@@ -593,7 +596,11 @@ class AnalyticsDialog(QtWidgets.QDialog):
                     total += float(self.table.item(r, c).text())
                 except ValueError:
                     pass
-            self.table.item(r, cols).setText(str(round(total, 2)))
+            item = self.table.item(r, cols)
+            item.setText(str(round(total, 2)))
+            font = item.font()
+            font.setBold(True)
+            item.setFont(font)
 
 class TopDialog(QtWidgets.QDialog):
     """Агрегирование и сохранение топов за период."""
