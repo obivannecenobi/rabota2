@@ -1048,6 +1048,8 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         self.setHorizontalHeaderLabels(day_names)
         self.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        self.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
+        self.setFocusPolicy(QtCore.Qt.NoFocus)
 
         now = datetime.now()
         self.year = now.year
@@ -1058,6 +1060,10 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         self.cell_containers: Dict[tuple[int, int], QtWidgets.QWidget] = {}
 
         self.load_month_data(self.year, self.month)
+
+    def mousePressEvent(self, event):
+        self.clearSelection()
+        event.ignore()
 
     def _create_inner_table(self) -> QtWidgets.QTableWidget:
         tbl = NeonTableWidget(CONFIG.get("day_rows", 6), 3, self)
