@@ -974,7 +974,12 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                 self.cell_tables[(r, c)] = inner
                 if day.month != month:
                     container.setEnabled(False)
+                    container.setStyleSheet("background-color:#2a2a2a; color:#777;")
+                    lbl.setStyleSheet("color:#777;")
                 else:
+                    container.setEnabled(True)
+                    container.setStyleSheet("")
+                    lbl.setStyleSheet("")
                     rows = md.days.get(day.day, [])
                     for rr, row in enumerate(rows):
                         if rr >= inner.rowCount():
