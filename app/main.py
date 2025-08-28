@@ -339,6 +339,9 @@ class StatsDialog(QtWidgets.QDialog):
 
         lay = QtWidgets.QVBoxLayout(self)
         self.table_stats = QtWidgets.QTableWidget(self)
+        self.table_stats.horizontalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.Stretch
+        )
         self.table_stats.setColumnCount(len(StatsEntryForm.TABLE_COLUMNS))
         self.table_stats.setHorizontalHeaderLabels(
             [h for _, h in StatsEntryForm.TABLE_COLUMNS]
@@ -394,10 +397,21 @@ class StatsDialog(QtWidgets.QDialog):
                 elif isinstance(val, (int, float)):
                     item = QtWidgets.QTableWidgetItem()
                     item.setData(QtCore.Qt.EditRole, val)
+                    item.setTextAlignment(QtCore.Qt.AlignCenter)
                 else:
                     item = QtWidgets.QTableWidgetItem(str(val))
                 self.table_stats.setItem(r, c, item)
         self.table_stats.resizeColumnsToContents()
+        header = self.table_stats.horizontalHeader()
+        total_width = sum(header.sectionSize(i) for i in range(header.count()))
+        if total_width <= self.table_stats.viewport().width():
+            self.table_stats.setHorizontalScrollBarPolicy(
+                QtCore.Qt.ScrollBarAlwaysOff
+            )
+        else:
+            self.table_stats.setHorizontalScrollBarPolicy(
+                QtCore.Qt.ScrollBarAsNeeded
+            )
         self.current_index = None
         self.form_stats.clear()
 
