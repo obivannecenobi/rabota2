@@ -23,6 +23,8 @@ def load_config():
         "text_font": "Arial",
         "save_path": DATA_DIR,
         "day_rows": 6,
+        "workspace_color": "#1e1e21",
+        "sidebar_color": "#1f1f23",
     }
     if os.path.exists(CONFIG_PATH):
         try:
@@ -1157,6 +1159,22 @@ class SettingsDialog(QtWidgets.QDialog):
         self.btn_accent.clicked.connect(self.choose_accent_color)
         form.addRow("Цвет подсветки", self.btn_accent)
 
+        self._workspace_color = QtGui.QColor(
+            CONFIG.get("workspace_color", "#1e1e21")
+        )
+        self.btn_workspace = QtWidgets.QPushButton(self)
+        self._update_workspace_button()
+        self.btn_workspace.clicked.connect(self.choose_workspace_color)
+        form.addRow("Цвет рабочей области", self.btn_workspace)
+
+        self._sidebar_color = QtGui.QColor(
+            CONFIG.get("sidebar_color", "#1f1f23")
+        )
+        self.btn_sidebar = QtWidgets.QPushButton(self)
+        self._update_sidebar_button()
+        self.btn_sidebar.clicked.connect(self.choose_sidebar_color)
+        form.addRow("Цвет боковой панели", self.btn_sidebar)
+
         # theme selection
         self.combo_theme = QtWidgets.QComboBox(self)
         self.combo_theme.addItems(["Темная", "Светлая"])
@@ -1205,6 +1223,8 @@ class SettingsDialog(QtWidgets.QDialog):
             "neon_thickness": self.sld_neon_thickness.value(),
             "neon_intensity": self.sld_neon_intensity.value(),
             "accent_color": self._accent_color.name(),
+            "workspace_color": self._workspace_color.name(),
+            "sidebar_color": self._sidebar_color.name(),
             "theme": "dark" if self.combo_theme.currentIndex() == 0 else "light",
             "header_font": self.font_header.currentFont().family(),
             "text_font": self.font_text.currentFont().family(),
@@ -1225,6 +1245,32 @@ class SettingsDialog(QtWidgets.QDialog):
         if color.isValid():
             self._accent_color = color
             self._update_color_button()
+
+    def _update_workspace_button(self):
+        self.btn_workspace.setStyleSheet(
+            f"background:{self._workspace_color.name()}; border:1px solid #555;"
+        )
+
+    def choose_workspace_color(self):
+        color = QtWidgets.QColorDialog.getColor(
+            self._workspace_color, self, "Цвет"
+        )
+        if color.isValid():
+            self._workspace_color = color
+            self._update_workspace_button()
+
+    def _update_sidebar_button(self):
+        self.btn_sidebar.setStyleSheet(
+            f"background:{self._sidebar_color.name()}; border:1px solid #555;"
+        )
+
+    def choose_sidebar_color(self):
+        color = QtWidgets.QColorDialog.getColor(
+            self._sidebar_color, self, "Цвет"
+        )
+        if color.isValid():
+            self._sidebar_color = color
+            self._update_sidebar_button()
 
 
 class TopBar(QtWidgets.QWidget):
@@ -1452,6 +1498,17 @@ class MainWindow(QtWidgets.QMainWindow):
             app.setPalette(pal)
         else:
             app.setPalette(app.style().standardPalette())
+        workspace = CONFIG.get("workspace_color", "#1e1e21")
+        self.table.setStyleSheet(f"QTableWidget {{ background-color: {workspace}; }}")
+        for tbl in self.table.cell_tables.values():
+            tbl.setStyleSheet(f"QTableWidget {{ background-color: {workspace}; }}")
+        sidebar = CONFIG.get("sidebar_color", "#1f1f23")
+        self.sidebar.setStyleSheet(
+            f"#Sidebar {{ background-color: {sidebar}; }}\n"
+            "QToolButton { color: white; border: none; padding: 10px; border-radius: 8px; }\n"
+            "QToolButton:hover { background-color: rgba(255,255,255,0.08); }\n"
+            "QLabel { color: #c7c7c7; }\n"
+        )
 
     def closeEvent(self, event):
         self.table.save_current_month()
