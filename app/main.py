@@ -543,7 +543,7 @@ class AnalyticsDialog(QtWidgets.QDialog):
     def __init__(self, year, parent=None):
         super().__init__(parent)
         self.year = year
-        self.setWindowTitle("Статистика")
+        self.setWindowTitle("Аналитика")
         self.resize(900, 400)
 
         lay = QtWidgets.QVBoxLayout(self)
