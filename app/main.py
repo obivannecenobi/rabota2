@@ -429,11 +429,10 @@ class StatsDialog(QtWidgets.QDialog):
         self.resize(800, 500)
 
         lay = QtWidgets.QVBoxLayout(self)
-        self.table_stats = QtWidgets.QTableWidget(self)
+        self.table_stats = NeonTableWidget(0, len(StatsEntryForm.TABLE_COLUMNS), self)
         self.table_stats.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.Stretch
         )
-        self.table_stats.setColumnCount(len(StatsEntryForm.TABLE_COLUMNS))
         self.table_stats.setHorizontalHeaderLabels(
             [h for _, h in StatsEntryForm.TABLE_COLUMNS]
         )
@@ -441,7 +440,6 @@ class StatsDialog(QtWidgets.QDialog):
         self.table_stats.verticalHeader().setVisible(False)
         self.table_stats.itemSelectionChanged.connect(self.on_table_selection)
         lay.addWidget(self.table_stats)
-        self.table_stats.installEventFilter(NeonEventFilter(self.table_stats))
 
         self.form_stats = StatsEntryForm(self)
         lay.addWidget(self.form_stats)
@@ -561,13 +559,12 @@ class AnalyticsDialog(QtWidgets.QDialog):
         lay.addLayout(top)
 
         cols = len(RU_MONTHS) + 1
-        self.table = QtWidgets.QTableWidget(len(self.INDICATORS), cols, self)
+        self.table = NeonTableWidget(len(self.INDICATORS), cols, self)
         self.table.setHorizontalHeaderLabels(RU_MONTHS + ["Итого за год"])
         self.table.setVerticalHeaderLabels(self.INDICATORS)
         self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         lay.addWidget(self.table, 1)
-        self.table.installEventFilter(NeonEventFilter(self.table))
 
         box = QtWidgets.QDialogButtonBox(self)
         btn_save = box.addButton(
@@ -784,7 +781,7 @@ class TopDialog(QtWidgets.QDialog):
             "Лайков",
             "Спасибо",
         ]
-        self.table = QtWidgets.QTableWidget(0, len(headers), self)
+        self.table = NeonTableWidget(0, len(headers), self)
         self.table.setHorizontalHeaderLabels(headers)
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.setSortingEnabled(True)
@@ -796,7 +793,6 @@ class TopDialog(QtWidgets.QDialog):
         self.table.horizontalHeader().setFont(header_font)
 
         lay.addWidget(self.table, 1)
-        self.table.installEventFilter(NeonEventFilter(self.table))
 
         box = QtWidgets.QDialogButtonBox(self)
         btn_save = box.addButton(
