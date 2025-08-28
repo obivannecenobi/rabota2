@@ -1212,7 +1212,9 @@ class SettingsDialog(QtWidgets.QDialog):
             (i for i, (_, c) in enumerate(self._preset_colors) if c.name().lower() == current),
             other_index,
         )
+        self.combo_accent.blockSignals(True)
         self.combo_accent.setCurrentIndex(idx)
+        self.combo_accent.blockSignals(False)
         if idx == other_index:
             pix = QtGui.QPixmap(16, 16)
             pix.fill(self._accent_color)
