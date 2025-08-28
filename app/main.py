@@ -923,6 +923,7 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         self.month = now.month
         self.date_map: Dict[tuple[int, int], date] = {}
         self.cell_tables: Dict[tuple[int, int], QtWidgets.QTableWidget] = {}
+        self.day_labels: Dict[tuple[int, int], QtWidgets.QLabel] = {}
 
         self.load_month_data(self.year, self.month)
 
@@ -979,6 +980,7 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         weeks = cal.monthdatescalendar(year, month)
         self.date_map.clear()
         self.cell_tables.clear()
+        self.day_labels.clear()
         self.setRowCount(len(weeks))
         for r, week in enumerate(weeks):
             for c, day in enumerate(week):
@@ -987,6 +989,7 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                 lay.setContentsMargins(0, 0, 0, 0)
                 lay.setSpacing(2)
                 lbl = QtWidgets.QLabel(str(day.day), container)
+                lbl.setFont(QtGui.QFont(CONFIG.get("header_font", "Arial")))
                 lbl.setAlignment(QtCore.Qt.AlignCenter)
                 lay.addWidget(lbl, alignment=QtCore.Qt.AlignHCenter)
                 inner = self._create_inner_table()
@@ -994,6 +997,7 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                 self.setCellWidget(r, c, container)
                 self.date_map[(r, c)] = day
                 self.cell_tables[(r, c)] = inner
+                self.day_labels[(r, c)] = lbl
                 if day.month != month:
                     container.setEnabled(False)
                     container.setStyleSheet("background-color:#2a2a2a; color:#777;")
@@ -1545,6 +1549,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.table.horizontalHeader().setFont(header_font)
         for tbl in self.table.cell_tables.values():
             tbl.horizontalHeader().setFont(header_font)
+        for lbl in self.table.day_labels.values():
+            lbl.setFont(header_font)
         for w in [
             self.sidebar.btn_inputs,
             self.sidebar.btn_release,
