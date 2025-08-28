@@ -123,9 +123,13 @@ class NeonEventFilter(QtCore.QObject):
         self._widget = widget
 
     def eventFilter(self, obj, ev):
-        if ev.type() in (QtCore.QEvent.Enter, QtCore.QEvent.FocusIn):
+        if ev.type() in (QtCore.QEvent.HoverEnter, QtCore.QEvent.FocusIn):
             apply_neon_effect(self._widget, True)
-        elif ev.type() in (QtCore.QEvent.Leave, QtCore.QEvent.FocusOut, QtCore.QEvent.HoverLeave):
+        elif ev.type() in (
+            QtCore.QEvent.HoverLeave,
+            QtCore.QEvent.Leave,
+            QtCore.QEvent.FocusOut,
+        ):
             apply_neon_effect(self._widget, False)
         return False
 
@@ -1192,6 +1196,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         self.btn_toggle.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
         self.btn_toggle.setCursor(QtCore.Qt.PointingHandCursor)
         self.btn_toggle.clicked.connect(self.toggle)
+        self.btn_toggle.setAttribute(QtCore.Qt.WA_Hover, True)
         lay.addWidget(self.btn_toggle)
         self.btn_toggle.installEventFilter(NeonEventFilter(self.btn_toggle))
 
