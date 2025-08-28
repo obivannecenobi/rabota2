@@ -22,6 +22,7 @@ def load_config():
         "header_font": "Arial",
         "text_font": "Arial",
         "save_path": DATA_DIR,
+        "day_rows": 6,
     }
     if os.path.exists(CONFIG_PATH):
         try:
@@ -912,12 +913,17 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         self.load_month_data(self.year, self.month)
 
     def _create_inner_table(self) -> QtWidgets.QTableWidget:
-        tbl = QtWidgets.QTableWidget(6, 3, self)
+        tbl = QtWidgets.QTableWidget(CONFIG.get("day_rows", 6), 3, self)
         tbl.setHorizontalHeaderLabels(["Работа", "План", "Готово"])
         tbl.verticalHeader().setVisible(False)
         tbl.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         tbl.setEditTriggers(QtWidgets.QAbstractItemView.DoubleClicked)
         return tbl
+
+    def update_day_rows(self):
+        rows = CONFIG.get("day_rows", 6)
+        for tbl in self.cell_tables.values():
+            tbl.setRowCount(rows)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -1151,6 +1157,11 @@ class SettingsDialog(QtWidgets.QDialog):
         self.font_text.setCurrentFont(QtGui.QFont(CONFIG.get("text_font", "Arial")))
         form.addRow("Шрифт текста", self.font_text)
 
+        self.spin_day_rows = QtWidgets.QSpinBox(self)
+        self.spin_day_rows.setRange(1, 20)
+        self.spin_day_rows.setValue(CONFIG.get("day_rows", 6))
+        form.addRow("Строк на день", self.spin_day_rows)
+
         path_lay = QtWidgets.QHBoxLayout()
         self.edit_path = QtWidgets.QLineEdit(CONFIG.get("save_path", DATA_DIR), self)
         btn_browse = QtWidgets.QPushButton("...", self)
@@ -1183,6 +1194,7 @@ class SettingsDialog(QtWidgets.QDialog):
             "theme": "dark" if self.combo_theme.currentIndex() == 0 else "light",
             "header_font": self.font_header.currentFont().family(),
             "text_font": self.font_text.currentFont().family(),
+            "day_rows": self.spin_day_rows.value(),
             "save_path": self.edit_path.text().strip() or DATA_DIR,
         }
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
@@ -1404,6 +1416,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def apply_settings(self):
         self.topbar.apply_fonts()
         self.topbar.apply_style(CONFIG.get("neon", False))
+        self.table.update_day_rows()
         self.apply_theme()
 
     def apply_theme(self):

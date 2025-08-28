@@ -2,5 +2,6 @@
   "neon": false,
   "header_font": "Arial",
   "text_font": "Arial",
+  "day_rows": 6,
   "save_path": "."
 }
