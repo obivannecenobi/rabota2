@@ -221,22 +221,27 @@ class ReleaseDialog(QtWidgets.QDialog):
             sp_day.setValue(row + 1)
             sp_day.setReadOnly(True)
             sp_day.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
+            sp_day.setMinimumWidth(sp_day.sizeHint().width())
             self.table.setCellWidget(row, 0, sp_day)
             sp_day.installEventFilter(NeonEventFilter(sp_day))
 
             cb_work = QtWidgets.QComboBox(self.table)
             cb_work.setEditable(True)
+            cb_work.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
+            cb_work.setMinimumWidth(cb_work.sizeHint().width())
             self.table.setCellWidget(row, 1, cb_work)
             cb_work.installEventFilter(NeonEventFilter(cb_work))
 
             sp_ch = QtWidgets.QSpinBox(self.table)
             sp_ch.setRange(0, 9999)
+            sp_ch.setMinimumWidth(sp_ch.sizeHint().width())
             self.table.setCellWidget(row, 2, sp_ch)
             sp_ch.installEventFilter(NeonEventFilter(sp_ch))
 
             te_time = QtWidgets.QTimeEdit(self.table)
             te_time.setDisplayFormat("HH:mm")
             te_time.setTime(QtCore.QTime.currentTime())
+            te_time.setMinimumWidth(te_time.sizeHint().width())
             self.table.setCellWidget(row, 3, te_time)
             te_time.installEventFilter(NeonEventFilter(te_time))
 
@@ -278,6 +283,7 @@ class ReleaseDialog(QtWidgets.QDialog):
                 cb.clear()
                 cb.addItems(self.works)
                 cb.setCurrentIndex(-1)
+                cb.setMinimumWidth(cb.sizeHint().width())
 
         for day_str, entries in data.get("days", {}).items():
             day = int(day_str)
@@ -291,6 +297,7 @@ class ReleaseDialog(QtWidgets.QDialog):
                     if work and cb_work.findText(work) < 0:
                         cb_work.addItem(work)
                     cb_work.setCurrentText(work)
+                    cb_work.setMinimumWidth(cb_work.sizeHint().width())
                 if isinstance(sp_ch, QtWidgets.QSpinBox):
                     sp_ch.setValue(entry.get("chapters", 0))
                 if isinstance(te_time, QtWidgets.QTimeEdit):
@@ -358,6 +365,7 @@ class StatsEntryForm(QtWidgets.QWidget):
             QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding
         )
         form = QtWidgets.QFormLayout(self)
+        form.setFieldGrowthPolicy(QtWidgets.QFormLayout.AllNonFixedFieldsGrow)
         self.widgets = {}
         for key, label, cls in self.INPUT_FIELDS:
             w = cls(self)
@@ -369,6 +377,9 @@ class StatsEntryForm(QtWidgets.QWidget):
             if key == "progress" and isinstance(w, QtWidgets.QDoubleSpinBox):
                 w.setRange(0, 100)
                 w.setSuffix("%")
+            if isinstance(w, QtWidgets.QComboBox):
+                w.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
+            w.setMinimumWidth(w.sizeHint().width())
             form.addRow(label, w)
             self.widgets[key] = w
             w.installEventFilter(NeonEventFilter(w))
