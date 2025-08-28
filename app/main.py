@@ -98,8 +98,10 @@ def apply_neon_effect(widget: QtWidgets.QWidget, enable: bool) -> None:
         orig = widget.property("orig_style")
         if orig is None:
             widget.setProperty("orig_style", widget.styleSheet())
-            orig = widget.styleSheet()
-        widget.setStyleSheet(f"{orig}border:{thickness}px solid {accent.name()};")
+            widget.setProperty("neon_base", f"border:{thickness}px solid transparent;")
+            widget.setStyleSheet(widget.property("neon_base") + widget.styleSheet())
+        base = widget.property("neon_base") or ""
+        widget.setStyleSheet(f"{base}border-color:{accent.name()};")
     else:
         widget.setGraphicsEffect(None)
         orig = widget.property("orig_style")
