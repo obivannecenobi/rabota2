@@ -159,6 +159,12 @@ class ReleaseDialog(QtWidgets.QDialog):
         self.table.verticalHeader().setVisible(False)
         self.table.setRowCount(self.days_in_month)
 
+        app = QtWidgets.QApplication.instance()
+        self.setFont(app.font())
+        self.table.setFont(app.font())
+        header_font = QtGui.QFont(CONFIG.get("header_font"))
+        self.table.horizontalHeader().setFont(header_font)
+
         for row in range(self.days_in_month):
             sp_day = QtWidgets.QSpinBox(self.table)
             sp_day.setRange(1, self.days_in_month)
@@ -702,6 +708,13 @@ class TopDialog(QtWidgets.QDialog):
         self.table.setHorizontalHeaderLabels(headers)
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.setSortingEnabled(True)
+
+        app = QtWidgets.QApplication.instance()
+        self.setFont(app.font())
+        self.table.setFont(app.font())
+        header_font = QtGui.QFont(CONFIG.get("header_font"))
+        self.table.horizontalHeader().setFont(header_font)
+
         lay.addWidget(self.table, 1)
 
         box = QtWidgets.QDialogButtonBox(self)
@@ -1585,15 +1598,18 @@ class MainWindow(QtWidgets.QMainWindow):
             global CONFIG, BASE_SAVE_PATH
             CONFIG = load_config()
             BASE_SAVE_PATH = os.path.abspath(CONFIG.get("save_path", DATA_DIR))
-            app = QtWidgets.QApplication.instance()
-            app.setFont(QtGui.QFont(CONFIG.get("text_font", "DejaVu Sans")))
             self.apply_settings()
 
     def apply_settings(self):
+        app = QtWidgets.QApplication.instance()
+        app.setFont(QtGui.QFont(CONFIG.get("text_font", "DejaVu Sans")))
+
         self.topbar.apply_fonts()
         header_font = QtGui.QFont(CONFIG.get("header_font"))
+        self.table.setFont(app.font())
         self.table.horizontalHeader().setFont(header_font)
         for tbl in self.table.cell_tables.values():
+            tbl.setFont(app.font())
             tbl.horizontalHeader().setFont(header_font)
         for lbl in self.table.day_labels.values():
             lbl.setFont(header_font)
@@ -1608,6 +1624,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.table.update_day_rows()
         accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
         self.sidebar.apply_style(CONFIG.get("neon", False), accent)
+        for dlg in app.topLevelWidgets():
+            if isinstance(dlg, QtWidgets.QDialog):
+                dlg.setFont(app.font())
+                for tbl in dlg.findChildren(QtWidgets.QTableWidget):
+                    tbl.setFont(app.font())
+                    tbl.horizontalHeader().setFont(header_font)
         self.apply_theme()
 
     def apply_theme(self):
