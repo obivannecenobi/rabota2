@@ -903,6 +903,47 @@ class TopDialog(QtWidgets.QDialog):
             json.dump(data, f, ensure_ascii=False, indent=2)
         self.accept()
 
+class NeonTableWidget(QtWidgets.QTableWidget):
+    """Вложенная таблица с неоновым подсвечиванием при наведении и фокусе."""
+
+    def __init__(self, rows, cols, parent=None):
+        super().__init__(rows, cols, parent)
+        self.setFocusPolicy(QtCore.Qt.StrongFocus)
+
+    def _apply_neon(self):
+        accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
+        size = CONFIG.get("neon_size", 10)
+        thickness = CONFIG.get("neon_thickness", 1)
+        intensity = CONFIG.get("neon_intensity", 255)
+        eff = QtWidgets.QGraphicsDropShadowEffect(self)
+        eff.setOffset(0, 0)
+        eff.setBlurRadius(size)
+        c = QtGui.QColor(accent)
+        c.setAlpha(intensity)
+        eff.setColor(c)
+        self.setGraphicsEffect(eff)
+        self.setStyleSheet(f"border:{thickness}px solid {accent.name()};")
+
+    def _clear_neon(self):
+        self.setGraphicsEffect(None)
+        self.setStyleSheet("")
+
+    def enterEvent(self, event):
+        super().enterEvent(event)
+        self._apply_neon()
+
+    def leaveEvent(self, event):
+        super().leaveEvent(event)
+        self._clear_neon()
+
+    def focusInEvent(self, event):
+        super().focusInEvent(event)
+        self._apply_neon()
+
+    def focusOutEvent(self, event):
+        super().focusOutEvent(event)
+        self._clear_neon()
+
 class ExcelCalendarTable(QtWidgets.QTableWidget):
     """Таблица календаря месяца с вложенными таблицами по дням."""
 
@@ -929,7 +970,7 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         self.load_month_data(self.year, self.month)
 
     def _create_inner_table(self) -> QtWidgets.QTableWidget:
-        tbl = QtWidgets.QTableWidget(CONFIG.get("day_rows", 6), 3, self)
+        tbl = NeonTableWidget(CONFIG.get("day_rows", 6), 3, self)
         tbl.setHorizontalHeaderLabels(["Работа", "План", "Готово"])
         tbl.verticalHeader().setVisible(False)
         tbl.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
