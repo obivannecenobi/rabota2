@@ -712,6 +712,8 @@ class TopDialog(QtWidgets.QDialog):
         lay.addLayout(top)
 
         headers = [
+            "№",
+            "Сортировать по",
             "Работа",
             "Статус",
             "Всего глав",
@@ -823,29 +825,86 @@ class TopDialog(QtWidgets.QDialog):
                     if "заверш" in status:
                         t["done"] += 1
 
-        results = sorted(totals.items(), key=lambda kv: kv[1].get(sort_key, 0), reverse=True)
+        results = sorted(
+            totals.items(), key=lambda kv: kv[1].get(sort_key, 0), reverse=True
+        )
         self.results = results
         self.table.setRowCount(0)
-        for work, vals in results:
+        sums = {
+            "sort": 0,
+            "total_chapters": 0,
+            "planned": 0,
+            "chapters": 0,
+            "chars": 0,
+            "views": 0,
+            "profit": 0.0,
+            "ads": 0.0,
+            "likes": 0,
+            "thanks": 0,
+        }
+        for idx, (work, vals) in enumerate(results, 1):
             row = self.table.rowCount()
             self.table.insertRow(row)
-            self.table.setItem(row, 0, QtWidgets.QTableWidgetItem(work))
-            self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(vals.get("status", "")))
-            self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(str(vals["total_chapters"])))
-            self.table.setItem(row, 3, QtWidgets.QTableWidgetItem(str(vals["planned"])))
-            self.table.setItem(row, 4, QtWidgets.QTableWidgetItem(str(vals["chapters"])))
+            sort_val = vals.get(sort_key, 0)
+            if isinstance(sort_val, float):
+                sort_disp = str(round(sort_val, 2))
+            else:
+                sort_disp = str(sort_val)
+            self.table.setItem(row, 0, QtWidgets.QTableWidgetItem(str(idx)))
+            self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(sort_disp))
+            self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(work))
+            self.table.setItem(row, 3, QtWidgets.QTableWidgetItem(vals.get("status", "")))
+            self.table.setItem(row, 4, QtWidgets.QTableWidgetItem(str(vals["total_chapters"])))
+            self.table.setItem(row, 5, QtWidgets.QTableWidgetItem(str(vals["planned"])))
+            self.table.setItem(row, 6, QtWidgets.QTableWidgetItem(str(vals["chapters"])))
             self.table.setItem(
                 row,
-                5,
+                7,
                 QtWidgets.QTableWidgetItem(f"{round(vals['progress'], 2)}%"),
             )
-            self.table.setItem(row, 6, QtWidgets.QTableWidgetItem(vals.get("release", "")))
-            self.table.setItem(row, 7, QtWidgets.QTableWidgetItem(str(vals["chars"])))
-            self.table.setItem(row, 8, QtWidgets.QTableWidgetItem(str(vals["views"])))
-            self.table.setItem(row, 9, QtWidgets.QTableWidgetItem(str(round(vals["profit"], 2))))
-            self.table.setItem(row, 10, QtWidgets.QTableWidgetItem(str(round(vals["ads"], 2))))
-            self.table.setItem(row, 11, QtWidgets.QTableWidgetItem(str(vals["likes"])))
-            self.table.setItem(row, 12, QtWidgets.QTableWidgetItem(str(vals["thanks"])))
+            self.table.setItem(row, 8, QtWidgets.QTableWidgetItem(vals.get("release", "")))
+            self.table.setItem(row, 9, QtWidgets.QTableWidgetItem(str(vals["chars"])))
+            self.table.setItem(row, 10, QtWidgets.QTableWidgetItem(str(vals["views"])))
+            self.table.setItem(row, 11, QtWidgets.QTableWidgetItem(str(round(vals["profit"], 2))))
+            self.table.setItem(row, 12, QtWidgets.QTableWidgetItem(str(round(vals["ads"], 2))))
+            self.table.setItem(row, 13, QtWidgets.QTableWidgetItem(str(vals["likes"])))
+            self.table.setItem(row, 14, QtWidgets.QTableWidgetItem(str(vals["thanks"])))
+
+            # accumulate sums
+            sums["sort"] += sort_val if isinstance(sort_val, (int, float)) else 0
+            sums["total_chapters"] += vals["total_chapters"]
+            sums["planned"] += vals["planned"]
+            sums["chapters"] += vals["chapters"]
+            sums["chars"] += vals["chars"]
+            sums["views"] += vals["views"]
+            sums["profit"] += vals["profit"]
+            sums["ads"] += vals["ads"]
+            sums["likes"] += vals["likes"]
+            sums["thanks"] += vals["thanks"]
+
+        if results:
+            row = self.table.rowCount()
+            self.table.insertRow(row)
+            self.table.setItem(row, 2, QtWidgets.QTableWidgetItem("Итого"))
+            sort_total = sums["sort"]
+            if isinstance(sort_total, float):
+                sort_total_disp = str(round(sort_total, 2))
+            else:
+                sort_total_disp = str(int(sort_total))
+            self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(sort_total_disp))
+            self.table.setItem(row, 4, QtWidgets.QTableWidgetItem(str(sums["total_chapters"])))
+            self.table.setItem(row, 5, QtWidgets.QTableWidgetItem(str(sums["planned"])))
+            self.table.setItem(row, 6, QtWidgets.QTableWidgetItem(str(sums["chapters"])))
+            self.table.setItem(row, 9, QtWidgets.QTableWidgetItem(str(sums["chars"])))
+            self.table.setItem(row, 10, QtWidgets.QTableWidgetItem(str(sums["views"])))
+            self.table.setItem(
+                row, 11, QtWidgets.QTableWidgetItem(str(round(sums["profit"], 2)))
+            )
+            self.table.setItem(
+                row, 12, QtWidgets.QTableWidgetItem(str(round(sums["ads"], 2)))
+            )
+            self.table.setItem(row, 13, QtWidgets.QTableWidgetItem(str(sums["likes"])))
+            self.table.setItem(row, 14, QtWidgets.QTableWidgetItem(str(sums["thanks"])))
 
     def _period_key(self):
         mode = self.combo_mode.currentData()
