@@ -1120,8 +1120,6 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         for r, week in enumerate(weeks):
             for c, day in enumerate(week):
                 container = QtWidgets.QWidget()
-                container.setAttribute(QtCore.Qt.WA_Hover, True)
-                container.installEventFilter(NeonEventFilter(container))
                 lay = QtWidgets.QVBoxLayout(container)
                 lay.setContentsMargins(0, 0, 0, 0)
                 lay.setSpacing(2)
@@ -1582,7 +1580,6 @@ class MainWindow(QtWidgets.QMainWindow):
         right = QtWidgets.QWidget(self); v = QtWidgets.QVBoxLayout(right); v.setContentsMargins(0,0,0,0); v.setSpacing(0)
         self.topbar = TopBar(self); v.addWidget(self.topbar)
         self.table = ExcelCalendarTable(self); v.addWidget(self.table, 1)
-        self.table.installEventFilter(NeonEventFilter(self.table))
         h.addWidget(right, 1)
 
         self.setCentralWidget(central)
