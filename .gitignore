@@ -11,5 +11,8 @@ __pycache__/
 *.pyc
 
 # Ignore binary assets and spreadsheets
-assets/
+assets/*
+!assets/*.png
+!assets/fonts/
+!assets/fonts/*.ttf
 *.xlsx
