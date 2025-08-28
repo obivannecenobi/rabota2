@@ -81,6 +81,49 @@ VERSION_FILE = os.path.join(os.path.dirname(__file__), "..", "VERSION")
 RU_MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"]
 
 
+def apply_neon_effect(widget: QtWidgets.QWidget, enable: bool) -> None:
+    """Apply or clear neon effect on *widget* based on CONFIG."""
+    if enable and CONFIG.get("neon", False):
+        accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
+        thickness = CONFIG.get("neon_thickness", 1)
+        size = CONFIG.get("neon_size", 10)
+        intensity = CONFIG.get("neon_intensity", 255)
+        eff = QtWidgets.QGraphicsDropShadowEffect(widget)
+        eff.setOffset(0, 0)
+        eff.setBlurRadius(size)
+        c = QtGui.QColor(accent)
+        c.setAlpha(intensity)
+        eff.setColor(c)
+        widget.setGraphicsEffect(eff)
+        orig = widget.property("orig_style")
+        if orig is None:
+            widget.setProperty("orig_style", widget.styleSheet())
+            orig = widget.styleSheet()
+        widget.setStyleSheet(f"{orig}border:{thickness}px solid {accent.name()};")
+    else:
+        widget.setGraphicsEffect(None)
+        orig = widget.property("orig_style")
+        if orig is not None:
+            widget.setStyleSheet(orig)
+        else:
+            widget.setStyleSheet("")
+
+
+class NeonEventFilter(QtCore.QObject):
+    """Event filter applying neon effect on focus/hover."""
+
+    def __init__(self, widget: QtWidgets.QWidget):
+        super().__init__(widget)
+        self._widget = widget
+
+    def eventFilter(self, obj, ev):
+        if ev.type() in (QtCore.QEvent.Enter, QtCore.QEvent.FocusIn):
+            apply_neon_effect(self._widget, True)
+        elif ev.type() in (QtCore.QEvent.Leave, QtCore.QEvent.FocusOut):
+            apply_neon_effect(self._widget, False)
+        return False
+
+
 @dataclass
 class MonthData:
     year: int
@@ -158,6 +201,7 @@ class ReleaseDialog(QtWidgets.QDialog):
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.verticalHeader().setVisible(False)
         self.table.setRowCount(self.days_in_month)
+        self.table.installEventFilter(NeonEventFilter(self.table))
 
         app = QtWidgets.QApplication.instance()
         self.setFont(app.font())
@@ -172,19 +216,23 @@ class ReleaseDialog(QtWidgets.QDialog):
             sp_day.setReadOnly(True)
             sp_day.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
             self.table.setCellWidget(row, 0, sp_day)
+            sp_day.installEventFilter(NeonEventFilter(sp_day))
 
             cb_work = QtWidgets.QComboBox(self.table)
             cb_work.setEditable(True)
             self.table.setCellWidget(row, 1, cb_work)
+            cb_work.installEventFilter(NeonEventFilter(cb_work))
 
             sp_ch = QtWidgets.QSpinBox(self.table)
             sp_ch.setRange(0, 9999)
             self.table.setCellWidget(row, 2, sp_ch)
+            sp_ch.installEventFilter(NeonEventFilter(sp_ch))
 
             te_time = QtWidgets.QTimeEdit(self.table)
             te_time.setDisplayFormat("HH:mm")
             te_time.setTime(QtCore.QTime.currentTime())
             self.table.setCellWidget(row, 3, te_time)
+            te_time.installEventFilter(NeonEventFilter(te_time))
 
         lay.addWidget(self.table)
 
@@ -198,6 +246,8 @@ class ReleaseDialog(QtWidgets.QDialog):
         box.accepted.connect(self.save)
         box.rejected.connect(self.reject)
         lay.addWidget(box)
+        btn_save.installEventFilter(NeonEventFilter(btn_save))
+        btn_close.installEventFilter(NeonEventFilter(btn_close))
 
         self.load()
 
@@ -315,6 +365,7 @@ class StatsEntryForm(QtWidgets.QWidget):
                 w.setSuffix("%")
             form.addRow(label, w)
             self.widgets[key] = w
+            w.installEventFilter(NeonEventFilter(w))
 
     def get_record(self) -> Dict[str, int | float | str | bool]:
         record: Dict[str, int | float | str | bool] = {}
@@ -372,6 +423,7 @@ class StatsDialog(QtWidgets.QDialog):
         self.table_stats.verticalHeader().setVisible(False)
         self.table_stats.itemSelectionChanged.connect(self.on_table_selection)
         lay.addWidget(self.table_stats)
+        self.table_stats.installEventFilter(NeonEventFilter(self.table_stats))
 
         self.form_stats = StatsEntryForm(self)
         lay.addWidget(self.form_stats)
@@ -386,6 +438,8 @@ class StatsDialog(QtWidgets.QDialog):
         self.btn_box.accepted.connect(self.save_record)
         self.btn_box.rejected.connect(self.reject)
         lay.addWidget(self.btn_box)
+        btn_save.installEventFilter(NeonEventFilter(btn_save))
+        btn_close.installEventFilter(NeonEventFilter(btn_close))
         lay.setStretch(0, 2)
         lay.setStretch(1, 1)
 
@@ -484,6 +538,7 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self.spin_year.setValue(year)
         self.spin_year.valueChanged.connect(self._year_changed)
         top.addWidget(self.spin_year)
+        self.spin_year.installEventFilter(NeonEventFilter(self.spin_year))
         top.addStretch(1)
         lay.addLayout(top)
 
@@ -494,6 +549,7 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         lay.addWidget(self.table, 1)
+        self.table.installEventFilter(NeonEventFilter(self.table))
 
         box = QtWidgets.QDialogButtonBox(self)
         btn_save = box.addButton(
@@ -505,6 +561,8 @@ class AnalyticsDialog(QtWidgets.QDialog):
         box.accepted.connect(self.save)
         box.rejected.connect(self.reject)
         lay.addWidget(box)
+        btn_save.installEventFilter(NeonEventFilter(btn_save))
+        btn_close.installEventFilter(NeonEventFilter(btn_close))
 
         # prepare items
         for r, name in enumerate(self.INDICATORS):
@@ -670,6 +728,7 @@ class TopDialog(QtWidgets.QDialog):
         self.spin_year.setRange(2000, 2100)
         self.spin_year.setValue(year)
         top.addWidget(self.spin_year)
+        self.spin_year.installEventFilter(NeonEventFilter(self.spin_year))
 
         self.combo_mode = QtWidgets.QComboBox(self)
         self.combo_mode.addItem("Месяц", "month")
@@ -678,14 +737,17 @@ class TopDialog(QtWidgets.QDialog):
         self.combo_mode.addItem("Год", "year")
         self.combo_mode.currentIndexChanged.connect(self._mode_changed)
         top.addWidget(self.combo_mode)
+        self.combo_mode.installEventFilter(NeonEventFilter(self.combo_mode))
 
         self.combo_period = QtWidgets.QComboBox(self)
         top.addWidget(self.combo_period)
+        self.combo_period.installEventFilter(NeonEventFilter(self.combo_period))
         self._mode_changed()  # fill periods
 
         self.btn_calc = QtWidgets.QPushButton("Сформировать", self)
         self.btn_calc.clicked.connect(self.calculate)
         top.addWidget(self.btn_calc)
+        self.btn_calc.installEventFilter(NeonEventFilter(self.btn_calc))
         lay.addLayout(top)
 
         headers = [
@@ -716,6 +778,7 @@ class TopDialog(QtWidgets.QDialog):
         self.table.horizontalHeader().setFont(header_font)
 
         lay.addWidget(self.table, 1)
+        self.table.installEventFilter(NeonEventFilter(self.table))
 
         box = QtWidgets.QDialogButtonBox(self)
         btn_save = box.addButton(
@@ -727,6 +790,8 @@ class TopDialog(QtWidgets.QDialog):
         box.accepted.connect(self.save)
         box.rejected.connect(self.reject)
         lay.addWidget(box)
+        btn_save.installEventFilter(NeonEventFilter(btn_save))
+        btn_close.installEventFilter(NeonEventFilter(btn_close))
 
     def _mode_changed(self):
         mode = self.combo_mode.currentData()
@@ -926,22 +991,10 @@ class NeonTableWidget(QtWidgets.QTableWidget):
         self.viewport().installEventFilter(self)
 
     def _apply_neon(self):
-        accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
-        size = CONFIG.get("neon_size", 10)
-        thickness = CONFIG.get("neon_thickness", 1)
-        intensity = CONFIG.get("neon_intensity", 255)
-        eff = QtWidgets.QGraphicsDropShadowEffect(self)
-        eff.setOffset(0, 0)
-        eff.setBlurRadius(size)
-        c = QtGui.QColor(accent)
-        c.setAlpha(intensity)
-        eff.setColor(c)
-        self.setGraphicsEffect(eff)
-        self.setStyleSheet(f"border:{thickness}px solid {accent.name()};")
+        apply_neon_effect(self, True)
 
     def _clear_neon(self):
-        self.setGraphicsEffect(None)
-        self.setStyleSheet("")
+        apply_neon_effect(self, False)
 
     def event(self, ev):
         if ev.type() == QtCore.QEvent.HoverEnter:
@@ -1114,6 +1167,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         self.btn_toggle.setCursor(QtCore.Qt.PointingHandCursor)
         self.btn_toggle.clicked.connect(self.toggle)
         lay.addWidget(self.btn_toggle)
+        self.btn_toggle.installEventFilter(NeonEventFilter(self.btn_toggle))
 
         line = QtWidgets.QFrame(self); line.setFrameShape(QtWidgets.QFrame.HLine); line.setStyleSheet("color:#333;")
         lay.addWidget(line)
@@ -1137,6 +1191,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             b.setCursor(QtCore.Qt.PointingHandCursor)
             b.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
             lay.addWidget(b); self.buttons.append(b)
+            b.installEventFilter(NeonEventFilter(b))
             if label == "Вводные":
                 self.btn_inputs = b
             elif label == "Выкладка":
@@ -1417,6 +1472,7 @@ class TopBar(QtWidgets.QWidget):
         self.btn_prev.setText(" < ")
         self.btn_prev.clicked.connect(self.prev_clicked)
         lay.addWidget(self.btn_prev)
+        self.btn_prev.installEventFilter(NeonEventFilter(self.btn_prev))
         self.lbl_month = QtWidgets.QLabel("Месяц")
         self.lbl_month.setAlignment(QtCore.Qt.AlignCenter)
         lay.addWidget(self.lbl_month)
@@ -1425,15 +1481,18 @@ class TopBar(QtWidgets.QWidget):
         self.spin_year.setValue(datetime.now().year)
         self.spin_year.valueChanged.connect(self.year_changed.emit)
         lay.addWidget(self.spin_year)
+        self.spin_year.installEventFilter(NeonEventFilter(self.spin_year))
         lay.addStretch(1)
         self.btn_next = QtWidgets.QToolButton(self)
         self.btn_next.setText(" > ")
         self.btn_next.clicked.connect(self.next_clicked)
         lay.addWidget(self.btn_next)
+        self.btn_next.installEventFilter(NeonEventFilter(self.btn_next))
         self.btn_settings = QtWidgets.QToolButton(self)
         self.btn_settings.setText("⚙")
         self.btn_settings.clicked.connect(self.settings_clicked)
         lay.addWidget(self.btn_settings)
+        self.btn_settings.installEventFilter(NeonEventFilter(self.btn_settings))
         self.default_style = (
             "QLabel{color:#e5e5e5;} QToolButton{color:#e5e5e5; border:1px solid #555; border-radius:6px; padding:4px 10px;}"
         )
@@ -1494,6 +1553,7 @@ class MainWindow(QtWidgets.QMainWindow):
         right = QtWidgets.QWidget(self); v = QtWidgets.QVBoxLayout(right); v.setContentsMargins(0,0,0,0); v.setSpacing(0)
         self.topbar = TopBar(self); v.addWidget(self.topbar)
         self.table = ExcelCalendarTable(self); v.addWidget(self.table, 1)
+        self.table.installEventFilter(NeonEventFilter(self.table))
         h.addWidget(right, 1)
 
         self.setCentralWidget(central)
