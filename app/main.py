@@ -290,6 +290,9 @@ class StatsEntryForm(QtWidgets.QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding
+        )
         form = QtWidgets.QFormLayout(self)
         self.widgets = {}
         for key, label, cls in self.INPUT_FIELDS:
@@ -360,7 +363,7 @@ class StatsDialog(QtWidgets.QDialog):
         self.table_stats.setSortingEnabled(True)
         self.table_stats.verticalHeader().setVisible(False)
         self.table_stats.itemSelectionChanged.connect(self.on_table_selection)
-        lay.addWidget(self.table_stats, 1)
+        lay.addWidget(self.table_stats)
 
         self.form_stats = StatsEntryForm(self)
         lay.addWidget(self.form_stats)
@@ -375,6 +378,8 @@ class StatsDialog(QtWidgets.QDialog):
         self.btn_box.accepted.connect(self.save_record)
         self.btn_box.rejected.connect(self.reject)
         lay.addWidget(self.btn_box)
+        lay.setStretch(0, 2)
+        lay.setStretch(1, 1)
 
         self.records: List[Dict[str, int | float | str | bool]] = []
         self.current_index = None
@@ -417,6 +422,7 @@ class StatsDialog(QtWidgets.QDialog):
                     item = QtWidgets.QTableWidgetItem(str(val))
                 self.table_stats.setItem(r, c, item)
         self.table_stats.resizeColumnsToContents()
+        self.table_stats.resizeRowsToContents()
         header = self.table_stats.horizontalHeader()
         total_width = sum(header.sectionSize(i) for i in range(header.count()))
         if total_width <= self.table_stats.viewport().width():
