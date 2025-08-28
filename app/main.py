@@ -4,7 +4,7 @@ from datetime import datetime, date
 from typing import Dict, List
 
 from PySide6 import QtWidgets, QtGui, QtCore
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 
 ASSETS = os.path.join(os.path.dirname(__file__), "..", "assets")
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
@@ -77,25 +77,12 @@ VERSION_FILE = os.path.join(os.path.dirname(__file__), "..", "VERSION")
 
 RU_MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"]
 
-# роли для хранения структуры работ и отметки "18+"
-WORK_ROLE = QtCore.Qt.UserRole
-ADULT_ROLE = QtCore.Qt.UserRole + 1
-
-
-@dataclass
-class Work:
-    plan: str
-    done: bool = False
-    is_adult: bool = False
-    planned_chapters: int = 0
-    done_chapters: int = 0
-
 
 @dataclass
 class MonthData:
     year: int
     month: int
-    days: Dict[int, List[Work]] = field(default_factory=dict)
+    days: Dict[int, List[Dict[str, str]]] = field(default_factory=dict)
 
     @property
     def path(self) -> str:
@@ -103,18 +90,17 @@ class MonthData:
         return os.path.join(DATA_DIR, f"{self.year:04d}-{self.month:02d}.json")
 
     def save(self) -> None:
-        days: Dict[str, Dict[str, Dict[str, int | bool]]] = {}
-        for day, works in self.days.items():
-            works_dict: Dict[str, Dict[str, int | bool]] = {}
-            for w in works:
-                works_dict[w.plan] = {
-                    "done": w.done,
-                    "is_adult": w.is_adult,
-                    "plan": w.planned_chapters,
-                    "done_chapters": w.done_chapters,
-                }
-            if works_dict:
-                days[str(day)] = works_dict
+        days: Dict[str, List[Dict[str, str]]] = {}
+        for day, rows in self.days.items():
+            row_list: List[Dict[str, str]] = []
+            for r in rows:
+                row_list.append({
+                    "work": r.get("work", ""),
+                    "plan": r.get("plan", ""),
+                    "done": r.get("done", ""),
+                })
+            if row_list:
+                days[str(day)] = row_list
         data = {"year": self.year, "month": self.month, "days": days}
         with open(self.path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
@@ -125,132 +111,25 @@ class MonthData:
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            days: Dict[int, List[Work]] = {}
+            days: Dict[int, List[Dict[str, str]]] = {}
             for k, v in data.get("days", {}).items():
-                works_list: List[Work] = []
-                if isinstance(v, list):
-                    # legacy format
-                    for w in v:
-                        works_list.append(
-                            Work(
-                                plan=w.get("plan", ""),
-                                done=w.get("done", False),
-                                is_adult=w.get("is_adult", False),
-                                planned_chapters=w.get("planned_chapters", 0),
-                                done_chapters=w.get("done_chapters", 0),
-                            )
-                        )
-                else:
-                    for name, info in v.items():
-                        works_list.append(
-                            Work(
-                                plan=name,
-                                done=info.get("done", False),
-                                is_adult=info.get("is_adult", False),
-                                planned_chapters=info.get("plan", 0),
-                                done_chapters=info.get("done_chapters", 0),
-                            )
-                        )
-                days[int(k)] = works_list
+                row_list: List[Dict[str, str]] = []
+                for row in v:
+                    if isinstance(row, dict):
+                        row_list.append({
+                            "work": row.get("work", ""),
+                            "plan": row.get("plan", ""),
+                            "done": row.get("done", ""),
+                        })
+                    elif isinstance(row, list):
+                        row_list.append({
+                            "work": row[0] if len(row) > 0 else "",
+                            "plan": row[1] if len(row) > 1 else "",
+                            "done": row[2] if len(row) > 2 else "",
+                        })
+                days[int(k)] = row_list
             return cls(year=data.get("year", year), month=data.get("month", month), days=days)
         return cls(year=year, month=month)
-
-
-class MonthDelegate(QtWidgets.QStyledItemDelegate):
-    def paint(self, painter, option, index):
-        super().paint(painter, option, index)
-
-        if index.data(ADULT_ROLE):
-            painter.save()
-            painter.setPen(QtCore.Qt.NoPen)
-            painter.setBrush(QtGui.QColor(200, 0, 0))
-            rect = option.rect
-            tri = QtGui.QPolygon(
-                [rect.topRight(), rect.topRight() + QtCore.QPoint(-10, 0), rect.topRight() + QtCore.QPoint(0, 10)]
-            )
-            painter.drawPolygon(tri)
-            painter.restore()
-
-class WorkEditDialog(QtWidgets.QDialog):
-    """Простое редактирование списка работ в ячейке."""
-
-    def __init__(self, works, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Работы")
-        self.resize(300, 200)
-        self.works = works[:]
-
-        self.lay = QtWidgets.QVBoxLayout(self)
-        self.rows = []
-
-        for w in self.works:
-            self._add_row(w)
-
-        btn_add = QtWidgets.QPushButton("Добавить", self)
-        btn_add.clicked.connect(
-            lambda: self._add_row(
-                {
-                    "plan": "",
-                    "done": False,
-                    "is_adult": False,
-                    "planned_chapters": 0,
-                    "done_chapters": 0,
-                }
-            )
-        )
-        self.lay.addWidget(btn_add)
-
-        box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel, self)
-        box.accepted.connect(self.accept)
-        box.rejected.connect(self.reject)
-        self.lay.addWidget(box)
-
-    def _add_row(self, data):
-        row_w = QtWidgets.QWidget(self)
-        hl = QtWidgets.QHBoxLayout(row_w)
-        hl.setContentsMargins(0, 0, 0, 0)
-        cb_done = QtWidgets.QCheckBox("", row_w)
-        cb_done.setChecked(data.get("done", False))
-        hl.addWidget(cb_done)
-
-        le = QtWidgets.QLineEdit(data.get("plan", ""), row_w)
-        hl.addWidget(le, 1)
-
-        sp_plan = QtWidgets.QSpinBox(row_w)
-        sp_plan.setRange(0, 9999)
-        sp_plan.setValue(data.get("planned_chapters", 0))
-        sp_plan.setPrefix("П:")
-        hl.addWidget(sp_plan)
-
-        sp_done = QtWidgets.QSpinBox(row_w)
-        sp_done.setRange(0, 9999)
-        sp_done.setValue(data.get("done_chapters", 0))
-        sp_done.setPrefix("Г:")
-        hl.addWidget(sp_done)
-
-        cb_adult = QtWidgets.QCheckBox("18+", row_w)
-        cb_adult.setChecked(data.get("is_adult", False))
-        hl.addWidget(cb_adult)
-
-        self.lay.addWidget(row_w)
-        self.rows.append((cb_done, le, sp_plan, sp_done, cb_adult))
-
-    def get_works(self):
-        works = []
-        for cb_done, le, sp_plan, sp_done, cb_adult in self.rows:
-            txt = le.text().strip()
-            if not txt and sp_plan.value() == 0 and sp_done.value() == 0:
-                continue
-            works.append(
-                {
-                    "plan": txt,
-                    "done": cb_done.isChecked(),
-                    "is_adult": cb_adult.isChecked(),
-                    "planned_chapters": sp_plan.value(),
-                    "done_chapters": sp_done.value(),
-                }
-            )
-        return works
 
 
 class ReleaseDialog(QtWidgets.QDialog):
@@ -1010,7 +889,7 @@ class TopDialog(QtWidgets.QDialog):
         self.accept()
 
 class ExcelCalendarTable(QtWidgets.QTableWidget):
-    """Таблица календаря месяца, построенная на данных MonthData."""
+    """Таблица календаря месяца с вложенными таблицами по дням."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -1018,25 +897,27 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         self.verticalHeader().setVisible(False)
         self.setShowGrid(True)
         self.setWordWrap(True)
-        self.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
-        day_names = ["ПН", "ВТ", "СР", "ЧТ", "ПТ"]
-        headers = ["Неделя"]
-        for dn in day_names:
-            headers.extend([dn, f"{dn} План", f"{dn} Готово"])
-        self.setColumnCount(len(headers))
-        self.setHorizontalHeaderLabels(headers)
+        day_names = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "ВС"]
+        self.setColumnCount(len(day_names))
+        self.setHorizontalHeaderLabels(day_names)
         self.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
-        self.setItemDelegate(MonthDelegate(self))
 
         now = datetime.now()
         self.year = now.year
         self.month = now.month
         self.date_map: Dict[tuple[int, int], date] = {}
+        self.cell_tables: Dict[tuple[int, int], QtWidgets.QTableWidget] = {}
 
         self.load_month_data(self.year, self.month)
 
-        self.itemDoubleClicked.connect(self.edit_cell)
+    def _create_inner_table(self) -> QtWidgets.QTableWidget:
+        tbl = QtWidgets.QTableWidget(6, 3, self)
+        tbl.setHorizontalHeaderLabels(["Работа", "План", "Готово"])
+        tbl.verticalHeader().setVisible(False)
+        tbl.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        tbl.setEditTriggers(QtWidgets.QAbstractItemView.DoubleClicked)
+        return tbl
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -1049,60 +930,25 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
             for r in range(rows):
                 self.setRowHeight(r, height)
 
-    def _format_cell_text(self, day_num: int, works):
-        work_lines = [str(day_num)]
-        plan_lines = [""]
-        done_lines = [""]
-        for w in works:
-            prefix = "[x]" if w.get("done") else "[ ]"
-            txt = f"{prefix} {w.get('plan', '')}"
-            if w.get("is_adult"):
-                txt += " (18+)"
-            work_lines.append(txt)
-            planned = w.get("planned_chapters", 0)
-            done = w.get("done_chapters", 0)
-            plan_lines.append(str(planned) if planned else "")
-            done_lines.append(str(done) if done else "")
-        return ("\n".join(work_lines), "\n".join(plan_lines), "\n".join(done_lines))
-
-    def edit_cell(self, item):
-        row, col = item.row(), item.column()
-        day = self.date_map.get((row, col))
-        if not day or day.month != self.month or col == 0:
-            return
-        base_col = col - 1 - (col - 1) % 3 + 1
-        base_item = self.item(row, base_col)
-        works = base_item.data(WORK_ROLE) or []
-        dlg = WorkEditDialog(works, self)
-        if dlg.exec() == QtWidgets.QDialog.Accepted:
-            works = dlg.get_works()
-            texts = self._format_cell_text(day.day, works)
-            for offset in range(3):
-                sub_item = self.item(row, base_col + offset)
-                sub_item.setData(WORK_ROLE, works)
-                if offset == 0:
-                    sub_item.setData(ADULT_ROLE, any(w.get("is_adult") for w in works))
-                sub_item.setText(texts[offset])
-
     # ---------- Persistence ----------
     def save_current_month(self):
         md = MonthData(year=self.year, month=self.month)
         for (r, c), day in self.date_map.items():
-            if day.month != self.month or c == 0 or (c - 1) % 3 != 0:
+            if day.month != self.month:
                 continue
-            it = self.item(r, c)
-            works = it.data(WORK_ROLE) or []
-            if works:
-                md.days[day.day] = [
-                    Work(
-                        plan=w.get("plan", ""),
-                        done=w.get("done", False),
-                        is_adult=w.get("is_adult", False),
-                        planned_chapters=w.get("planned_chapters", 0),
-                        done_chapters=w.get("done_chapters", 0),
-                    )
-                    for w in works
-                ]
+            inner = self.cell_tables.get((r, c))
+            if not inner:
+                continue
+            rows = []
+            for rr in range(inner.rowCount()):
+                vals = []
+                for cc in range(inner.columnCount()):
+                    it = inner.item(rr, cc)
+                    vals.append(it.text().strip() if it else "")
+                if any(vals):
+                    rows.append({"work": vals[0], "plan": vals[1], "done": vals[2]})
+            if rows:
+                md.days[day.day] = rows
         md.save()
 
     def load_month_data(self, year: int, month: int):
@@ -1112,47 +958,30 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         cal = calendar.Calendar()
         weeks = cal.monthdatescalendar(year, month)
         self.date_map.clear()
+        self.cell_tables.clear()
         self.setRowCount(len(weeks))
         for r, week in enumerate(weeks):
-            week_num = week[0].isocalendar()[1]
-            it_week = QtWidgets.QTableWidgetItem(str(week_num))
-            it_week.setFlags(QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
-            self.setItem(r, 0, it_week)
-            for i in range(5):
-                day = week[i]
-                base_col = 1 + i * 3
-                texts = ["", "", ""]
-                works = []
-                if day.month == month:
-                    for w in md.days.get(day.day, []):
-                        if isinstance(w, Work):
-                            works.append(asdict(w))
-                        else:
-                            works.append(
-                                {
-                                    "plan": w.get("plan", ""),
-                                    "done": w.get("done", False),
-                                    "is_adult": w.get("is_adult", False),
-                                    "planned_chapters": w.get("planned_chapters", 0),
-                                    "done_chapters": w.get("done_chapters", 0),
-                                }
-                            )
-                    texts = list(self._format_cell_text(day.day, works))
-                for offset in range(3):
-                    col = base_col + offset
-                    self.date_map[(r, col)] = day
-                    it = QtWidgets.QTableWidgetItem()
-                    if day.month != month:
-                        it.setFlags(QtCore.Qt.NoItemFlags)
-                        if offset == 0:
-                            it.setText(str(day.day))
-                            it.setForeground(QtGui.QBrush(QtGui.QColor(150, 150, 150)))
-                    else:
-                        it.setText(texts[offset])
-                        it.setData(WORK_ROLE, works)
-                        if offset == 0:
-                            it.setData(ADULT_ROLE, any(w.get("is_adult") for w in works))
-                    self.setItem(r, col, it)
+            for c, day in enumerate(week):
+                container = QtWidgets.QWidget()
+                lay = QtWidgets.QVBoxLayout(container)
+                lay.setContentsMargins(0, 0, 0, 0)
+                lbl = QtWidgets.QLabel(str(day.day), container)
+                lay.addWidget(lbl, alignment=QtCore.Qt.AlignLeft)
+                inner = self._create_inner_table()
+                lay.addWidget(inner)
+                self.setCellWidget(r, c, container)
+                self.date_map[(r, c)] = day
+                self.cell_tables[(r, c)] = inner
+                if day.month != month:
+                    container.setEnabled(False)
+                else:
+                    rows = md.days.get(day.day, [])
+                    for rr, row in enumerate(rows):
+                        if rr >= inner.rowCount():
+                            break
+                        for cc, key in enumerate(["work", "plan", "done"]):
+                            item = QtWidgets.QTableWidgetItem(str(row.get(key, "")))
+                            inner.setItem(rr, cc, item)
         self._update_row_heights()
         return True
 
@@ -1537,13 +1366,15 @@ class MainWindow(QtWidgets.QMainWindow):
         for (r, c), day in self.table.date_map.items():
             if day.month != self.table.month:
                 continue
-            it = self.table.item(r, c)
-            if not it:
+            inner = self.table.cell_tables.get((r, c))
+            if not inner:
                 continue
-            for w in it.data(WORK_ROLE) or []:
-                name = w.get("plan", "").strip()
-                if name:
-                    names.add(name)
+            for row in range(inner.rowCount()):
+                it = inner.item(row, 0)
+                if it:
+                    name = it.text().strip()
+                    if name:
+                        names.add(name)
         return sorted(names)
 
     def open_release_dialog(self):
