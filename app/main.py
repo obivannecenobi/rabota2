@@ -989,6 +989,10 @@ class NeonTableWidget(QtWidgets.QTableWidget):
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
         self.setAttribute(QtCore.Qt.WA_Hover, True)
         self.viewport().installEventFilter(self)
+        accent = CONFIG["accent_color"]
+        self.setStyleSheet(
+            f"QTableWidget::item:selected {{background:transparent; border:1px solid {accent};}}"
+        )
 
     def _apply_neon(self):
         apply_neon_effect(self, True)
@@ -1009,6 +1013,14 @@ class NeonTableWidget(QtWidgets.QTableWidget):
     def focusInEvent(self, event):
         super().focusInEvent(event)
         self._apply_neon()
+
+    def focusOutEvent(self, e):
+        super().focusOutEvent(e)
+        self.clearSelection()
+
+    def itemSelectionChanged(self):
+        super().itemSelectionChanged()
+        self.clearSelection()
 
 class ExcelCalendarTable(QtWidgets.QTableWidget):
     """Таблица календаря месяца с вложенными таблицами по дням."""
@@ -1094,6 +1106,8 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         for r, week in enumerate(weeks):
             for c, day in enumerate(week):
                 container = QtWidgets.QWidget()
+                container.setAttribute(QtCore.Qt.WA_Hover, True)
+                container.installEventFilter(NeonEventFilter(container))
                 lay = QtWidgets.QVBoxLayout(container)
                 lay.setContentsMargins(0, 0, 0, 0)
                 lay.setSpacing(2)
