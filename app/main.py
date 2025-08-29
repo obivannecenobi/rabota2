@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from widgets import StyledPushButton, StyledToolButton
 from resources import register_fonts, load_icons, icon
 import theme_manager
+from effects import set_neon
 
 ASSETS = os.path.join(os.path.dirname(__file__), "..", "assets")
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
@@ -94,73 +95,56 @@ VERSION_FILE = os.path.join(os.path.dirname(__file__), "..", "VERSION")
 RU_MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"]
 
 
-def apply_neon_effect(widget: QtWidgets.QWidget, enable: bool) -> None:
-    """Apply or clear neon effect on *widget* based on CONFIG."""
-    orig = widget.property("orig_style") or widget.styleSheet()
-    widget.setProperty("orig_style", orig)
-    radius = widget.property("neon_radius")
-    if radius is None:
-        m = re.search(r"border-radius:(\d+)px", orig)
-        radius = int(m.group(1)) if m else 8
-        widget.setProperty("neon_radius", radius)
-    thickness = CONFIG.get("neon_thickness", 1)
-    base = (
-        f"border:{thickness}px solid transparent; "
-        f"border-radius:{radius}px;"
-    )
-
-    if enable and CONFIG.get("neon", False):
-        accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
-        if CONFIG.get("monochrome", False):
-            h, s, v, _ = accent.getHsv()
-            s = int(CONFIG.get("mono_saturation", 100))
-            accent.setHsv(h, s, v)
-        size = CONFIG.get("neon_size", 10)
-        intensity = CONFIG.get("neon_intensity", 255)
-        eff = QtWidgets.QGraphicsDropShadowEffect(widget)
-        eff.setOffset(0, 0)
-        eff.setBlurRadius(size)
-        c = QtGui.QColor(accent)
-        c.setAlpha(intensity)
-        eff.setColor(c)
-        widget.setGraphicsEffect(eff)
-        if CONFIG.get("neon_motion", False):
-            anim = QtCore.QPropertyAnimation(eff, b"blurRadius", widget)
-            anim.setStartValue(size)
-            anim.setEndValue(size * 2)
-            dur = int(1000 / max(CONFIG.get("animation_speed", 1.0), 0.1))
-            anim.setDuration(dur)
-            anim.setLoopCount(-1)
-            anim.setEasingCurve(QtCore.QEasingCurve.InOutQuad)
-            anim.start(QtCore.QAbstractAnimation.DeleteWhenStopped)
-            widget._neon_anim = anim
-        else:
-            widget._neon_anim = None
-        widget.setStyleSheet(orig + base.replace("transparent", accent.name()))
-    else:
-        widget.setStyleSheet(orig + base)
-        widget.setGraphicsEffect(None)
-        if hasattr(widget, "_neon_anim") and widget._neon_anim:
-            widget._neon_anim.stop()
-            widget._neon_anim = None
-
-
 class NeonEventFilter(QtCore.QObject):
-    """Event filter applying neon effect on focus/hover."""
+    """Event filter enabling animated neon highlight on hover and focus."""
 
     def __init__(self, widget: QtWidgets.QWidget):
         super().__init__(widget)
         self._widget = widget
+        self._anim = None
+        self._motion = None
+        self._orig_style = widget.styleSheet()
+
+    def _start(self) -> None:
+        if not CONFIG.get("neon", False):
+            return
+        accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
+        self._orig_style = self._widget.styleSheet()
+        radius_match = re.search(r"border-radius:(\d+)px", self._orig_style)
+        radius = int(radius_match.group(1)) if radius_match else 8
+        thickness = CONFIG.get("neon_thickness", 1)
+        border = f"border:{thickness}px solid {accent.name()}; border-radius:{radius}px;"
+        self._widget.setStyleSheet(self._orig_style + border)
+        eff, anim, motion = set_neon(
+            self._widget,
+            accent,
+            intensity=CONFIG.get("neon_intensity", 255),
+            pulse=CONFIG.get("neon_motion", False),
+            motion_speed=CONFIG.get("animation_speed", 1.0),
+        )
+        self._anim = anim
+        self._motion = motion
+        self._effect = eff
+
+    def _stop(self) -> None:
+        self._widget.setStyleSheet(self._orig_style)
+        self._widget.setGraphicsEffect(None)
+        if self._anim:
+            self._anim.stop()
+            self._anim = None
+        if self._motion:
+            self._motion.stop()
+            self._motion = None
 
     def eventFilter(self, obj, ev):
         if ev.type() in (QtCore.QEvent.HoverEnter, QtCore.QEvent.FocusIn):
-            apply_neon_effect(self._widget, True)
+            self._start()
         elif ev.type() in (
             QtCore.QEvent.HoverLeave,
             QtCore.QEvent.Leave,
             QtCore.QEvent.FocusOut,
         ):
-            apply_neon_effect(self._widget, False)
+            self._stop()
         return False
 
 
@@ -1049,35 +1033,14 @@ class NeonTableWidget(QtWidgets.QTableWidget):
         super().__init__(rows, cols, parent)
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
         self.setAttribute(QtCore.Qt.WA_Hover, True)
-        self.viewport().installEventFilter(self)
+        self.viewport().setAttribute(QtCore.Qt.WA_Hover, True)
+        self._neon_filter = NeonEventFilter(self)
+        self.installEventFilter(self._neon_filter)
+        self.viewport().installEventFilter(self._neon_filter)
         accent = CONFIG["accent_color"]
         self.setStyleSheet(
             f"QTableWidget::item:selected {{background:transparent; border:1px solid {accent};}}"
         )
-
-    def _apply_neon(self):
-        apply_neon_effect(self, True)
-
-    def _clear_neon(self):
-        apply_neon_effect(self, False)
-
-    def event(self, ev):
-        if ev.type() == QtCore.QEvent.HoverEnter:
-            self._apply_neon()
-        return super().event(ev)
-
-    def eventFilter(self, obj, ev):
-        if ev.type() in (
-            QtCore.QEvent.HoverLeave,
-            QtCore.QEvent.Leave,
-            QtCore.QEvent.FocusOut,
-        ):
-            self._clear_neon()
-        return super().eventFilter(obj, ev)
-
-    def focusInEvent(self, event):
-        super().focusInEvent(event)
-        self._apply_neon()
 
     def focusOutEvent(self, e):
         super().focusOutEvent(e)
