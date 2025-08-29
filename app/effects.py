@@ -8,11 +8,10 @@ def set_neon(
     mode="outer",
     pulse=False,
 ):
-    """
-    Apply neon effect to ``widget``.
+    """Apply neon effect to ``widget``.
 
-    ``mode`` can be ``"outer"`` (default) for a drop shadow or ``"inner"`` for a
-    colorize effect based on the widget's ``palette().buttonText()`` color.
+    ``mode`` can be ``"outer"`` (default) for a drop shadow or ``"inner"`` for
+    a colorize effect based on the widget's ``palette().buttonText()`` color.
     """
 
     if mode == "inner":

@@ -48,4 +48,3 @@ def load_icons(theme: str = "dark") -> None:
 def icon(name: str) -> QIcon:
     """Return previously loaded icon by *name*."""
     return ICONS.get(name, QIcon())
-

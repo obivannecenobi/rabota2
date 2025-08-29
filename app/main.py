@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
-import sys, os, json, calendar, re
+import sys
+import os
+import json
+import calendar
+import re
 from datetime import datetime, date
 from typing import Dict, List, Union
 
@@ -1297,9 +1301,9 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         self.btn_release = None
         self.btn_analytics = None
         self.btn_tops = None
-        for label, icon in items:
+        for label, icon_path in items:
             b = StyledToolButton(self)
-            b.setIcon(QtGui.QIcon(icon))
+            b.setIcon(QtGui.QIcon(icon_path))
             b.setIconSize(QtCore.QSize(22, 22))
             b.setText(" " + label)
             b.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
