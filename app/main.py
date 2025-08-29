@@ -1529,6 +1529,38 @@ class SettingsDialog(QtWidgets.QDialog):
         self.chk_glass.toggled.connect(lambda _: self._save_config())
         form_interface.addRow("Стекло", self.chk_glass)
 
+        self.combo_glass_effect = QtWidgets.QComboBox(self)
+        self.combo_glass_effect.addItems(["Acrylic", "Mica", "Aero"])
+        self.combo_glass_effect.setCurrentText(
+            CONFIG.get("glass_effect") or "Acrylic"
+        )
+        self.combo_glass_effect.currentTextChanged.connect(
+            lambda _: self._save_config()
+        )
+        form_interface.addRow("Эффект стекла", self.combo_glass_effect)
+
+        self.sld_glass_opacity = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.sld_glass_opacity.setRange(0, 100)
+        self.sld_glass_opacity.setValue(
+            int(float(CONFIG.get("glass_opacity", 0.5)) * 100)
+        )
+        self.lbl_glass_opacity = QtWidgets.QLabel(
+            str(self.sld_glass_opacity.value())
+        )
+        self.sld_glass_opacity.valueChanged.connect(
+            lambda v: (self.lbl_glass_opacity.setText(str(v)), self._save_config())
+        )
+        lay_glass_opacity = QtWidgets.QHBoxLayout()
+        lay_glass_opacity.addWidget(self.sld_glass_opacity, 1)
+        lay_glass_opacity.addWidget(self.lbl_glass_opacity)
+        form_interface.addRow("Прозрачность стекла", lay_glass_opacity)
+
+        self.spin_glass_blur = QtWidgets.QSpinBox(self)
+        self.spin_glass_blur.setRange(0, 100)
+        self.spin_glass_blur.setValue(CONFIG.get("glass_blur", 10))
+        self.spin_glass_blur.valueChanged.connect(lambda _: self._save_config())
+        form_interface.addRow("Размытие стекла", self.spin_glass_blur)
+
         header_family, text_family = resolve_font_config(self)
         self.font_header = QtWidgets.QFontComboBox(self)
         self.font_header.setCurrentFont(QtGui.QFont(header_family))
@@ -1614,6 +1646,9 @@ class SettingsDialog(QtWidgets.QDialog):
             self.spin_neon_thickness,
             self.spin_neon_intensity,
             self.chk_glass,
+            self.combo_glass_effect,
+            self.sld_glass_opacity,
+            self.spin_glass_blur,
             self.font_header,
             self.font_text,
             self.edit_path,
@@ -1645,6 +1680,9 @@ class SettingsDialog(QtWidgets.QDialog):
             "gradient_colors": [self._grad_color1.name(), self._grad_color2.name()],
             "gradient_angle": self.sld_grad_angle.value(),
             "glass_enabled": self.chk_glass.isChecked(),
+            "glass_effect": self.combo_glass_effect.currentText(),
+            "glass_opacity": self.sld_glass_opacity.value() / 100,
+            "glass_blur": self.spin_glass_blur.value(),
             "workspace_color": self._workspace_color.name(),
             "sidebar_color": self._sidebar_color.name(),
             "header_font": self.font_header.currentFont().family(),

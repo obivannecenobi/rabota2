@@ -1,7 +1,7 @@
 from typing import Dict, Tuple
 import math
 
-from PySide6 import QtWidgets, QtGui
+from PySide6 import QtWidgets, QtGui, QtCore
 
 
 def set_text_font(name: str) -> None:
@@ -56,34 +56,54 @@ def apply_gradient(config: Dict) -> Tuple[str, str]:
 
 
 def apply_glass_effect(window: QtWidgets.QWidget, config: Dict) -> None:
-    """Apply glass effect using BlurWindow based on *config*."""
+    """Apply glass effect to the main workspace."""
     enabled = config.get("glass_enabled", False)
     eff_type = config.get("glass_effect") or "Acrylic"
     opacity = float(config.get("glass_opacity", 0.5))
     blur = int(config.get("glass_blur", 10))
+
+    central = window.centralWidget()
+    if not central:
+        return
+
+    # remove fallback layer if present
+    back = getattr(window, "_glass_back", None)
+
     try:
         from blurwindow import BlurWindow, GlobalBlur
-        if enabled:
-            blur_type = getattr(GlobalBlur, eff_type, GlobalBlur.Acrylic)
-            BlurWindow.blur(
-                window.winId(), blur_type, blur, int(opacity * 255)
-            )
+        if enabled and getattr(BlurWindow, "is_supported", lambda: True)():
+            if back:
+                back.setParent(None)
+                window._glass_back = None
+            blur_type = getattr(GlobalBlur, eff_type, getattr(GlobalBlur, "Acrylic", None))
+            BlurWindow.blur(central.winId(), blur_type, blur, int(opacity * 255))
         else:
-            BlurWindow.blur(window.winId(), GlobalBlur.CLEAR)
+            try:
+                BlurWindow.blur(central.winId(), getattr(GlobalBlur, "CLEAR", 0))
+            except Exception:
+                pass
+            enabled = False
+            raise Exception
     except Exception:
-        central = window.centralWidget()
-        if not central:
-            return
         if enabled:
-            eff = QtWidgets.QGraphicsBlurEffect(window)
+            if back is None:
+                back = QtWidgets.QWidget(central)
+                back.setObjectName("_glass_back")
+                back.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, True)
+                window._glass_back = back
+            back.setGeometry(central.rect())
+            eff = QtWidgets.QGraphicsBlurEffect(back)
             eff.setBlurRadius(blur)
-            central.setGraphicsEffect(eff)
+            back.setGraphicsEffect(eff)
             color = QtGui.QColor(config.get("workspace_color", "#1e1e21"))
             color.setAlpha(int(opacity * 255))
-            pal = central.palette()
-            pal.setColor(central.backgroundRole(), color)
-            central.setAutoFillBackground(True)
-            central.setPalette(pal)
-        else:
-            central.setGraphicsEffect(None)
-            central.setAutoFillBackground(False)
+            pal = back.palette()
+            pal.setColor(back.backgroundRole(), color)
+            back.setAutoFillBackground(True)
+            back.setPalette(pal)
+            back.lower()
+            back.show()
+            central.raise_()
+        elif back is not None:
+            back.setParent(None)
+            window._glass_back = None
