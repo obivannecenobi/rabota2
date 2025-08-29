@@ -286,8 +286,8 @@ class ReleaseDialog(QtWidgets.QDialog):
             sp_day.setRange(1, self.days_in_month)
             sp_day.setValue(row + 1)
             sp_day.setReadOnly(True)
+            sp_day.setFixedWidth(sp_day.sizeHint().width() + 20)
             sp_day.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
-            sp_day.setMinimumWidth(sp_day.sizeHint().width())
             self.table.setCellWidget(row, 0, sp_day)
             sp_day.setAttribute(QtCore.Qt.WA_Hover, True)
             sp_day.installEventFilter(NeonEventFilter(sp_day))
@@ -302,7 +302,8 @@ class ReleaseDialog(QtWidgets.QDialog):
 
             sp_ch = QtWidgets.QSpinBox(self.table)
             sp_ch.setRange(0, 9999)
-            sp_ch.setMinimumWidth(sp_ch.sizeHint().width())
+            sp_ch.setFixedWidth(sp_ch.sizeHint().width() + 20)
+            sp_ch.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
             self.table.setCellWidget(row, 2, sp_ch)
             sp_ch.setAttribute(QtCore.Qt.WA_Hover, True)
             sp_ch.installEventFilter(NeonEventFilter(sp_ch))
@@ -445,6 +446,10 @@ class StatsEntryForm(QtWidgets.QWidget):
             w = cls(self)
             if isinstance(w, QtWidgets.QSpinBox):
                 w.setRange(0, 1_000_000_000)
+                w.setFixedWidth(w.sizeHint().width() + 20)
+                w.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
+            else:
+                w.setMinimumWidth(w.sizeHint().width())
             if isinstance(w, QtWidgets.QDoubleSpinBox):
                 w.setRange(0, 1_000_000_000)
                 w.setDecimals(2)
@@ -453,7 +458,6 @@ class StatsEntryForm(QtWidgets.QWidget):
                 w.setSuffix("%")
             if isinstance(w, QtWidgets.QComboBox):
                 w.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
-            w.setMinimumWidth(w.sizeHint().width())
             form.addRow(label, w)
             self.widgets[key] = w
             w.setAttribute(QtCore.Qt.WA_Hover, True)
@@ -648,6 +652,8 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self.spin_year = QtWidgets.QSpinBox(self)
         self.spin_year.setRange(2000, 2100)
         self.spin_year.setValue(year)
+        self.spin_year.setFixedWidth(self.spin_year.sizeHint().width() + 20)
+        self.spin_year.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
         self.spin_year.valueChanged.connect(self._year_changed)
         top.addWidget(self.spin_year)
         self.spin_year.installEventFilter(NeonEventFilter(self.spin_year))
@@ -859,6 +865,8 @@ class TopDialog(QtWidgets.QDialog):
         self.spin_year = QtWidgets.QSpinBox(self)
         self.spin_year.setRange(2000, 2100)
         self.spin_year.setValue(year)
+        self.spin_year.setFixedWidth(self.spin_year.sizeHint().width() + 20)
+        self.spin_year.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
         top.addWidget(self.spin_year)
         self.spin_year.installEventFilter(NeonEventFilter(self.spin_year))
 
@@ -1556,6 +1564,8 @@ class SettingsDialog(QtWidgets.QDialog):
         self.spin_day_rows = QtWidgets.QSpinBox(self)
         self.spin_day_rows.setRange(1, 20)
         self.spin_day_rows.setValue(CONFIG.get("day_rows", 6))
+        self.spin_day_rows.setFixedWidth(self.spin_day_rows.sizeHint().width() + 20)
+        self.spin_day_rows.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
         self.spin_day_rows.valueChanged.connect(lambda _: self._save_config())
         form_gen.addRow("Строк на день", self.spin_day_rows)
 
@@ -1713,6 +1723,7 @@ class TopBar(QtWidgets.QWidget):
         self.spin_year.setValue(datetime.now().year)
         self.spin_year.setStyleSheet("padding:0 6px;")
         self.spin_year.setFixedWidth(self.spin_year.sizeHint().width() + 20)
+        self.spin_year.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
         self.spin_year.valueChanged.connect(self.year_changed.emit)
         lay.addWidget(self.spin_year)
         self.spin_year.installEventFilter(NeonEventFilter(self.spin_year))
