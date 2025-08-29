@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import sys, os, math, json, calendar, re
+import sys, os, json, calendar, re
 from datetime import datetime, date
 from typing import Dict, List
 
@@ -1969,59 +1969,36 @@ class MainWindow(QtWidgets.QMainWindow):
                     tbl.setFont(app.font())
                     tbl.horizontalHeader().setFont(header_font)
         self.apply_theme()
-        # apply glass effect
-        eff_type = CONFIG.get("glass_effect", "Acrylic")
-        opacity = float(CONFIG.get("glass_opacity", 0.5))
-        blur = int(CONFIG.get("glass_blur", 10))
-        central = self.centralWidget()
-        if eff_type:
-            eff = QtWidgets.QGraphicsBlurEffect(self)
-            eff.setBlurRadius(blur)
-            central.setGraphicsEffect(eff)
-            self.setWindowOpacity(opacity)
-        else:
-            central.setGraphicsEffect(None)
-            self.setWindowOpacity(1.0)
+        theme_manager.apply_glass_effect(self, CONFIG)
+
+
+
+
 
     def apply_theme(self):
         accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
         if CONFIG.get("monochrome", False):
-            h, s, v, _ = accent.getHsv()
-            s = int(CONFIG.get("mono_saturation", 100))
-            accent.setHsv(h, s, v)
+            accent = theme_manager.apply_monochrome(accent)
         app = QtWidgets.QApplication.instance()
+        def mc(c):
+            return theme_manager.apply_monochrome(QtGui.QColor(c)) if CONFIG.get("monochrome", False) else QtGui.QColor(c)
         if CONFIG.get("theme", "dark") == "dark":
             pal = QtGui.QPalette()
-            pal.setColor(QtGui.QPalette.Window, QtGui.QColor(30, 30, 33))
-            pal.setColor(QtGui.QPalette.WindowText, QtGui.QColor("#e5e5e5"))
-            pal.setColor(QtGui.QPalette.Base, QtGui.QColor(30, 30, 33))
-            pal.setColor(QtGui.QPalette.AlternateBase, QtGui.QColor(45, 45, 48))
-            pal.setColor(QtGui.QPalette.ToolTipBase, QtGui.QColor("#e5e5e5"))
-            pal.setColor(QtGui.QPalette.ToolTipText, QtGui.QColor("#e5e5e5"))
-            pal.setColor(QtGui.QPalette.Text, QtGui.QColor("#e5e5e5"))
-            pal.setColor(QtGui.QPalette.Button, QtGui.QColor(45, 45, 48))
-            pal.setColor(QtGui.QPalette.ButtonText, QtGui.QColor("#e5e5e5"))
+            pal.setColor(QtGui.QPalette.Window, mc(QtGui.QColor(30, 30, 33)))
+            pal.setColor(QtGui.QPalette.WindowText, mc("#e5e5e5"))
+            pal.setColor(QtGui.QPalette.Base, mc(QtGui.QColor(30, 30, 33)))
+            pal.setColor(QtGui.QPalette.AlternateBase, mc(QtGui.QColor(45, 45, 48)))
+            pal.setColor(QtGui.QPalette.ToolTipBase, mc("#e5e5e5"))
+            pal.setColor(QtGui.QPalette.ToolTipText, mc("#e5e5e5"))
+            pal.setColor(QtGui.QPalette.Text, mc("#e5e5e5"))
+            pal.setColor(QtGui.QPalette.Button, mc(QtGui.QColor(45, 45, 48)))
+            pal.setColor(QtGui.QPalette.ButtonText, mc("#e5e5e5"))
             pal.setColor(QtGui.QPalette.Highlight, accent)
-            pal.setColor(QtGui.QPalette.HighlightedText, QtGui.QColor(0, 0, 0))
+            pal.setColor(QtGui.QPalette.HighlightedText, mc(QtGui.QColor(0, 0, 0)))
             app.setPalette(pal)
         else:
             app.setPalette(app.style().standardPalette())
-        workspace = CONFIG.get("workspace_color", "#1e1e21")
-        grad = CONFIG.get("gradient_colors", None)
-        if grad and len(grad) == 2:
-            angle = CONFIG.get("gradient_angle", 0)
-            rad = math.radians(angle)
-            x2 = 0.5 + 0.5 * math.cos(rad)
-            y2 = 0.5 + 0.5 * math.sin(rad)
-            base = (
-                f"border:1px solid #555; border-radius:8px; "
-                f"background:qlineargradient(x1:0,y1:0,x2:{x2:.2f},y2:{y2:.2f}, stop:0 {grad[0]}, stop:1 {grad[1]});"
-            )
-        else:
-            base = (
-                f"border:1px solid #555; border-radius:8px; "
-                f"background-color:{workspace};"
-            )
+        base, workspace = theme_manager.apply_gradient(CONFIG)
         self.setStyleSheet(
             "QPushButton,"
             "QToolButton,QSpinBox,QDoubleSpinBox,QTimeEdit,"
@@ -2033,13 +2010,14 @@ class MainWindow(QtWidgets.QMainWindow):
         for container in self.table.cell_containers.values():
             container.setStyleSheet(f"background-color: {workspace};")
         sidebar = CONFIG.get("sidebar_color", "#1f1f23")
+        if CONFIG.get("monochrome", False):
+            sidebar = theme_manager.apply_monochrome(QtGui.QColor(sidebar)).name()
         self.sidebar.setStyleSheet(
             f"#Sidebar {{ background-color: {sidebar}; }}\n"
             "QToolButton { color: white; border: none; padding: 10px; border-radius: 8px; }\n"
             "QToolButton:hover { background-color: rgba(255,255,255,0.08); }\n"
             "QLabel { color: #c7c7c7; }\n"
         )
-
     def closeEvent(self, event):
         self.table.save_current_month()
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
