@@ -30,8 +30,6 @@ def load_config():
         "glass_effect": "Acrylic",
         "glass_opacity": 0.5,
         "glass_blur": 10,
-        "animation_speed": 1.0,
-        "neon_motion": False,
         "theme": "dark",
         "header_font": "Exo 2",
         "text_font": "Inter",
@@ -121,8 +119,6 @@ class NeonEventFilter(QtCore.QObject):
     def __init__(self, widget: QtWidgets.QWidget):
         super().__init__(widget)
         self._widget = widget
-        self._anim = None
-        self._motion = None
         self._orig_style = widget.styleSheet()
 
     def _start(self) -> None:
@@ -133,32 +129,20 @@ class NeonEventFilter(QtCore.QObject):
         style = re.sub(r"border-color:[^;]+;?", "", self._orig_style)
         self._widget.setStyleSheet(style + f"border-color:{accent.name()};")
         if isinstance(self._widget, QtWidgets.QAbstractButton):
-            eff, anim, motion = set_neon(
+            eff = set_neon(
                 self._widget,
                 accent,
                 intensity=CONFIG.get("neon_intensity", 255),
-                pulse=CONFIG.get("neon_motion", False),
-                motion_speed=CONFIG.get("animation_speed", 1.0),
                 mode="inner",
             )
-            self._anim = anim
-            self._motion = motion
             self._effect = eff
         else:
             self._widget.setGraphicsEffect(None)
-            self._anim = None
-            self._motion = None
             self._effect = None
 
     def _stop(self) -> None:
         self._widget.setStyleSheet(self._orig_style)
         self._widget.setGraphicsEffect(None)
-        if self._anim:
-            self._anim.stop()
-            self._anim = None
-        if self._motion:
-            self._motion.stop()
-            self._motion = None
 
     def eventFilter(self, obj, ev):
         if ev.type() == QtCore.QEvent.FocusIn:
@@ -1404,7 +1388,6 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             sidebar_color = CONFIG.get("sidebar_color", "#1f1f23")
         if isinstance(sidebar_color, QtGui.QColor):
             sidebar_color = sidebar_color.name()
-        speed = CONFIG.get("animation_speed", 1.0)
         if neon:
             style = (
                 f"#Sidebar {{ background-color: {sidebar_color}; }}"
@@ -1422,17 +1405,6 @@ class CollapsibleSidebar(QtWidgets.QFrame):
                 c.setAlpha(intensity)
                 eff.setColor(c)
                 w.setGraphicsEffect(eff)
-                if CONFIG.get("neon_motion", False):
-                    anim = QtCore.QPropertyAnimation(eff, b"blurRadius", w)
-                    anim.setStartValue(size)
-                    anim.setEndValue(size * 2)
-                    anim.setDuration(int(1000 / max(speed, 0.1)))
-                    anim.setLoopCount(-1)
-                    anim.setEasingCurve(QtCore.QEasingCurve.InOutQuad)
-                    anim.start(QtCore.QAbstractAnimation.DeleteWhenStopped)
-                    w._neon_anim = anim
-                else:
-                    w._neon_anim = None
         else:
             style = (
                 f"#Sidebar {{ background-color: {sidebar_color}; }}\n"
@@ -1575,53 +1547,6 @@ class SettingsDialog(QtWidgets.QDialog):
         lay_blur = QtWidgets.QHBoxLayout(); lay_blur.addWidget(self.sld_glass_blur,1); lay_blur.addWidget(self.lbl_glass_blur)
         form_color.addRow("Размытие", lay_blur)
 
-        # --- Анимация ---
-        tab_anim = QtWidgets.QWidget()
-        form_anim = QtWidgets.QFormLayout(tab_anim)
-        tabs.addTab(tab_anim, "Анимация")
-
-        self.chk_neon = QtWidgets.QCheckBox(self)
-        self.chk_neon.setChecked(CONFIG.get("neon", False))
-        self.chk_neon.toggled.connect(lambda _: self._save_config())
-        form_anim.addRow("Неоновая подсветка", self.chk_neon)
-
-        self.sld_neon_size = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        self.sld_neon_size.setRange(1, 50)
-        self.sld_neon_size.setValue(CONFIG.get("neon_size", 10))
-        self.lbl_neon_size = QtWidgets.QLabel(str(self.sld_neon_size.value()), self)
-        self.sld_neon_size.valueChanged.connect(lambda v: (self.lbl_neon_size.setText(str(v)), self._save_config()))
-        lay_size = QtWidgets.QHBoxLayout(); lay_size.addWidget(self.sld_neon_size,1); lay_size.addWidget(self.lbl_neon_size)
-        form_anim.addRow("Размер подсветки", lay_size)
-
-        self.sld_neon_thickness = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        self.sld_neon_thickness.setRange(1, 10)
-        self.sld_neon_thickness.setValue(CONFIG.get("neon_thickness", 1))
-        self.lbl_neon_thickness = QtWidgets.QLabel(str(self.sld_neon_thickness.value()), self)
-        self.sld_neon_thickness.valueChanged.connect(lambda v: (self.lbl_neon_thickness.setText(str(v)), self._save_config()))
-        lay_thick = QtWidgets.QHBoxLayout(); lay_thick.addWidget(self.sld_neon_thickness,1); lay_thick.addWidget(self.lbl_neon_thickness)
-        form_anim.addRow("Толщина подсветки", lay_thick)
-
-        self.sld_neon_intensity = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        self.sld_neon_intensity.setRange(0,255)
-        self.sld_neon_intensity.setValue(CONFIG.get("neon_intensity",255))
-        self.lbl_neon_intensity = QtWidgets.QLabel(str(self.sld_neon_intensity.value()), self)
-        self.sld_neon_intensity.valueChanged.connect(lambda v: (self.lbl_neon_intensity.setText(str(v)), self._save_config()))
-        lay_int = QtWidgets.QHBoxLayout(); lay_int.addWidget(self.sld_neon_intensity,1); lay_int.addWidget(self.lbl_neon_intensity)
-        form_anim.addRow("Интенсивность", lay_int)
-
-        self.sld_anim_speed = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        self.sld_anim_speed.setRange(50,200)
-        self.sld_anim_speed.setValue(int(CONFIG.get("animation_speed",1.0)*100))
-        self.lbl_anim_speed = QtWidgets.QLabel(str(self.sld_anim_speed.value()/100))
-        self.sld_anim_speed.valueChanged.connect(lambda v: (self.lbl_anim_speed.setText(str(v/100)), self._save_config()))
-        lay_spd = QtWidgets.QHBoxLayout(); lay_spd.addWidget(self.sld_anim_speed,1); lay_spd.addWidget(self.lbl_anim_speed)
-        form_anim.addRow("Скорость", lay_spd)
-
-        self.chk_neon_motion = QtWidgets.QCheckBox(self)
-        self.chk_neon_motion.setChecked(CONFIG.get("neon_motion", False))
-        self.chk_neon_motion.toggled.connect(lambda _: self._save_config())
-        form_anim.addRow("Движение неона", self.chk_neon_motion)
-
         # --- Шрифты ---
         tab_fonts = QtWidgets.QWidget()
         form_fonts = QtWidgets.QFormLayout(tab_fonts)
@@ -1692,12 +1617,6 @@ class SettingsDialog(QtWidgets.QDialog):
 
     def _collect_config(self):
         return {
-            "neon": self.chk_neon.isChecked(),
-            "neon_size": self.sld_neon_size.value(),
-            "neon_thickness": self.sld_neon_thickness.value(),
-            "neon_intensity": self.sld_neon_intensity.value(),
-            "neon_motion": self.chk_neon_motion.isChecked(),
-            "animation_speed": self.sld_anim_speed.value() / 100,
             "accent_color": self._accent_color.name(),
             "gradient_colors": [self._grad_color1.name(), self._grad_color2.name()],
             "gradient_angle": self.sld_grad_angle.value(),
@@ -1881,7 +1800,6 @@ class TopBar(QtWidgets.QWidget):
         thickness = CONFIG.get("neon_thickness", 1)
         size = CONFIG.get("neon_size", 10)
         intensity = CONFIG.get("neon_intensity", 255)
-        speed = CONFIG.get("animation_speed", 1.0)
         if neon:
             style = (
                 f"QLabel{{color:{accent.name()};}} "
@@ -1896,17 +1814,6 @@ class TopBar(QtWidgets.QWidget):
                 c.setAlpha(intensity)
                 eff.setColor(c)
                 w.setGraphicsEffect(eff)
-                if CONFIG.get("neon_motion", False):
-                    anim = QtCore.QPropertyAnimation(eff, b"blurRadius", w)
-                    anim.setStartValue(size)
-                    anim.setEndValue(size * 2)
-                    anim.setDuration(int(1000 / max(speed, 0.1)))
-                    anim.setLoopCount(-1)
-                    anim.setEasingCurve(QtCore.QEasingCurve.InOutQuad)
-                    anim.start(QtCore.QAbstractAnimation.DeleteWhenStopped)
-                    w._neon_anim = anim
-                else:
-                    w._neon_anim = None
         else:
             if CONFIG.get("theme", "dark") == "dark":
                 style = self.default_style
@@ -2081,8 +1988,7 @@ class MainWindow(QtWidgets.QMainWindow):
             accent.setHsv(h, s, v)
         self.topbar.apply_style(CONFIG.get("neon", False))
         self.sidebar.apply_style(CONFIG.get("neon", False), accent)
-        speed = CONFIG.get("animation_speed", 1.0)
-        self.sidebar.anim.setDuration(int(160 / max(speed, 0.1)))
+        self.sidebar.anim.setDuration(160)
         for dlg in app.topLevelWidgets():
             if isinstance(dlg, QtWidgets.QDialog):
                 dlg.setFont(app.font())
