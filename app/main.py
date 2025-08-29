@@ -3,7 +3,6 @@ import sys
 import os
 import json
 import calendar
-import re
 from datetime import datetime, date
 from typing import Dict, List, Union
 
@@ -13,7 +12,7 @@ from dataclasses import dataclass, field
 from widgets import StyledPushButton, StyledToolButton
 from resources import register_fonts, load_icons, icon
 import theme_manager
-from effects import set_neon
+from effects import NeonEventFilter
 
 # Ensure bundled fonts are loaded before any window is created
 register_fonts()
@@ -112,89 +111,6 @@ def ensure_font_registered(family: str, parent: QtWidgets.QWidget | None = None)
     return family
 
 
-class NeonEventFilter(QtCore.QObject):
-    """Event filter enabling animated neon highlight on hover and focus."""
-
-    def __init__(self, widget: QtWidgets.QWidget):
-        super().__init__(widget)
-        self._widget = widget
-        self._orig_style = widget.styleSheet()
-
-    def _start(self) -> None:
-        if not CONFIG.get("neon", False):
-            return
-        accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
-        self._orig_style = self._widget.styleSheet()
-        style = re.sub(r"border-color:[^;]+;?", "", self._orig_style)
-        self._widget.setStyleSheet(style + f"border-color:{accent.name()};")
-        if isinstance(self._widget, QtWidgets.QAbstractButton):
-            eff = set_neon(
-                self._widget,
-                accent,
-                intensity=CONFIG.get("neon_intensity", 255),
-                mode="inner",
-                pulse=False,
-            )
-            self._effect = eff
-        else:
-            self._widget.setGraphicsEffect(None)
-            self._effect = None
-
-    def _stop(self) -> None:
-        self._widget.setGraphicsEffect(None)
-        self._effect = None
-        self._widget.setStyleSheet(getattr(self, "_orig_style", ""))
-
-    def eventFilter(self, obj, ev):
-        if ev.type() == QtCore.QEvent.FocusIn:
-            self._start()
-        elif ev.type() == QtCore.QEvent.MouseButtonPress:
-            if CONFIG.get("neon", False):
-                accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
-                self._orig_style = self._widget.styleSheet()
-                style = re.sub(r"border-color:[^;]+;?", "", self._orig_style)
-                self._widget.setStyleSheet(style + f"border-color:{accent.name()};")
-                eff = QtWidgets.QGraphicsDropShadowEffect(self._widget)
-                eff.setOffset(0, 0)
-                eff.setBlurRadius(0)
-                eff.setColor(accent)
-                self._widget.setGraphicsEffect(eff)
-                flash = QtCore.QParallelAnimationGroup(self._widget)
-                color_anim = QtCore.QPropertyAnimation(eff, b"color", self._widget)
-                color_anim.setStartValue(accent)
-                end = QtGui.QColor(accent)
-                end.setAlpha(0)
-                color_anim.setEndValue(end)
-                color_anim.setDuration(150)
-                blur_anim = QtCore.QPropertyAnimation(eff, b"blurRadius", self._widget)
-                blur_anim.setStartValue(40)
-                blur_anim.setEndValue(0)
-                blur_anim.setDuration(150)
-                flash.addAnimation(color_anim)
-                flash.addAnimation(blur_anim)
-
-                def _cleanup():
-                    self._widget.setStyleSheet(self._orig_style)
-                    self._widget.setGraphicsEffect(None)
-
-                flash.finished.connect(_cleanup)
-                flash.start(QtCore.QAbstractAnimation.DeleteWhenStopped)
-        elif isinstance(self._widget, QtWidgets.QToolButton):
-            if ev.type() in (QtCore.QEvent.Leave, QtCore.QEvent.HoverLeave):
-                if not self._widget.property("neon_selected"):
-                    self._stop()
-            elif ev.type() == QtCore.QEvent.FocusOut:
-                if not self._widget.property("neon_selected"):
-                    self._stop()
-        elif ev.type() in (
-            QtCore.QEvent.HoverLeave,
-            QtCore.QEvent.Leave,
-            QtCore.QEvent.FocusOut,
-        ):
-            self._stop()
-        return False
-
-
 @dataclass
 class MonthData:
     year: int
@@ -288,6 +204,12 @@ class ReleaseDialog(QtWidgets.QDialog):
         self.table.setFont(app.font())
         header_font = QtGui.QFont(CONFIG.get("header_font"))
         self.table.horizontalHeader().setFont(header_font)
+
+        self.table.setAttribute(QtCore.Qt.WA_Hover, True)
+        self.table.viewport().setAttribute(QtCore.Qt.WA_Hover, True)
+        self._tbl_filter = NeonEventFilter(self.table)
+        self.table.installEventFilter(self._tbl_filter)
+        self.table.viewport().installEventFilter(self._tbl_filter)
 
         lay.addWidget(self.table)
 
@@ -498,8 +420,9 @@ class StatsDialog(QtWidgets.QDialog):
         self.btn_box.accepted.connect(self.save_record)
         self.btn_box.rejected.connect(self.reject)
         lay.addWidget(self.btn_box)
-        btn_save.installEventFilter(NeonEventFilter(btn_save))
-        btn_close.installEventFilter(NeonEventFilter(btn_close))
+        for b in (btn_save, btn_close):
+            b.setAttribute(QtCore.Qt.WA_Hover, True)
+            b.installEventFilter(NeonEventFilter(b))
         lay.setStretch(0, 2)
         lay.setStretch(1, 1)
 
@@ -606,6 +529,7 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self.spin_year.setFixedWidth(self.spin_year.sizeHint().width() + 20)
         self.spin_year.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
         self.spin_year.valueChanged.connect(self._year_changed)
+        self.spin_year.setAttribute(QtCore.Qt.WA_Hover, True)
         top.addWidget(self.spin_year)
         self.spin_year.installEventFilter(NeonEventFilter(self.spin_year))
         top.addStretch(1)
@@ -636,13 +560,13 @@ class AnalyticsDialog(QtWidgets.QDialog):
         for btn in (btn_save, btn_close):
             btn.setFixedSize(btn.sizeHint())
             btn.setStyleSheet(btn.styleSheet() + "border:1px solid transparent;")
+            btn.setAttribute(QtCore.Qt.WA_Hover, True)
+            btn.installEventFilter(NeonEventFilter(btn))
         box.addButton(btn_save, QtWidgets.QDialogButtonBox.AcceptRole)
         box.addButton(btn_close, QtWidgets.QDialogButtonBox.RejectRole)
         box.accepted.connect(self.save)
         box.rejected.connect(self.reject)
         lay.addWidget(box)
-        btn_save.installEventFilter(NeonEventFilter(btn_save))
-        btn_close.installEventFilter(NeonEventFilter(btn_close))
 
         # prepare items
         for r, name in enumerate(self.INDICATORS):
@@ -818,6 +742,7 @@ class TopDialog(QtWidgets.QDialog):
         self.spin_year.setValue(year)
         self.spin_year.setFixedWidth(self.spin_year.sizeHint().width() + 20)
         self.spin_year.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
+        self.spin_year.setAttribute(QtCore.Qt.WA_Hover, True)
         top.addWidget(self.spin_year)
         self.spin_year.installEventFilter(NeonEventFilter(self.spin_year))
 
@@ -827,16 +752,19 @@ class TopDialog(QtWidgets.QDialog):
         self.combo_mode.addItem("Полугодие", "half")
         self.combo_mode.addItem("Год", "year")
         self.combo_mode.currentIndexChanged.connect(self._mode_changed)
+        self.combo_mode.setAttribute(QtCore.Qt.WA_Hover, True)
         top.addWidget(self.combo_mode)
         self.combo_mode.installEventFilter(NeonEventFilter(self.combo_mode))
 
         self.combo_period = QtWidgets.QComboBox(self)
+        self.combo_period.setAttribute(QtCore.Qt.WA_Hover, True)
         top.addWidget(self.combo_period)
         self.combo_period.installEventFilter(NeonEventFilter(self.combo_period))
         self._mode_changed()  # fill periods
 
         self.btn_calc = StyledPushButton("Сформировать", self)
         self.btn_calc.clicked.connect(self.calculate)
+        self.btn_calc.setAttribute(QtCore.Qt.WA_Hover, True)
         top.addWidget(self.btn_calc)
         self.btn_calc.installEventFilter(NeonEventFilter(self.btn_calc))
         lay.addLayout(top)
@@ -893,8 +821,9 @@ class TopDialog(QtWidgets.QDialog):
         box.accepted.connect(self.save)
         box.rejected.connect(self.reject)
         lay.addWidget(box)
-        btn_save.installEventFilter(NeonEventFilter(btn_save))
-        btn_close.installEventFilter(NeonEventFilter(btn_close))
+        for b in (btn_save, btn_close):
+            b.setAttribute(QtCore.Qt.WA_Hover, True)
+            b.installEventFilter(NeonEventFilter(b))
 
     def _mode_changed(self):
         mode = self.combo_mode.currentData()
@@ -1126,6 +1055,11 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         self.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
         self.setFocusPolicy(QtCore.Qt.NoFocus)
+        self.setAttribute(QtCore.Qt.WA_Hover, True)
+        self.viewport().setAttribute(QtCore.Qt.WA_Hover, True)
+        self._cal_filter = NeonEventFilter(self)
+        self.installEventFilter(self._cal_filter)
+        self.viewport().installEventFilter(self._cal_filter)
 
         now = datetime.now()
         self.year = now.year
@@ -1553,6 +1487,25 @@ class SettingsDialog(QtWidgets.QDialog):
         box.rejected.connect(self.reject)
         main_lay.addWidget(box)
 
+        for w in (
+            self.combo_accent,
+            self.btn_workspace,
+            self.btn_sidebar,
+            self.btn_grad1,
+            self.btn_grad2,
+            self.sld_grad_angle,
+            self.chk_glass,
+            self.font_header,
+            self.font_text,
+            self.spin_day_rows,
+            self.edit_path,
+            btn_browse,
+            btn_save,
+            btn_cancel,
+        ):
+            w.setAttribute(QtCore.Qt.WA_Hover, True)
+            w.installEventFilter(NeonEventFilter(w))
+
     def browse_path(self):
         path = QtWidgets.QFileDialog.getExistingDirectory(
             self, "Выбрать папку", self.edit_path.text()
@@ -1674,6 +1627,7 @@ class TopBar(QtWidgets.QWidget):
         self.btn_prev.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
         self.btn_prev.clicked.connect(self.prev_clicked)
         lay.addWidget(self.btn_prev)
+        self.btn_prev.setAttribute(QtCore.Qt.WA_Hover, True)
         self.btn_prev.installEventFilter(NeonEventFilter(self.btn_prev))
         lay.addStretch(1)
         self.lbl_month = QtWidgets.QLabel("Месяц")
@@ -1688,6 +1642,7 @@ class TopBar(QtWidgets.QWidget):
         self.spin_year.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
         self.spin_year.valueChanged.connect(self.year_changed.emit)
         lay.addWidget(self.spin_year)
+        self.spin_year.setAttribute(QtCore.Qt.WA_Hover, True)
         self.spin_year.installEventFilter(NeonEventFilter(self.spin_year))
         lay.addStretch(1)
         self.btn_next = StyledToolButton(self)
@@ -1695,12 +1650,14 @@ class TopBar(QtWidgets.QWidget):
         self.btn_next.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
         self.btn_next.clicked.connect(self.next_clicked)
         lay.addWidget(self.btn_next)
+        self.btn_next.setAttribute(QtCore.Qt.WA_Hover, True)
         self.btn_next.installEventFilter(NeonEventFilter(self.btn_next))
         self.btn_settings = StyledToolButton(self)
         self.btn_settings.setCursor(QtCore.Qt.PointingHandCursor)
         self.btn_settings.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
         self.btn_settings.clicked.connect(self.settings_clicked)
         lay.addWidget(self.btn_settings)
+        self.btn_settings.setAttribute(QtCore.Qt.WA_Hover, True)
         self.btn_settings.installEventFilter(NeonEventFilter(self.btn_settings))
         self.update_icons()
         self.default_style = (
