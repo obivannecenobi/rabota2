@@ -7,6 +7,7 @@ from datetime import datetime, date
 from typing import Dict, List, Union
 
 from PySide6 import QtWidgets, QtGui, QtCore
+from PySide6.QtGui import QFontDatabase
 from dataclasses import dataclass, field
 
 from widgets import StyledPushButton, StyledToolButton
@@ -103,8 +104,7 @@ def ensure_font_registered(family: str, parent: QtWidgets.QWidget | None = None)
     locate a font file. If the font cannot be loaded, the safe default
     ``"Inter"`` is returned.
     """
-    db = QtGui.QFontDatabase()
-    if family in db.families():
+    if family in QFontDatabase.families():
         return family
 
     file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
@@ -114,9 +114,9 @@ def ensure_font_registered(family: str, parent: QtWidgets.QWidget | None = None)
         "Font Files (*.ttf *.otf)"
     )
     if file_path:
-        fid = QtGui.QFontDatabase.addApplicationFont(file_path)
+        fid = QFontDatabase.addApplicationFont(file_path)
         if fid != -1:
-            fams = QtGui.QFontDatabase.applicationFontFamilies(fid)
+            fams = QFontDatabase.applicationFontFamilies(fid)
             if fams:
                 return fams[0]
 
