@@ -1206,8 +1206,10 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                 lay.setContentsMargins(0, 0, 0, 0)
                 lay.setSpacing(2)
                 lbl = QtWidgets.QLabel(str(day.day), container)
-                lbl.setFont(QtGui.QFont(CONFIG.get("header_font", "Exo 2")))
+                lbl.setFont(QtGui.QFont(CONFIG["header_font"]))
                 lbl.setAlignment(QtCore.Qt.AlignCenter)
+                # keep reference for later font updates
+                self.day_labels[(r, c)] = lbl
                 lay.addWidget(lbl, alignment=QtCore.Qt.AlignHCenter)
                 inner = self._create_inner_table()
                 lay.addWidget(inner)
@@ -1219,7 +1221,6 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                 self.setCellWidget(r, c, container)
                 self.date_map[(r, c)] = day
                 self.cell_tables[(r, c)] = inner
-                self.day_labels[(r, c)] = lbl
                 self.cell_containers[(r, c)] = container
                 self.cell_filters[(r, c)] = filt
                 if day.month != month:
@@ -1918,6 +1919,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for tbl in self.table.cell_tables.values():
             tbl.setFont(app.font())
             tbl.horizontalHeader().setFont(header_font)
+        # update fonts for calendar day labels
         for lbl in self.table.day_labels.values():
             lbl.setFont(header_font)
         for w in [
