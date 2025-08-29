@@ -786,15 +786,15 @@ class TopDialog(QtWidgets.QDialog):
         self.resize(700, 400)
 
         lay = QtWidgets.QVBoxLayout(self)
-        top = QtWidgets.QHBoxLayout()
-        top.addWidget(QtWidgets.QLabel("Год:"))
+        top = QtWidgets.QFormLayout()
+
         self.spin_year = QtWidgets.QSpinBox(self)
         self.spin_year.setRange(2000, 2100)
         self.spin_year.setValue(year)
+        self.spin_year.setStyleSheet("padding:0 6px;")
         self.spin_year.setFixedWidth(self.spin_year.sizeHint().width() + 20)
         self.spin_year.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
         self.spin_year.setAttribute(QtCore.Qt.WA_Hover, True)
-        top.addWidget(self.spin_year)
         self.spin_year.installEventFilter(NeonEventFilter(self.spin_year))
 
         self.combo_mode = QtWidgets.QComboBox(self)
@@ -804,20 +804,26 @@ class TopDialog(QtWidgets.QDialog):
         self.combo_mode.addItem("Год", "year")
         self.combo_mode.currentIndexChanged.connect(self._mode_changed)
         self.combo_mode.setAttribute(QtCore.Qt.WA_Hover, True)
-        top.addWidget(self.combo_mode)
         self.combo_mode.installEventFilter(NeonEventFilter(self.combo_mode))
 
         self.combo_period = QtWidgets.QComboBox(self)
         self.combo_period.setAttribute(QtCore.Qt.WA_Hover, True)
-        top.addWidget(self.combo_period)
         self.combo_period.installEventFilter(NeonEventFilter(self.combo_period))
         self._mode_changed()  # fill periods
 
         self.btn_calc = StyledPushButton("Сформировать", self)
         self.btn_calc.clicked.connect(self.calculate)
         self.btn_calc.setAttribute(QtCore.Qt.WA_Hover, True)
-        top.addWidget(self.btn_calc)
         self.btn_calc.installEventFilter(NeonEventFilter(self.btn_calc))
+
+        row = QtWidgets.QHBoxLayout()
+        row.setContentsMargins(0, 0, 0, 0)
+        row.addWidget(self.spin_year)
+        row.addWidget(self.combo_mode)
+        row.addWidget(self.combo_period)
+        row.addWidget(self.btn_calc)
+
+        top.addRow(QtWidgets.QLabel("Год:"), row)
         lay.addLayout(top)
 
         headers = [
