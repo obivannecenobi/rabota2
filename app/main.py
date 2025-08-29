@@ -2024,10 +2024,20 @@ class MainWindow(QtWidgets.QMainWindow):
             app.setPalette(app.style().standardPalette())
         base, workspace = theme_manager.apply_gradient(CONFIG)
         self.topbar.apply_background(workspace)
+        theme = CONFIG.get("theme", "dark")
         self.setStyleSheet(
             "QPushButton,"
             "QToolButton,QSpinBox,QDoubleSpinBox,QTimeEdit,"
             "QComboBox,QLineEdit{" + base + "}"
+            f"""
+            QSpinBox::up-button,QSpinBox::down-button{{
+                border:1px solid transparent;
+                border-radius:8px;
+                width:16px;height:16px;
+            }}
+            QSpinBox::up-arrow{{ image:url(assets/icons/{theme}/chevron-up.svg); }}
+            QSpinBox::down-arrow{{ image:url(assets/icons/{theme}/chevron-down.svg); }}
+            """
         )
         self.table.setStyleSheet(f"QTableWidget {{ background-color: {workspace}; }}")
         for tbl in self.table.cell_tables.values():
