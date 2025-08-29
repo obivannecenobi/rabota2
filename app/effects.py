@@ -10,7 +10,7 @@ def set_neon(
 ):
     """Apply neon effect to ``widget``.
 
-    ``mode`` can be ``"outer"`` (default) for a drop shadow or ``"inner"`` for
+    ``mode`` can be ``"outer"`` (default) for a drop shadow or ``"inner"" for
     a colorize effect based on the widget's ``palette().buttonText()`` color.
     """
 
@@ -42,3 +42,48 @@ def set_neon(
         eff._neon_anim = anim
 
     return eff
+
+
+def apply_neon_effect(widget: QtWidgets.QWidget, on: bool = True) -> None:
+    """Toggle neon highlight effect on *widget*.
+
+    When ``on`` is ``True`` a drop shadow with the palette's highlight color is
+    applied. Passing ``False`` restores the previous effect, if any.
+    """
+
+    if on:
+        if getattr(widget, "_neon_prev_effect", None) is None:
+            widget._neon_prev_effect = widget.graphicsEffect()
+        eff = QtWidgets.QGraphicsDropShadowEffect(widget)
+        eff.setOffset(0, 0)
+        eff.setBlurRadius(20)
+        color = widget.palette().color(QtGui.QPalette.Highlight)
+        eff.setColor(color)
+        widget.setGraphicsEffect(eff)
+        widget._neon_effect = eff
+    else:
+        prev = getattr(widget, "_neon_prev_effect", None)
+        widget.setGraphicsEffect(prev)
+        widget._neon_prev_effect = None
+        widget._neon_effect = None
+
+
+class NeonEventFilter(QtCore.QObject):
+    """Event filter toggling neon effect on hover and focus events."""
+
+    def __init__(self, widget: QtWidgets.QWidget):
+        super().__init__(widget)
+        self._widget = widget
+
+    def _start(self) -> None:
+        apply_neon_effect(self._widget, True)
+
+    def _stop(self) -> None:
+        apply_neon_effect(self._widget, False)
+
+    def eventFilter(self, obj, event):  # noqa: D401 - Qt event filter signature
+        if event.type() in (QtCore.QEvent.HoverEnter, QtCore.QEvent.FocusIn):
+            self._start()
+        elif event.type() in (QtCore.QEvent.HoverLeave, QtCore.QEvent.FocusOut):
+            self._stop()
+        return False
