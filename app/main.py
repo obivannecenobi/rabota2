@@ -110,11 +110,8 @@ class NeonEventFilter(QtCore.QObject):
             return
         accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
         self._orig_style = self._widget.styleSheet()
-        radius_match = re.search(r"border-radius:(\d+)px", self._orig_style)
-        radius = int(radius_match.group(1)) if radius_match else 8
-        thickness = CONFIG.get("neon_thickness", 1)
-        border = f"border:{thickness}px solid {accent.name()}; border-radius:{radius}px;"
-        self._widget.setStyleSheet(self._orig_style + border)
+        style = re.sub(r"border-color:[^;]+;?", "", self._orig_style)
+        self._widget.setStyleSheet(style + f"border-color:{accent.name()};")
         if isinstance(self._widget, QtWidgets.QAbstractButton):
             eff, anim, motion = set_neon(
                 self._widget,
@@ -1053,9 +1050,9 @@ class NeonTableWidget(QtWidgets.QTableWidget):
         self._neon_filter = NeonEventFilter(self)
         self.installEventFilter(self._neon_filter)
         self.viewport().installEventFilter(self._neon_filter)
-        accent = CONFIG["accent_color"]
         self.setStyleSheet(
-            f"QTableWidget::item:selected {{background:transparent; border:1px solid {accent};}}"
+            "QTableWidget, QTableWidget::viewport{border:1px solid transparent;}\n"
+            "QTableWidget::item:selected{background:transparent;}"
         )
 
     def focusOutEvent(self, e):
