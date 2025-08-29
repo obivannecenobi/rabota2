@@ -2030,11 +2030,25 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def apply_style(self, neon: bool):
         accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
+        workspace = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21"))
         if CONFIG.get("monochrome", False):
             h, s, v, _ = accent.getHsv()
             s = int(CONFIG.get("mono_saturation", 100))
             accent.setHsv(h, s, v)
+            workspace = theme_manager.apply_monochrome(workspace)
         sidebar = CONFIG.get("sidebar_color", "#1f1f23")
+        border = accent.name() if neon else "#555"
+        style = (
+            f"background:{workspace.name()};" f"border:1px solid {border};" f"border-radius:8px;"
+        )
+        for cls in (
+            QtWidgets.QLineEdit,
+            QtWidgets.QComboBox,
+            QtWidgets.QSpinBox,
+            QtWidgets.QTimeEdit,
+        ):
+            for w in self.findChildren(cls):
+                w.setStyleSheet(style)
         self.topbar.apply_style(neon)
         self.sidebar.apply_style(neon, accent, sidebar)
 

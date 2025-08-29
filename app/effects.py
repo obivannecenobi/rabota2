@@ -58,18 +58,15 @@ def apply_neon_effect(widget: QtWidgets.QWidget, on: bool = True) -> None:
             widget.setProperty("_prev_effect", widget.graphicsEffect())
         if getattr(widget, "_neon_prev_style", None) is None:
             widget._neon_prev_style = widget.styleSheet()
-            match = re.search(r"border-radius:\s*([0-9.]+)px", widget._neon_prev_style)
-            widget._neon_prev_radius = match.group(1) if match else None
         eff = QtWidgets.QGraphicsDropShadowEffect(widget)
         eff.setOffset(0, 0)
         eff.setBlurRadius(20)
         color = widget.palette().color(QtGui.QPalette.Highlight)
         eff.setColor(color)
         widget.setGraphicsEffect(eff)
-        parts = [widget._neon_prev_style, f"border:1px solid {color.name()};"]
-        if widget._neon_prev_radius is not None:
-            parts.append(f"border-radius:{widget._neon_prev_radius}px;")
-        widget.setStyleSheet("".join(parts))
+        widget.setStyleSheet(
+            f"{widget._neon_prev_style}border-color:{color.name()};"
+        )
         widget._neon_effect = eff
     else:
         prev = widget.property("_prev_effect")
@@ -81,7 +78,6 @@ def apply_neon_effect(widget: QtWidgets.QWidget, on: bool = True) -> None:
         prev_style = getattr(widget, "_neon_prev_style", None)
         widget.setStyleSheet(prev_style or "")
         widget._neon_prev_style = None
-        widget._neon_prev_radius = None
         widget._neon_effect = None
 
 
