@@ -468,9 +468,10 @@ class StatsDialog(QtWidgets.QDialog):
 
         lay = QtWidgets.QVBoxLayout(self)
         self.table_stats = NeonTableWidget(0, len(StatsEntryForm.TABLE_COLUMNS), self)
-        self.table_stats.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.Stretch
-        )
+        header = self.table_stats.horizontalHeader()
+        header.setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        header.setTextElideMode(QtCore.Qt.ElideNone)
+        header.setStyleSheet("QHeaderView::section { padding:0 8px; }")
         self.table_stats.setHorizontalHeaderLabels(
             [h for _, h in StatsEntryForm.TABLE_COLUMNS]
         )
@@ -504,6 +505,12 @@ class StatsDialog(QtWidgets.QDialog):
         self.year = year
         self.month = month
         self.load_stats(year, month)
+
+    def resizeEvent(self, event):
+        self.table_stats.horizontalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.Stretch
+        )
+        super().resizeEvent(event)
 
     def on_table_selection(self):
         sel = self.table_stats.selectionModel().selectedRows()
@@ -542,6 +549,7 @@ class StatsDialog(QtWidgets.QDialog):
         self.table_stats.resizeColumnsToContents()
         self.table_stats.resizeRowsToContents()
         header = self.table_stats.horizontalHeader()
+        header.setStretchLastSection(True)
         total_width = sum(header.sectionSize(i) for i in range(header.count()))
         if total_width <= self.table_stats.viewport().width():
             self.table_stats.setHorizontalScrollBarPolicy(
