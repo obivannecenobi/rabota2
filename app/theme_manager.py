@@ -1,10 +1,15 @@
+from typing import Dict, Tuple
+import math
+
 from PySide6 import QtWidgets, QtGui
+
 
 def set_text_font(name: str) -> None:
     """Set application wide text font."""
     app = QtWidgets.QApplication.instance()
     if app:
         app.setFont(QtGui.QFont(name))
+
 
 def set_header_font(name: str) -> None:
     """Update fonts of all header views."""
@@ -15,8 +20,6 @@ def set_header_font(name: str) -> None:
     for widget in app.allWidgets():
         if isinstance(widget, QtWidgets.QHeaderView):
             widget.setFont(font)
-import math
-from typing import Dict, Tuple
 
 
 def apply_monochrome(color: QtGui.QColor) -> QtGui.QColor:
@@ -62,7 +65,9 @@ def apply_glass_effect(window: QtWidgets.QWidget, config: Dict) -> None:
         from blurwindow import BlurWindow, GlobalBlur
         if enabled:
             blur_type = getattr(GlobalBlur, eff_type, GlobalBlur.Acrylic)
-            BlurWindow.blur(window.winId(), blur_type, blur, int(opacity * 255))
+            BlurWindow.blur(
+                window.winId(), blur_type, blur, int(opacity * 255)
+            )
         else:
             BlurWindow.blur(window.winId(), GlobalBlur.CLEAR)
     except Exception:
