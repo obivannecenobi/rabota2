@@ -1867,6 +1867,9 @@ class MainWindow(QtWidgets.QMainWindow):
         theme_manager.set_header_font(header_family)
         load_icons(CONFIG.get("theme", "dark"))
         app = QtWidgets.QApplication.instance()
+        for w in app.allWidgets():
+            if isinstance(w, (QtWidgets.QDialog, QtWidgets.QAbstractButton)):
+                w.setFont(app.font())
         self.topbar.update_icons()
         self.sidebar.update_icons()
         self.topbar.apply_fonts()
@@ -1904,7 +1907,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sidebar.anim.setDuration(160)
         for dlg in app.topLevelWidgets():
             if isinstance(dlg, QtWidgets.QDialog):
-                dlg.setFont(app.font())
                 for tbl in dlg.findChildren(QtWidgets.QTableWidget):
                     tbl.setFont(app.font())
                     tbl.horizontalHeader().setFont(header_font)

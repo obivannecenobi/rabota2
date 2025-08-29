@@ -11,7 +11,8 @@ if [ -d tests ]; then
 fi
 
 # bump version in VERSION and config.json
-bump2version "$part"
+current_version=$(cat VERSION)
+bump2version --current-version "$current_version" "$part"
 
 # build distribution
 if command -v pyinstaller >/dev/null 2>&1; then
