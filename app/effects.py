@@ -84,6 +84,10 @@ class NeonEventFilter(QtCore.QObject):
     def eventFilter(self, obj, event):  # noqa: D401 - Qt event filter signature
         if event.type() in (QtCore.QEvent.HoverEnter, QtCore.QEvent.FocusIn):
             self._start()
-        elif event.type() in (QtCore.QEvent.HoverLeave, QtCore.QEvent.FocusOut):
+        elif event.type() in (
+            QtCore.QEvent.HoverLeave,
+            QtCore.QEvent.Leave,
+            QtCore.QEvent.FocusOut,
+        ):
             self._stop()
         return False
