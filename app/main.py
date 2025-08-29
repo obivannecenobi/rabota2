@@ -115,16 +115,23 @@ class NeonEventFilter(QtCore.QObject):
         thickness = CONFIG.get("neon_thickness", 1)
         border = f"border:{thickness}px solid {accent.name()}; border-radius:{radius}px;"
         self._widget.setStyleSheet(self._orig_style + border)
-        eff, anim, motion = set_neon(
-            self._widget,
-            accent,
-            intensity=CONFIG.get("neon_intensity", 255),
-            pulse=CONFIG.get("neon_motion", False),
-            motion_speed=CONFIG.get("animation_speed", 1.0),
-        )
-        self._anim = anim
-        self._motion = motion
-        self._effect = eff
+        if isinstance(self._widget, QtWidgets.QAbstractButton):
+            eff, anim, motion = set_neon(
+                self._widget,
+                accent,
+                intensity=CONFIG.get("neon_intensity", 255),
+                pulse=CONFIG.get("neon_motion", False),
+                motion_speed=CONFIG.get("animation_speed", 1.0),
+                mode="inner",
+            )
+            self._anim = anim
+            self._motion = motion
+            self._effect = eff
+        else:
+            self._widget.setGraphicsEffect(None)
+            self._anim = None
+            self._motion = None
+            self._effect = None
 
     def _stop(self) -> None:
         self._widget.setStyleSheet(self._orig_style)
