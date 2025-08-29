@@ -54,23 +54,31 @@ def apply_gradient(config: Dict) -> Tuple[str, str]:
 
 def apply_glass_effect(window: QtWidgets.QWidget, config: Dict) -> None:
     """Apply glass effect using BlurWindow based on *config*."""
-    eff_type = config.get("glass_effect", "")
+    enabled = config.get("glass_enabled", False)
+    eff_type = config.get("glass_effect") or "Acrylic"
     opacity = float(config.get("glass_opacity", 0.5))
     blur = int(config.get("glass_blur", 10))
     try:
         from blurwindow import BlurWindow, GlobalBlur
-        if eff_type:
+        if enabled:
             blur_type = getattr(GlobalBlur, eff_type, GlobalBlur.Acrylic)
             BlurWindow.blur(window.winId(), blur_type, blur, int(opacity * 255))
         else:
             BlurWindow.blur(window.winId(), GlobalBlur.CLEAR)
     except Exception:
         central = window.centralWidget()
-        if eff_type:
+        if not central:
+            return
+        if enabled:
             eff = QtWidgets.QGraphicsBlurEffect(window)
             eff.setBlurRadius(blur)
             central.setGraphicsEffect(eff)
-            window.setWindowOpacity(opacity)
+            color = QtGui.QColor(config.get("workspace_color", "#1e1e21"))
+            color.setAlpha(int(opacity * 255))
+            pal = central.palette()
+            pal.setColor(central.backgroundRole(), color)
+            central.setAutoFillBackground(True)
+            central.setPalette(pal)
         else:
             central.setGraphicsEffect(None)
-            window.setWindowOpacity(1.0)
+            central.setAutoFillBackground(False)
