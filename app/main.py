@@ -588,8 +588,8 @@ class AnalyticsDialog(QtWidgets.QDialog):
 
         cols = len(RU_MONTHS) + 1
         self.table = NeonTableWidget(len(self.INDICATORS), cols, self)
-        self.table.setSelectionBehavior(QtWidgets.QTableView.SelectColumns)
-        self.table.setSelectionMode(QtWidgets.QTableView.SingleSelection)
+        self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectItems)
+        self.table.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
         self.table.setStyleSheet(
             "QTableWidget{border:1px solid #555; border-radius:8px;} "
             "QTableWidget::item{border:0;} "
