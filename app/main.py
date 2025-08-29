@@ -141,8 +141,39 @@ class NeonEventFilter(QtCore.QObject):
             self._motion = None
 
     def eventFilter(self, obj, ev):
-        if ev.type() in (QtCore.QEvent.HoverEnter, QtCore.QEvent.FocusIn):
+        if ev.type() == QtCore.QEvent.FocusIn:
             self._start()
+        elif ev.type() == QtCore.QEvent.MouseButtonPress:
+            if CONFIG.get("neon", False):
+                accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
+                self._orig_style = self._widget.styleSheet()
+                style = re.sub(r"border-color:[^;]+;?", "", self._orig_style)
+                self._widget.setStyleSheet(style + f"border-color:{accent.name()};")
+                eff = QtWidgets.QGraphicsDropShadowEffect(self._widget)
+                eff.setOffset(0, 0)
+                eff.setBlurRadius(0)
+                eff.setColor(accent)
+                self._widget.setGraphicsEffect(eff)
+                flash = QtCore.QParallelAnimationGroup(self._widget)
+                color_anim = QtCore.QPropertyAnimation(eff, b"color", self._widget)
+                color_anim.setStartValue(accent)
+                end = QtGui.QColor(accent)
+                end.setAlpha(0)
+                color_anim.setEndValue(end)
+                color_anim.setDuration(150)
+                blur_anim = QtCore.QPropertyAnimation(eff, b"blurRadius", self._widget)
+                blur_anim.setStartValue(40)
+                blur_anim.setEndValue(0)
+                blur_anim.setDuration(150)
+                flash.addAnimation(color_anim)
+                flash.addAnimation(blur_anim)
+
+                def _cleanup():
+                    self._widget.setStyleSheet(self._orig_style)
+                    self._widget.setGraphicsEffect(None)
+
+                flash.finished.connect(_cleanup)
+                flash.start(QtCore.QAbstractAnimation.DeleteWhenStopped)
         elif isinstance(self._widget, QtWidgets.QToolButton):
             if ev.type() in (QtCore.QEvent.Leave, QtCore.QEvent.HoverLeave):
                 if self._widget.property("neon_selected"):
