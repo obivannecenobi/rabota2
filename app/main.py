@@ -235,8 +235,13 @@ class ReleaseDialog(QtWidgets.QDialog):
 
         self.table = QtWidgets.QTableWidget(0, 4, self)
         self.table.setHorizontalHeaderLabels(["День", "Работа", "Глав", "Время"])
-        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        self.table.setStyleSheet(
+            "QTableWidget{border:1px solid #555; border-radius:8px;} "
+            "QTableWidget::item{border:0;}"
+        )
         self.table.setRowCount(self.days_in_month)
 
         app = QtWidgets.QApplication.instance()
