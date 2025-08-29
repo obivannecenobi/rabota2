@@ -2134,7 +2134,15 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             app.setPalette(app.style().standardPalette())
         base, workspace = theme_manager.apply_gradient(CONFIG)
-        self.topbar.apply_background(workspace)
+        self.topbar.setStyleSheet(
+            f"background-color:{workspace};" + self.topbar.styleSheet()
+        )
+        self.topbar.lbl_month.setStyleSheet(
+            f"background-color:{workspace};"
+        )
+        self.topbar.spin_year.setStyleSheet(
+            f"background-color:{workspace}; padding:0 6px;"
+        )
         self.table.horizontalHeader().setStyleSheet(
             f"background-color:{workspace};"
         )
