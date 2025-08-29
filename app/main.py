@@ -1726,9 +1726,15 @@ class TopBar(QtWidgets.QWidget):
 
     def apply_background(self, color: Union[str, QtGui.QColor]) -> None:
         qcolor = QtGui.QColor(color)
-        pal = self.palette()
-        pal.setColor(self.backgroundRole(), qcolor)
-        self.setPalette(pal)
+        for w in (self, self.lbl_month, self.spin_year):
+            pal = w.palette()
+            pal.setColor(QtGui.QPalette.Window, qcolor)
+            w.setAutoFillBackground(True)
+            w.setPalette(pal)
+        self.lbl_month.setStyleSheet(f"background-color:{qcolor.name()};")
+        self.spin_year.setStyleSheet(
+            f"background-color:{qcolor.name()}; padding:0 6px;"
+        )
 
     def apply_style(self, neon):
         accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
@@ -1920,6 +1926,13 @@ class MainWindow(QtWidgets.QMainWindow):
         ]:
             w.setFont(header_font)
         self.table.update_day_rows()
+        workspace = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21"))
+        if CONFIG.get("monochrome", False):
+            workspace = theme_manager.apply_monochrome(workspace)
+        self.topbar.apply_background(workspace)
+        self.table.horizontalHeader().setStyleSheet(
+            f"background-color:{workspace.name()};"
+        )
         accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
         if CONFIG.get("monochrome", False):
             h, s, v, _ = accent.getHsv()
@@ -1966,6 +1979,9 @@ class MainWindow(QtWidgets.QMainWindow):
             app.setPalette(app.style().standardPalette())
         base, workspace = theme_manager.apply_gradient(CONFIG)
         self.topbar.apply_background(workspace)
+        self.table.horizontalHeader().setStyleSheet(
+            f"background-color:{workspace};"
+        )
         theme = CONFIG.get("theme", "dark")
         self.setStyleSheet(
             "QPushButton,"
