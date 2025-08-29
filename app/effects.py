@@ -1,4 +1,4 @@
-from PySide6 import QtWidgets, QtGui
+from PySide6 import QtWidgets, QtGui, QtCore
 
 
 def set_neon(
@@ -6,6 +6,7 @@ def set_neon(
     color,
     intensity=255,
     mode="outer",
+    pulse=False,
 ):
     """
     Apply neon effect to ``widget``.
@@ -30,5 +31,15 @@ def set_neon(
     c.setAlpha(int(intensity))
     eff.setColor(c)
     widget.setGraphicsEffect(eff)
+
+    if pulse:
+        anim = QtCore.QPropertyAnimation(eff, b"blurRadius", widget)
+        anim.setStartValue(20)
+        anim.setEndValue(40)
+        anim.setDuration(1000)
+        anim.setLoopCount(-1)
+        anim.setEasingCurve(QtCore.QEasingCurve.InOutQuad)
+        anim.start(QtCore.QAbstractAnimation.DeleteWhenStopped)
+        eff._neon_anim = anim
 
     return eff

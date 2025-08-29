@@ -129,6 +129,7 @@ class NeonEventFilter(QtCore.QObject):
                 accent,
                 intensity=CONFIG.get("neon_intensity", 255),
                 mode="inner",
+                pulse=False,
             )
             self._effect = eff
         else:
@@ -136,8 +137,9 @@ class NeonEventFilter(QtCore.QObject):
             self._effect = None
 
     def _stop(self) -> None:
-        self._widget.setStyleSheet(self._orig_style)
         self._widget.setGraphicsEffect(None)
+        self._effect = None
+        self._widget.setStyleSheet(getattr(self, "_orig_style", ""))
 
     def eventFilter(self, obj, ev):
         if ev.type() == QtCore.QEvent.FocusIn:
@@ -1083,14 +1085,16 @@ class TopDialog(QtWidgets.QDialog):
 class NeonTableWidget(QtWidgets.QTableWidget):
     """Вложенная таблица с неоновым подсвечиванием при наведении и фокусе."""
 
-    def __init__(self, rows, cols, parent=None):
+    def __init__(self, rows, cols, parent=None, use_neon=True):
         super().__init__(rows, cols, parent)
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
         self.setAttribute(QtCore.Qt.WA_Hover, True)
         self.viewport().setAttribute(QtCore.Qt.WA_Hover, True)
-        self._neon_filter = NeonEventFilter(self)
-        self.installEventFilter(self._neon_filter)
-        self.viewport().installEventFilter(self._neon_filter)
+        self._neon_filter = None
+        if use_neon:
+            self._neon_filter = NeonEventFilter(self)
+            self.installEventFilter(self._neon_filter)
+            self.viewport().installEventFilter(self._neon_filter)
         self.setStyleSheet(
             "QTableWidget, QTableWidget::viewport{border:1px solid transparent;}\n"
             "QTableWidget::item:selected{background:transparent;}"
@@ -1128,6 +1132,7 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         self.cell_tables: Dict[tuple[int, int], QtWidgets.QTableWidget] = {}
         self.day_labels: Dict[tuple[int, int], QtWidgets.QLabel] = {}
         self.cell_containers: Dict[tuple[int, int], QtWidgets.QWidget] = {}
+        self.cell_filters: Dict[tuple[int, int], NeonEventFilter] = {}
 
         self.load_month_data(self.year, self.month)
 
@@ -1136,7 +1141,7 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         event.ignore()
 
     def _create_inner_table(self) -> QtWidgets.QTableWidget:
-        tbl = NeonTableWidget(CONFIG.get("day_rows", 6), 3, self)
+        tbl = NeonTableWidget(CONFIG.get("day_rows", 6), 3, self, use_neon=False)
         tbl.setHorizontalHeaderLabels(["Работа", "План", "Готово"])
         tbl.verticalHeader().setVisible(False)
         tbl.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
@@ -1190,6 +1195,7 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         self.cell_tables.clear()
         self.day_labels.clear()
         self.cell_containers.clear()
+        self.cell_filters.clear()
         self.setRowCount(len(weeks))
         for r, week in enumerate(weeks):
             for c, day in enumerate(week):
@@ -1203,11 +1209,17 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                 lay.addWidget(lbl, alignment=QtCore.Qt.AlignHCenter)
                 inner = self._create_inner_table()
                 lay.addWidget(inner)
+                filt = NeonEventFilter(container)
+                container.setAttribute(QtCore.Qt.WA_Hover, True)
+                container.installEventFilter(filt)
+                inner.installEventFilter(filt)
+                inner.viewport().installEventFilter(filt)
                 self.setCellWidget(r, c, container)
                 self.date_map[(r, c)] = day
                 self.cell_tables[(r, c)] = inner
                 self.day_labels[(r, c)] = lbl
                 self.cell_containers[(r, c)] = container
+                self.cell_filters[(r, c)] = filt
                 if day.month != month:
                     container.setEnabled(False)
                     container.setStyleSheet("background-color:#2a2a2a; color:#777;")
