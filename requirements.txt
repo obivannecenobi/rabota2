@@ -1,3 +1,4 @@
 PySide6
 bump2version
 blurwindow
+pyinstaller
