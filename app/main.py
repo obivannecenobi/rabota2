@@ -287,7 +287,6 @@ class ReleaseDialog(QtWidgets.QDialog):
             sp_day.setValue(row + 1)
             sp_day.setReadOnly(True)
             sp_day.setFixedWidth(sp_day.sizeHint().width() + 20)
-            sp_day.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
             self.table.setCellWidget(row, 0, sp_day)
             sp_day.setAttribute(QtCore.Qt.WA_Hover, True)
             sp_day.installEventFilter(NeonEventFilter(sp_day))
@@ -303,7 +302,6 @@ class ReleaseDialog(QtWidgets.QDialog):
             sp_ch = QtWidgets.QSpinBox(self.table)
             sp_ch.setRange(0, 9999)
             sp_ch.setFixedWidth(sp_ch.sizeHint().width() + 20)
-            sp_ch.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
             self.table.setCellWidget(row, 2, sp_ch)
             sp_ch.setAttribute(QtCore.Qt.WA_Hover, True)
             sp_ch.installEventFilter(NeonEventFilter(sp_ch))
@@ -447,7 +445,6 @@ class StatsEntryForm(QtWidgets.QWidget):
             if isinstance(w, QtWidgets.QSpinBox):
                 w.setRange(0, 1_000_000_000)
                 w.setFixedWidth(w.sizeHint().width() + 20)
-                w.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
             else:
                 w.setMinimumWidth(w.sizeHint().width())
             if isinstance(w, QtWidgets.QDoubleSpinBox):
@@ -2013,13 +2010,27 @@ class MainWindow(QtWidgets.QMainWindow):
             "QToolButton,QSpinBox,QDoubleSpinBox,QTimeEdit,"
             "QComboBox,QLineEdit{" + base + "}"
             f"""
-            QSpinBox::up-button,QSpinBox::down-button{{
+            QSpinBox::up-button,QDoubleSpinBox::up-button{{
+                subcontrol-origin:border;
+                subcontrol-position:right top;
+                margin-left:2px;
                 border:1px solid transparent;
                 border-radius:8px;
                 width:16px;height:16px;
             }}
-            QSpinBox::up-arrow{{ image:url(assets/icons/{theme}/chevron-up.svg); }}
-            QSpinBox::down-arrow{{ image:url(assets/icons/{theme}/chevron-down.svg); }}
+            QSpinBox::down-button,QDoubleSpinBox::down-button{{
+                subcontrol-origin:border;
+                subcontrol-position:right bottom;
+                margin-left:2px;
+                border:1px solid transparent;
+                border-radius:8px;
+                width:16px;height:16px;
+            }}
+            QSpinBox::up-arrow,QSpinBox::down-arrow,QDoubleSpinBox::up-arrow,QDoubleSpinBox::down-arrow{{
+                width:10px;height:10px;
+            }}
+            QSpinBox::up-arrow,QDoubleSpinBox::up-arrow{{ image:url(assets/icons/{theme}/chevron-up.svg); }}
+            QSpinBox::down-arrow,QDoubleSpinBox::down-arrow{{ image:url(assets/icons/{theme}/chevron-down.svg); }}
             """
         )
         self.table.setStyleSheet(f"QTableWidget {{ background-color: {workspace}; }}")
