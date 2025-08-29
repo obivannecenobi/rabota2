@@ -1720,10 +1720,11 @@ class TopBar(QtWidgets.QWidget):
         self.default_style = (
             "QLabel{color:#e5e5e5;} QToolButton{color:#e5e5e5; border:1px solid #555; border-radius:6px; padding:4px 10px;}"
         )
-        pal = self.palette()
-        pal.setColor(self.backgroundRole(), QtGui.QColor(30, 30, 33))
         self.setAutoFillBackground(True)
-        self.setPalette(pal)
+        color = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21"))
+        if CONFIG.get("monochrome", False):
+            color = theme_manager.apply_monochrome(color)
+        self.apply_background(color)
         self.apply_style(CONFIG.get("neon", False))
         self.apply_fonts()
 
@@ -1739,6 +1740,12 @@ class TopBar(QtWidgets.QWidget):
         self.btn_next.setIconSize(QtCore.QSize(22, 22))
         self.btn_settings.setIcon(icon("settings"))
         self.btn_settings.setIconSize(QtCore.QSize(22, 22))
+
+    def apply_background(self, color: Union[str, QtGui.QColor]) -> None:
+        qcolor = QtGui.QColor(color)
+        pal = self.palette()
+        pal.setColor(self.backgroundRole(), qcolor)
+        self.setPalette(pal)
 
     def apply_style(self, neon):
         accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
@@ -1984,6 +1991,7 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             app.setPalette(app.style().standardPalette())
         base, workspace = theme_manager.apply_gradient(CONFIG)
+        self.topbar.apply_background(workspace)
         self.setStyleSheet(
             "QPushButton,"
             "QToolButton,QSpinBox,QDoubleSpinBox,QTimeEdit,"
