@@ -25,12 +25,10 @@ def load_config():
         "accent_color": "#39ff14",
         "gradient_colors": ["#39ff14", "#2d7cdb"],
         "gradient_angle": 0,
-        "monochrome": False,
-        "mono_saturation": 100,
-        "glass_effect": "Acrylic",
+        "glass_effect": "",
         "glass_opacity": 0.5,
         "glass_blur": 10,
-        "theme": "dark",
+        "glass_enabled": False,
         "header_font": "Exo 2",
         "text_font": "Inter",
         "save_path": DATA_DIR,
@@ -50,6 +48,8 @@ def load_config():
                     )
                 data["save_path"] = save_path
             default.update({k: v for k, v in data.items() if v is not None})
+            for key in ("monochrome", "mono_saturation", "theme"):
+                default.pop(key, None)
         except Exception:
             pass
     else:
@@ -1485,12 +1485,6 @@ class SettingsDialog(QtWidgets.QDialog):
         self.btn_sidebar.clicked.connect(self.choose_sidebar_color)
         form_color.addRow("Цвет боковой панели", self.btn_sidebar)
 
-        self.combo_theme = QtWidgets.QComboBox(self)
-        self.combo_theme.addItems(["Темная", "Светлая"])
-        self.combo_theme.setCurrentIndex(0 if CONFIG.get("theme","dark")=="dark" else 1)
-        self.combo_theme.currentIndexChanged.connect(lambda _: self._save_config())
-        form_color.addRow("Тема", self.combo_theme)
-
         # gradient controls
         grad = CONFIG.get("gradient_colors", ["#39ff14", "#2d7cdb"])
         self._grad_color1 = QtGui.QColor(grad[0])
@@ -1510,42 +1504,11 @@ class SettingsDialog(QtWidgets.QDialog):
         lay_angle = QtWidgets.QHBoxLayout(); lay_angle.addWidget(self.sld_grad_angle,1); lay_angle.addWidget(self.lbl_grad_angle)
         form_color.addRow("Угол градиента", lay_angle)
 
-        # monochrome
-        self.chk_monochrome = QtWidgets.QCheckBox(self)
-        self.chk_monochrome.setChecked(CONFIG.get("monochrome", False))
-        self.chk_monochrome.toggled.connect(lambda _: self._save_config())
-        form_color.addRow("Монохром", self.chk_monochrome)
-        self.sld_mono_sat = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        self.sld_mono_sat.setRange(0, 255)
-        self.sld_mono_sat.setValue(int(CONFIG.get("mono_saturation", 100)))
-        self.lbl_mono_sat = QtWidgets.QLabel(str(self.sld_mono_sat.value()))
-        self.sld_mono_sat.valueChanged.connect(lambda v: (self.lbl_mono_sat.setText(str(v)), self._save_config()))
-        lay_mono = QtWidgets.QHBoxLayout(); lay_mono.addWidget(self.sld_mono_sat,1); lay_mono.addWidget(self.lbl_mono_sat)
-        form_color.addRow("Насыщенность", lay_mono)
-
-        # glass effect
-        self.combo_glass = QtWidgets.QComboBox(self)
-        self.combo_glass.addItems(["Acrylic", "Mica", "Aero", "Нет"])
-        cur_glass = CONFIG.get("glass_effect", "Acrylic")
-        idx = self.combo_glass.findText(cur_glass) if cur_glass in ["Acrylic","Mica","Aero"] else 3
-        self.combo_glass.setCurrentIndex(idx)
-        self.combo_glass.currentIndexChanged.connect(lambda _: self._save_config())
-        form_color.addRow("Стекло", self.combo_glass)
-        self.sld_glass_opacity = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        self.sld_glass_opacity.setRange(0,100)
-        self.sld_glass_opacity.setValue(int(CONFIG.get("glass_opacity",0.5)*100))
-        self.lbl_glass_opacity = QtWidgets.QLabel(str(self.sld_glass_opacity.value()/100))
-        self.sld_glass_opacity.valueChanged.connect(lambda v: (self.lbl_glass_opacity.setText(str(v/100)), self._save_config()))
-        lay_op = QtWidgets.QHBoxLayout(); lay_op.addWidget(self.sld_glass_opacity,1); lay_op.addWidget(self.lbl_glass_opacity)
-        form_color.addRow("Прозрачность", lay_op)
-
-        self.sld_glass_blur = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        self.sld_glass_blur.setRange(0,50)
-        self.sld_glass_blur.setValue(int(CONFIG.get("glass_blur",10)))
-        self.lbl_glass_blur = QtWidgets.QLabel(str(self.sld_glass_blur.value()))
-        self.sld_glass_blur.valueChanged.connect(lambda v: (self.lbl_glass_blur.setText(str(v)), self._save_config()))
-        lay_blur = QtWidgets.QHBoxLayout(); lay_blur.addWidget(self.sld_glass_blur,1); lay_blur.addWidget(self.lbl_glass_blur)
-        form_color.addRow("Размытие", lay_blur)
+        # glass effect toggle
+        self.chk_glass = QtWidgets.QCheckBox(self)
+        self.chk_glass.setChecked(CONFIG.get("glass_enabled", False))
+        self.chk_glass.toggled.connect(lambda _: self._save_config())
+        form_color.addRow("Стекло", self.chk_glass)
 
         # --- Шрифты ---
         tab_fonts = QtWidgets.QWidget()
@@ -1620,14 +1583,9 @@ class SettingsDialog(QtWidgets.QDialog):
             "accent_color": self._accent_color.name(),
             "gradient_colors": [self._grad_color1.name(), self._grad_color2.name()],
             "gradient_angle": self.sld_grad_angle.value(),
-            "monochrome": self.chk_monochrome.isChecked(),
-            "mono_saturation": self.sld_mono_sat.value(),
-            "glass_effect": "" if self.combo_glass.currentText() == "Нет" else self.combo_glass.currentText(),
-            "glass_opacity": self.sld_glass_opacity.value() / 100,
-            "glass_blur": self.sld_glass_blur.value(),
+            "glass_enabled": self.chk_glass.isChecked(),
             "workspace_color": self._workspace_color.name(),
             "sidebar_color": self._sidebar_color.name(),
-            "theme": "dark" if self.combo_theme.currentIndex() == 0 else "light",
             "header_font": self.font_header.currentFont().family(),
             "text_font": self.font_text.currentFont().family(),
             "day_rows": self.spin_day_rows.value(),
