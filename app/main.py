@@ -473,10 +473,16 @@ class StatsDialog(QtWidgets.QDialog):
 
         lay = QtWidgets.QVBoxLayout(self)
         self.table_stats = NeonTableWidget(0, len(StatsEntryForm.TABLE_COLUMNS), self)
+        self.table_stats.setSelectionBehavior(QtWidgets.QTableView.SelectColumns)
+        self.table_stats.setSelectionMode(QtWidgets.QTableView.SingleSelection)
+        self.table_stats.setStyleSheet(
+            "QTableWidget{border:1px solid #555; border-radius:8px;} "
+            "QTableWidget::item{border:0;} "
+            "QHeaderView::section{padding:0 6px;}"
+        )
         header = self.table_stats.horizontalHeader()
         header.setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         header.setTextElideMode(QtCore.Qt.ElideNone)
-        header.setStyleSheet("QHeaderView::section { padding:0 8px; }")
         self.table_stats.setHorizontalHeaderLabels(
             [h for _, h in StatsEntryForm.TABLE_COLUMNS]
         )
@@ -495,6 +501,9 @@ class StatsDialog(QtWidgets.QDialog):
         btn_close = StyledPushButton("Закрыть", self)
         btn_close.setIcon(icon("x"))
         btn_close.setIconSize(QtCore.QSize(20, 20))
+        for btn in (btn_save, btn_close):
+            btn.setFixedSize(btn.sizeHint())
+            btn.setStyleSheet(btn.styleSheet() + "border:1px solid transparent;")
         self.btn_box.addButton(btn_save, QtWidgets.QDialogButtonBox.AcceptRole)
         self.btn_box.addButton(btn_close, QtWidgets.QDialogButtonBox.RejectRole)
         self.btn_box.accepted.connect(self.save_record)
@@ -613,6 +622,13 @@ class AnalyticsDialog(QtWidgets.QDialog):
 
         cols = len(RU_MONTHS) + 1
         self.table = NeonTableWidget(len(self.INDICATORS), cols, self)
+        self.table.setSelectionBehavior(QtWidgets.QTableView.SelectColumns)
+        self.table.setSelectionMode(QtWidgets.QTableView.SingleSelection)
+        self.table.setStyleSheet(
+            "QTableWidget{border:1px solid #555; border-radius:8px;} "
+            "QTableWidget::item{border:0;} "
+            "QHeaderView::section{padding:0 6px;}"
+        )
         self.table.setHorizontalHeaderLabels(RU_MONTHS + ["Итого за год"])
         self.table.setVerticalHeaderLabels(self.INDICATORS)
         self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
@@ -626,6 +642,9 @@ class AnalyticsDialog(QtWidgets.QDialog):
         btn_close = StyledPushButton("Закрыть", self)
         btn_close.setIcon(icon("x"))
         btn_close.setIconSize(QtCore.QSize(20, 20))
+        for btn in (btn_save, btn_close):
+            btn.setFixedSize(btn.sizeHint())
+            btn.setStyleSheet(btn.styleSheet() + "border:1px solid transparent;")
         box.addButton(btn_save, QtWidgets.QDialogButtonBox.AcceptRole)
         box.addButton(btn_close, QtWidgets.QDialogButtonBox.RejectRole)
         box.accepted.connect(self.save)
@@ -650,6 +669,11 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self._software = {str(m): 0.0 for m in range(1, 13)}
         self._net = {str(m): 0.0 for m in range(1, 13)}
         self.load(year)
+
+    def resizeEvent(self, event):
+        self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        super().resizeEvent(event)
 
     def _year_changed(self, val):
         self.load(val)
@@ -685,6 +709,10 @@ class AnalyticsDialog(QtWidgets.QDialog):
             )
 
         self._recalculate()
+        self.table.resizeColumnsToContents()
+        self.table.resizeRowsToContents()
+        self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self._loading = False
 
     def save(self):
