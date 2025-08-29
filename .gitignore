@@ -15,4 +15,6 @@ assets/*
 !assets/*.png
 !assets/fonts/
 !assets/fonts/*.ttf
+!assets/icons/
+!assets/icons/**/*.svg
 *.xlsx
