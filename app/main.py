@@ -102,13 +102,52 @@ RU_MONTHS = ["Январь","Февраль","Март","Апрель","Май",
 def ensure_font_registered(family: str, parent: QtWidgets.QWidget | None = None) -> str:
     """Ensure *family* is available and return its name.
 
-    If the requested font family is not found in the database, the original
-    *family* name is returned without prompting the user to select a font file.
+    If *family* is missing in :class:`QFontDatabase`, the user is prompted to
+    locate a font file. If the font cannot be loaded, the safe default
+    ``"Inter"`` is returned.
     """
     db = QtGui.QFontDatabase()
     if family in db.families():
         return family
-    return family
+
+    file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
+        parent,
+        "Выберите файл шрифта",
+        "",
+        "Font Files (*.ttf *.otf)"
+    )
+    if file_path:
+        fid = QtGui.QFontDatabase.addApplicationFont(file_path)
+        if fid != -1:
+            fams = QtGui.QFontDatabase.applicationFontFamilies(fid)
+            if fams:
+                return fams[0]
+
+    return "Inter"
+
+
+def resolve_font_config(parent: QtWidgets.QWidget | None = None) -> tuple[str, str]:
+    """Resolve configured font families and persist any changes.
+
+    Returns the resolved ``(header_family, text_family)`` tuple.
+    """
+    header = ensure_font_registered(CONFIG.get("header_font", "Exo 2"), parent)
+    text = ensure_font_registered(CONFIG.get("text_font", "Inter"), parent)
+
+    changed = False
+    if header != CONFIG.get("header_font"):
+        CONFIG["header_font"] = header
+        changed = True
+    if text != CONFIG.get("text_font"):
+        CONFIG["text_font"] = text
+        changed = True
+
+    if changed:
+        os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(CONFIG, f, ensure_ascii=False, indent=2)
+
+    return header, text
 
 
 @dataclass
@@ -1431,15 +1470,12 @@ class SettingsDialog(QtWidgets.QDialog):
         form_fonts = QtWidgets.QFormLayout(tab_fonts)
         tabs.addTab(tab_fonts, "Шрифты")
 
-        header_family = ensure_font_registered(CONFIG.get("header_font", "Exo 2"), self)
-        CONFIG["header_font"] = header_family
+        header_family, text_family = resolve_font_config(self)
         self.font_header = QtWidgets.QFontComboBox(self)
         self.font_header.setCurrentFont(QtGui.QFont(header_family))
         self.font_header.currentFontChanged.connect(lambda _: self._save_config())
         form_fonts.addRow("Шрифт заголовков", self.font_header)
 
-        text_family = ensure_font_registered(CONFIG.get("text_font", "Inter"), self)
-        CONFIG["text_font"] = text_family
         self.font_text = QtWidgets.QFontComboBox(self)
         self.font_text.setCurrentFont(QtGui.QFont(text_family))
         self.font_text.currentFontChanged.connect(lambda _: self._save_config())
@@ -1860,10 +1896,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.apply_settings()
 
     def apply_settings(self):
-        text_family = ensure_font_registered(CONFIG.get("text_font", "Inter"), self)
-        header_family = ensure_font_registered(CONFIG.get("header_font", "Exo 2"), self)
-        CONFIG["text_font"] = text_family
-        CONFIG["header_font"] = header_family
+        header_family, text_family = resolve_font_config(self)
         theme_manager.set_text_font(text_family)
         theme_manager.set_header_font(header_family)
         load_icons(CONFIG.get("theme", "dark"))
@@ -1995,6 +2028,7 @@ def main():
     QtCore.QLocale.setDefault(QtCore.QLocale("ru_RU"))
     app = QtWidgets.QApplication(sys.argv)
     load_icons(CONFIG.get("theme", "dark"))
+    resolve_font_config()
     theme_manager.set_text_font(CONFIG.get("text_font", "Inter"))
     w = MainWindow()
     w.apply_settings()
