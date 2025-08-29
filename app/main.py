@@ -1935,6 +1935,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setStatusBar(bar)
         self.lbl_timer = QtWidgets.QLabel("000:00:00:00", self)
         bar.addWidget(self.lbl_timer)
+        self._timer_effect, self._timer_anim, self._timer_motion = set_neon(
+            self.lbl_timer,
+            CONFIG.get("accent_color", "#39ff14"),
+            pulse=True,
+            motion_speed=CONFIG.get("animation_speed", 1.0),
+        )
         self.lbl_version = QtWidgets.QLabel("", self)
         bar.addPermanentWidget(self.lbl_version)
         self._timer = QtCore.QTimer(self)
@@ -2055,6 +2061,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sidebar.apply_style(CONFIG.get("neon", False), accent)
         speed = CONFIG.get("animation_speed", 1.0)
         self.sidebar.anim.setDuration(int(160 / max(speed, 0.1)))
+        if hasattr(self, "_timer_anim") and self._timer_anim:
+            self._timer_anim.stop()
+        if hasattr(self, "_timer_motion") and self._timer_motion:
+            self._timer_motion.stop()
+        self._timer_effect, self._timer_anim, self._timer_motion = set_neon(
+            self.lbl_timer,
+            accent,
+            intensity=CONFIG.get("neon_intensity", 255),
+            pulse=True,
+            motion_speed=speed,
+        )
         for dlg in app.topLevelWidgets():
             if isinstance(dlg, QtWidgets.QDialog):
                 dlg.setFont(app.font())
