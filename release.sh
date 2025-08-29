@@ -5,6 +5,9 @@ set -e
 
 part=${1:-patch}
 
+# check for syntax errors early
+python -m py_compile app/main.py app/effects.py
+
 # run tests if present
 if [ -d tests ]; then
     python -m pytest
