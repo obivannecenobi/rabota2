@@ -139,6 +139,15 @@ class NeonEventFilter(QtCore.QObject):
     def eventFilter(self, obj, ev):
         if ev.type() in (QtCore.QEvent.HoverEnter, QtCore.QEvent.FocusIn):
             self._start()
+        elif isinstance(self._widget, QtWidgets.QToolButton):
+            if ev.type() in (QtCore.QEvent.Leave, QtCore.QEvent.HoverLeave):
+                if self._widget.property("neon_selected"):
+                    self._widget.setStyleSheet(self._orig_style)
+                else:
+                    self._stop()
+            elif ev.type() == QtCore.QEvent.FocusOut:
+                if not self._widget.property("neon_selected"):
+                    self._stop()
         elif ev.type() in (
             QtCore.QEvent.HoverLeave,
             QtCore.QEvent.Leave,
@@ -1227,21 +1236,28 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             ("Аналитика", ICON_TG),
             ("Топы", ICON_TP),
         ]
-        self.buttons=[]
-        self.btn_inputs=None
-        self.btn_release=None
-        self.btn_analytics=None
-        self.btn_tops=None
+        self.buttons = []
+        self._filters = {}
+        self.btn_inputs = None
+        self.btn_release = None
+        self.btn_analytics = None
+        self.btn_tops = None
         for label, icon in items:
-            b=StyledToolButton(self)
-            b.setIcon(QtGui.QIcon(icon)); b.setIconSize(QtCore.QSize(22,22))
-            b.setText(" "+label)
+            b = StyledToolButton(self)
+            b.setIcon(QtGui.QIcon(icon))
+            b.setIconSize(QtCore.QSize(22, 22))
+            b.setText(" " + label)
             b.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
             b.setCursor(QtCore.Qt.PointingHandCursor)
             b.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
             b.setAttribute(QtCore.Qt.WA_Hover, True)
-            lay.addWidget(b); self.buttons.append(b)
-            b.installEventFilter(NeonEventFilter(b))
+            b.setProperty("neon_selected", False)
+            lay.addWidget(b)
+            self.buttons.append(b)
+            filt = NeonEventFilter(b)
+            b.installEventFilter(filt)
+            self._filters[b] = filt
+            b.clicked.connect(lambda _, btn=b: self.activate_button(btn))
             if label == "Вводные":
                 self.btn_inputs = b
             elif label == "Выкладка":
@@ -1258,6 +1274,15 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         self.setMinimumWidth(self.collapsed_width)
         self.setMaximumWidth(self.expanded_width)
         self.update_icons()
+
+    def activate_button(self, btn: QtWidgets.QToolButton) -> None:
+        for b, filt in self._filters.items():
+            if b is btn:
+                b.setProperty("neon_selected", True)
+                filt._start()
+            else:
+                b.setProperty("neon_selected", False)
+                filt._stop()
 
     def set_collapsed(self, collapsed: bool):
         self._collapsed = collapsed
