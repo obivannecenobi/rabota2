@@ -1250,15 +1250,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
                 self.btn_analytics = b
             elif label == "Топы":
                 self.btn_tops = b
-        lay.addStretch(1)
-
-        self.btn_settings = StyledToolButton(self)
-        self.btn_settings.setCursor(QtCore.Qt.PointingHandCursor)
-        self.btn_settings.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
-        self.btn_settings.setAttribute(QtCore.Qt.WA_Hover, True)
-        lay.addWidget(self.btn_settings)
-        self.btn_settings.installEventFilter(NeonEventFilter(self.btn_settings))
-        self.btn_settings.clicked.connect(self.settings_clicked.emit)
+        # Stretch removed since there is no settings button at the bottom
 
         self._collapsed = False
         self.anim = QtCore.QPropertyAnimation(self, b"maximumWidth", self)
@@ -1300,7 +1292,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
                 f"QLabel {{ color: {accent.name()}; }}"
             )
             self.setStyleSheet(style)
-            widgets = [self.btn_toggle, self.btn_settings] + self.buttons
+            widgets = [self.btn_toggle] + self.buttons
             for w in widgets:
                 eff = QtWidgets.QGraphicsDropShadowEffect(self)
                 eff.setOffset(0, 0)
@@ -1328,15 +1320,15 @@ class CollapsibleSidebar(QtWidgets.QFrame):
                 "QLabel { color: #c7c7c7; }\n"
             )
             self.setStyleSheet(style)
-            for w in [self.btn_toggle, self.btn_settings] + self.buttons:
+            for w in [self.btn_toggle] + self.buttons:
                 if hasattr(w, "_neon_anim") and w._neon_anim:
                     w._neon_anim.stop()
                     w._neon_anim = None
                 w.setGraphicsEffect(None)
 
     def update_icons(self) -> None:
-        self.btn_settings.setIcon(icon("settings"))
-        self.btn_settings.setIconSize(QtCore.QSize(22, 22))
+        """Update sidebar icons. Settings button was removed."""
+        pass
 
 
 class SettingsDialog(QtWidgets.QDialog):
