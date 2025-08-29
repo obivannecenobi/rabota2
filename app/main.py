@@ -370,7 +370,8 @@ class StatsEntryForm(QtWidgets.QWidget):
             form.addRow(label, w)
             self.widgets[key] = w
             w.setAttribute(QtCore.Qt.WA_Hover, True)
-            w.installEventFilter(NeonEventFilter(w))
+            if key != "adult":  # avoid framing the entire row for checkbox
+                w.installEventFilter(NeonEventFilter(w))
 
     def get_record(self) -> Dict[str, int | float | str | bool]:
         record: Dict[str, int | float | str | bool] = {}
