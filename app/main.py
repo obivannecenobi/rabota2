@@ -1808,7 +1808,7 @@ class TopBar(QtWidgets.QWidget):
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("План-график — Excel 1:1 + навигация по месяцам + левый бар")
+        self.setWindowTitle("План-график")
         central = QtWidgets.QWidget(self)
         h = QtWidgets.QHBoxLayout(central); h.setContentsMargins(0,0,0,0); h.setSpacing(0)
 
