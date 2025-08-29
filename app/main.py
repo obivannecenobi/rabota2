@@ -11,6 +11,9 @@ from resources import register_fonts, load_icons, icon
 import theme_manager
 from effects import set_neon
 
+# Ensure bundled fonts are loaded before any window is created
+register_fonts()
+
 ASSETS = os.path.join(os.path.dirname(__file__), "..", "assets")
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 CONFIG_PATH = os.path.join(DATA_DIR, "config.json")
@@ -94,22 +97,14 @@ RU_MONTHS = ["Январь","Февраль","Март","Апрель","Май",
 
 
 def ensure_font_registered(family: str, parent: QtWidgets.QWidget | None = None) -> str:
-    """Ensure *family* is available, asking user for a font file if necessary."""
+    """Ensure *family* is available and return its name.
+
+    If the requested font family is not found in the database, the original
+    *family* name is returned without prompting the user to select a font file.
+    """
     db = QtGui.QFontDatabase()
     if family in db.families():
         return family
-    path, _ = QtWidgets.QFileDialog.getOpenFileName(
-        parent,
-        "Выберите файл шрифта",
-        "",
-        "Font Files (*.ttf *.otf)",
-    )
-    if path:
-        font_id = QtGui.QFontDatabase.addApplicationFont(path)
-        if font_id != -1:
-            families = QtGui.QFontDatabase.applicationFontFamilies(font_id)
-            if families:
-                return families[0]
     return family
 
 
@@ -2020,7 +2015,6 @@ class MainWindow(QtWidgets.QMainWindow):
 def main():
     QtCore.QLocale.setDefault(QtCore.QLocale("ru_RU"))
     app = QtWidgets.QApplication(sys.argv)
-    register_fonts()
     load_icons(CONFIG.get("theme", "dark"))
     theme_manager.set_text_font(CONFIG.get("text_font", "Inter"))
     w = MainWindow()
