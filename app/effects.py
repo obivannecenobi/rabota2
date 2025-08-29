@@ -1,4 +1,5 @@
 from PySide6 import QtWidgets, QtGui, QtCore
+import re
 
 
 def set_neon(
@@ -54,17 +55,30 @@ def apply_neon_effect(widget: QtWidgets.QWidget, on: bool = True) -> None:
     if on:
         if getattr(widget, "_neon_prev_effect", None) is None:
             widget._neon_prev_effect = widget.graphicsEffect()
+        if getattr(widget, "_neon_prev_style", None) is None:
+            widget._neon_prev_style = widget.styleSheet()
+            match = re.search(r"border-radius:\s*([0-9.]+)px", widget._neon_prev_style)
+            widget._neon_prev_radius = match.group(1) if match else None
         eff = QtWidgets.QGraphicsDropShadowEffect(widget)
         eff.setOffset(0, 0)
         eff.setBlurRadius(20)
         color = widget.palette().color(QtGui.QPalette.Highlight)
         eff.setColor(color)
         widget.setGraphicsEffect(eff)
+        parts = [widget._neon_prev_style, f"border:1px solid {color.name()};"]
+        if widget._neon_prev_radius is not None:
+            parts.append(f"border-radius:{widget._neon_prev_radius}px;")
+        widget.setStyleSheet("".join(parts))
         widget._neon_effect = eff
     else:
         prev = getattr(widget, "_neon_prev_effect", None)
         widget.setGraphicsEffect(prev)
+        prev_style = getattr(widget, "_neon_prev_style", None)
+        if prev_style is not None:
+            widget.setStyleSheet(prev_style)
         widget._neon_prev_effect = None
+        widget._neon_prev_style = None
+        widget._neon_prev_radius = None
         widget._neon_effect = None
 
 
@@ -75,19 +89,13 @@ class NeonEventFilter(QtCore.QObject):
         super().__init__(widget)
         self._widget = widget
 
-    def _start(self) -> None:
-        apply_neon_effect(self._widget, True)
-
-    def _stop(self) -> None:
-        apply_neon_effect(self._widget, False)
-
     def eventFilter(self, obj, event):  # noqa: D401 - Qt event filter signature
         if event.type() in (QtCore.QEvent.HoverEnter, QtCore.QEvent.FocusIn):
-            self._start()
+            apply_neon_effect(self._widget, True)
         elif event.type() in (
             QtCore.QEvent.HoverLeave,
             QtCore.QEvent.Leave,
             QtCore.QEvent.FocusOut,
         ):
-            self._stop()
+            apply_neon_effect(self._widget, False)
         return False
