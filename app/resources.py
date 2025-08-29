@@ -29,7 +29,15 @@ def load_icons(theme: str = "dark") -> None:
     if not os.path.isdir(theme_dir):
         return
     ICONS.clear()
-    for name in ["settings", "chevron-left", "chevron-right", "save", "x"]:
+    for name in [
+        "settings",
+        "chevron-left",
+        "chevron-right",
+        "chevron-up",
+        "chevron-down",
+        "save",
+        "x",
+    ]:
         for ext in ("svg", "png"):
             path = os.path.join(theme_dir, f"{name}.{ext}")
             if os.path.exists(path):
