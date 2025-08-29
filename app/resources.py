@@ -6,7 +6,7 @@ import os
 import logging
 from typing import Dict
 
-from PySide6.QtGui import QFontDatabase, QIcon
+from PySide6.QtGui import QFontDatabase, QIcon, QFont, QGuiApplication
 
 ASSETS_DIR = os.path.join(os.path.dirname(__file__), "..", "assets")
 FONTS_DIR = os.path.join(ASSETS_DIR, "fonts")
@@ -21,9 +21,13 @@ def register_fonts() -> None:
         return
     for fname in os.listdir(FONTS_DIR):
         if fname.lower().endswith((".ttf", ".otf")):
-            fid = QFontDatabase.addApplicationFont(os.path.join(FONTS_DIR, fname))
-            if fid == -1:
-                logging.getLogger(__name__).error("Failed to load font %s", fname)
+            path = os.path.join(FONTS_DIR, fname)
+            fid = QFontDatabase.addApplicationFont(path)
+            if fid < 0:
+                logging.getLogger(__name__).error(
+                    "Failed to load font '%s' from '%s'", fname, path
+                )
+                QGuiApplication.setFont(QFont("Arial"))
 
 
 def load_icons(theme: str = "dark") -> None:
