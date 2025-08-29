@@ -1292,7 +1292,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
 
         # Toggle button — только иконка
         self.btn_toggle = StyledToolButton(self)
-        self.btn_toggle.setIcon(QtGui.QIcon(ICON_TOGGLE))
+        self.btn_toggle.setIcon(QtGui.QIcon(CONFIG.get("sidebar_icon", ICON_TOGGLE)))
         self.btn_toggle.setIconSize(QtCore.QSize(28,28))
         self.btn_toggle.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
         self.btn_toggle.setCursor(QtCore.Qt.PointingHandCursor)
@@ -1415,8 +1415,8 @@ class CollapsibleSidebar(QtWidgets.QFrame):
                 w.setGraphicsEffect(None)
 
     def update_icons(self) -> None:
-        """Update sidebar icons. Settings button was removed."""
-        pass
+        """Update sidebar icon from configuration."""
+        self.btn_toggle.setIcon(QtGui.QIcon(CONFIG.get("sidebar_icon", ICON_TOGGLE)))
 
 
 class SettingsDialog(QtWidgets.QDialog):
@@ -1432,10 +1432,10 @@ class SettingsDialog(QtWidgets.QDialog):
         tabs = QtWidgets.QTabWidget(self)
         main_lay.addWidget(tabs)
 
-        # --- Цвет и тема ---
-        tab_color = QtWidgets.QWidget()
-        form_color = QtWidgets.QFormLayout(tab_color)
-        tabs.addTab(tab_color, "Цвет и тема")
+        # --- Интерфейс ---
+        tab_interface = QtWidgets.QWidget()
+        form_interface = QtWidgets.QFormLayout(tab_interface)
+        tabs.addTab(tab_interface, "Интерфейс")
 
         self._accent_color = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
         self._preset_colors = [
@@ -1467,19 +1467,19 @@ class SettingsDialog(QtWidgets.QDialog):
         self._accent_index = idx
         # connect after setting initial index to avoid unwanted color dialog
         self.combo_accent.currentIndexChanged.connect(self._on_accent_changed)
-        form_color.addRow("Цвет подсветки", self.combo_accent)
+        form_interface.addRow("Цвет подсветки", self.combo_accent)
 
         self._workspace_color = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21"))
         self.btn_workspace = StyledPushButton(self)
         self._update_workspace_button()
         self.btn_workspace.clicked.connect(self.choose_workspace_color)
-        form_color.addRow("Цвет рабочей области", self.btn_workspace)
+        form_interface.addRow("Цвет рабочей области", self.btn_workspace)
 
         self._sidebar_color = QtGui.QColor(CONFIG.get("sidebar_color", "#1f1f23"))
         self.btn_sidebar = StyledPushButton(self)
         self._update_sidebar_button()
         self.btn_sidebar.clicked.connect(self.choose_sidebar_color)
-        form_color.addRow("Цвет боковой панели", self.btn_sidebar)
+        form_interface.addRow("Цвет боковой панели", self.btn_sidebar)
 
         # gradient controls
         grad = CONFIG.get("gradient_colors", ["#39ff14", "#2d7cdb"])
@@ -1491,14 +1491,14 @@ class SettingsDialog(QtWidgets.QDialog):
         self.btn_grad1.clicked.connect(lambda: self.choose_grad_color(1))
         self.btn_grad2.clicked.connect(lambda: self.choose_grad_color(2))
         lay_grad = QtWidgets.QHBoxLayout(); lay_grad.addWidget(self.btn_grad1); lay_grad.addWidget(self.btn_grad2)
-        form_color.addRow("Градиент", lay_grad)
+        form_interface.addRow("Градиент", lay_grad)
         self.sld_grad_angle = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
         self.sld_grad_angle.setRange(0, 360)
         self.sld_grad_angle.setValue(int(CONFIG.get("gradient_angle", 0)))
         self.lbl_grad_angle = QtWidgets.QLabel(str(self.sld_grad_angle.value()))
         self.sld_grad_angle.valueChanged.connect(lambda v: (self.lbl_grad_angle.setText(str(v)), self._save_config()))
         lay_angle = QtWidgets.QHBoxLayout(); lay_angle.addWidget(self.sld_grad_angle,1); lay_angle.addWidget(self.lbl_grad_angle)
-        form_color.addRow("Угол градиента", lay_angle)
+        form_interface.addRow("Угол градиента", lay_angle)
         # neon controls
         grp_neon = QtWidgets.QGroupBox("Неон", self)
         lay_neon = QtWidgets.QFormLayout(grp_neon)
@@ -1521,38 +1521,61 @@ class SettingsDialog(QtWidgets.QDialog):
         self.spin_neon_intensity.setValue(CONFIG.get("neon_intensity", 255))
         self.spin_neon_intensity.valueChanged.connect(self._on_neon_changed)
         lay_neon.addRow("Интенсивность", self.spin_neon_intensity)
-        form_color.addRow(grp_neon)
+        form_interface.addRow(grp_neon)
 
         # glass effect toggle
         self.chk_glass = QtWidgets.QCheckBox(self)
         self.chk_glass.setChecked(CONFIG.get("glass_enabled", False))
         self.chk_glass.toggled.connect(lambda _: self._save_config())
-        form_color.addRow("Стекло", self.chk_glass)
-
-        # --- Шрифты ---
-        tab_fonts = QtWidgets.QWidget()
-        form_fonts = QtWidgets.QFormLayout(tab_fonts)
-        tabs.addTab(tab_fonts, "Шрифты")
+        form_interface.addRow("Стекло", self.chk_glass)
 
         header_family, text_family = resolve_font_config(self)
         self.font_header = QtWidgets.QFontComboBox(self)
         self.font_header.setCurrentFont(QtGui.QFont(header_family))
         self.font_header.currentFontChanged.connect(lambda _: self._save_config())
-        form_fonts.addRow("Шрифт заголовков", self.font_header)
+        form_interface.addRow("Шрифт заголовков", self.font_header)
 
         self.font_text = QtWidgets.QFontComboBox(self)
         self.font_text.setCurrentFont(QtGui.QFont(text_family))
         self.font_text.currentFontChanged.connect(lambda _: self._save_config())
-        form_fonts.addRow("Шрифт текста", self.font_text)
+        form_interface.addRow("Шрифт текста", self.font_text)
+
+        path_lay = QtWidgets.QHBoxLayout()
+        self.edit_path = QtWidgets.QLineEdit(CONFIG.get("save_path", DATA_DIR), self)
+        self.edit_path.editingFinished.connect(self._save_config)
+        btn_browse = StyledPushButton("...", self)
+        btn_browse.clicked.connect(self.browse_path)
+        path_lay.addWidget(self.edit_path,1)
+        path_lay.addWidget(btn_browse)
+        form_interface.addRow("Путь сохранения", path_lay)
 
         # --- Иконки ---
         tab_icons = QtWidgets.QWidget()
-        lay_icons = QtWidgets.QVBoxLayout(tab_icons)
-        lay_icons.addStretch(1)
-        lbl_icons = QtWidgets.QLabel("Нет настроек")
-        lbl_icons.setAlignment(QtCore.Qt.AlignCenter)
-        lay_icons.addWidget(lbl_icons)
-        lay_icons.addStretch(1)
+        form_icons = QtWidgets.QFormLayout(tab_icons)
+        icon_files = [f for f in os.listdir(ASSETS) if f.lower().endswith((".png", ".ico"))]
+        self.combo_sidebar_icon = QtWidgets.QComboBox(self)
+        for f in icon_files:
+            path = os.path.join(ASSETS, f)
+            self.combo_sidebar_icon.addItem(QtGui.QIcon(path), f, path)
+        idx = self.combo_sidebar_icon.findData(CONFIG.get("sidebar_icon", ICON_TOGGLE))
+        if idx >= 0:
+            self.combo_sidebar_icon.setCurrentIndex(idx)
+        self.combo_sidebar_icon.currentIndexChanged.connect(lambda _: self._save_config())
+        form_icons.addRow("Иконка боковой панели", self.combo_sidebar_icon)
+
+        self.combo_app_icon = QtWidgets.QComboBox(self)
+        for f in icon_files:
+            path = os.path.join(ASSETS, f)
+            self.combo_app_icon.addItem(QtGui.QIcon(path), f, path)
+        idx = self.combo_app_icon.findData(CONFIG.get("app_icon", ICON_TOGGLE))
+        if idx >= 0:
+            self.combo_app_icon.setCurrentIndex(idx)
+        self.combo_app_icon.currentIndexChanged.connect(lambda _: self._save_config())
+        form_icons.addRow("Иконка приложения", self.combo_app_icon)
+
+        hint = QtWidgets.QLabel("Размер иконок: 20×20 px", self)
+        hint.setAlignment(QtCore.Qt.AlignCenter)
+        form_icons.addRow(hint)
         tabs.addTab(tab_icons, "Иконки")
 
         # General options below tabs
@@ -1565,15 +1588,6 @@ class SettingsDialog(QtWidgets.QDialog):
         self.spin_day_rows.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
         self.spin_day_rows.valueChanged.connect(lambda _: self._save_config())
         form_gen.addRow("Строк на день", self.spin_day_rows)
-
-        path_lay = QtWidgets.QHBoxLayout()
-        self.edit_path = QtWidgets.QLineEdit(CONFIG.get("save_path", DATA_DIR), self)
-        self.edit_path.editingFinished.connect(self._save_config)
-        btn_browse = StyledPushButton("...", self)
-        btn_browse.clicked.connect(self.browse_path)
-        path_lay.addWidget(self.edit_path,1)
-        path_lay.addWidget(btn_browse)
-        form_gen.addRow("Путь сохранения", path_lay)
 
         box = QtWidgets.QDialogButtonBox(self)
         btn_save = StyledPushButton("Сохранить", self)
@@ -1602,9 +1616,11 @@ class SettingsDialog(QtWidgets.QDialog):
             self.chk_glass,
             self.font_header,
             self.font_text,
-            self.spin_day_rows,
             self.edit_path,
             btn_browse,
+            self.combo_sidebar_icon,
+            self.combo_app_icon,
+            self.spin_day_rows,
             btn_save,
             btn_cancel,
         ):
@@ -1633,6 +1649,8 @@ class SettingsDialog(QtWidgets.QDialog):
             "sidebar_color": self._sidebar_color.name(),
             "header_font": self.font_header.currentFont().family(),
             "text_font": self.font_text.currentFont().family(),
+            "sidebar_icon": self.combo_sidebar_icon.currentData(),
+            "app_icon": self.combo_app_icon.currentData(),
             "day_rows": self.spin_day_rows.value(),
             "save_path": self.edit_path.text().strip() or DATA_DIR,
         }
@@ -1853,6 +1871,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("План-график")
+        self.setWindowIcon(QtGui.QIcon(CONFIG.get("app_icon", ICON_TOGGLE)))
         central = QtWidgets.QWidget(self)
         h = QtWidgets.QHBoxLayout(central); h.setContentsMargins(0,0,0,0); h.setSpacing(0)
 
@@ -1984,6 +2003,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.topbar.update_icons()
         self.sidebar.update_icons()
         self.topbar.apply_fonts()
+        self.setWindowIcon(QtGui.QIcon(CONFIG.get("app_icon", ICON_TOGGLE)))
         header_font = QtGui.QFont(header_family)
         self.table.setFont(app.font())
         self.table.horizontalHeader().setFont(header_font)
