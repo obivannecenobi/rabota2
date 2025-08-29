@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys, os, json, calendar, re
 from datetime import datetime, date
-from typing import Dict, List
+from typing import Dict, List, Union
 
 from PySide6 import QtWidgets, QtGui, QtCore
 from dataclasses import dataclass, field
@@ -1283,11 +1283,14 @@ class CollapsibleSidebar(QtWidgets.QFrame):
 
     def toggle(self): self.set_collapsed(not self._collapsed)
 
-    def apply_style(self, neon: bool, accent: QtGui.QColor):
+    def apply_style(self, neon: bool, accent: QtGui.QColor, sidebar_color: Union[str, QtGui.QColor, None] = None):
         thickness = CONFIG.get("neon_thickness", 1)
         size = CONFIG.get("neon_size", 10)
         intensity = CONFIG.get("neon_intensity", 255)
-        sidebar_color = CONFIG.get("sidebar_color", "#1f1f23")
+        if sidebar_color is None:
+            sidebar_color = CONFIG.get("sidebar_color", "#1f1f23")
+        if isinstance(sidebar_color, QtGui.QColor):
+            sidebar_color = sidebar_color.name()
         speed = CONFIG.get("animation_speed", 1.0)
         if neon:
             style = (
@@ -1338,6 +1341,8 @@ class CollapsibleSidebar(QtWidgets.QFrame):
 
 class SettingsDialog(QtWidgets.QDialog):
     """Окно настроек приложения."""
+
+    settings_changed = QtCore.Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -1398,6 +1403,7 @@ class SettingsDialog(QtWidgets.QDialog):
         self.combo_theme = QtWidgets.QComboBox(self)
         self.combo_theme.addItems(["Темная", "Светлая"])
         self.combo_theme.setCurrentIndex(0 if CONFIG.get("theme","dark")=="dark" else 1)
+        self.combo_theme.currentIndexChanged.connect(lambda _: self._save_config())
         form_color.addRow("Тема", self.combo_theme)
 
         # gradient controls
@@ -1415,19 +1421,20 @@ class SettingsDialog(QtWidgets.QDialog):
         self.sld_grad_angle.setRange(0, 360)
         self.sld_grad_angle.setValue(int(CONFIG.get("gradient_angle", 0)))
         self.lbl_grad_angle = QtWidgets.QLabel(str(self.sld_grad_angle.value()))
-        self.sld_grad_angle.valueChanged.connect(lambda v: self.lbl_grad_angle.setText(str(v)))
+        self.sld_grad_angle.valueChanged.connect(lambda v: (self.lbl_grad_angle.setText(str(v)), self._save_config()))
         lay_angle = QtWidgets.QHBoxLayout(); lay_angle.addWidget(self.sld_grad_angle,1); lay_angle.addWidget(self.lbl_grad_angle)
         form_color.addRow("Угол градиента", lay_angle)
 
         # monochrome
         self.chk_monochrome = QtWidgets.QCheckBox(self)
         self.chk_monochrome.setChecked(CONFIG.get("monochrome", False))
+        self.chk_monochrome.toggled.connect(lambda _: self._save_config())
         form_color.addRow("Монохром", self.chk_monochrome)
         self.sld_mono_sat = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
         self.sld_mono_sat.setRange(0, 255)
         self.sld_mono_sat.setValue(int(CONFIG.get("mono_saturation", 100)))
         self.lbl_mono_sat = QtWidgets.QLabel(str(self.sld_mono_sat.value()))
-        self.sld_mono_sat.valueChanged.connect(lambda v: self.lbl_mono_sat.setText(str(v)))
+        self.sld_mono_sat.valueChanged.connect(lambda v: (self.lbl_mono_sat.setText(str(v)), self._save_config()))
         lay_mono = QtWidgets.QHBoxLayout(); lay_mono.addWidget(self.sld_mono_sat,1); lay_mono.addWidget(self.lbl_mono_sat)
         form_color.addRow("Насыщенность", lay_mono)
 
@@ -1437,12 +1444,13 @@ class SettingsDialog(QtWidgets.QDialog):
         cur_glass = CONFIG.get("glass_effect", "Acrylic")
         idx = self.combo_glass.findText(cur_glass) if cur_glass in ["Acrylic","Mica","Aero"] else 3
         self.combo_glass.setCurrentIndex(idx)
+        self.combo_glass.currentIndexChanged.connect(lambda _: self._save_config())
         form_color.addRow("Стекло", self.combo_glass)
         self.sld_glass_opacity = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
         self.sld_glass_opacity.setRange(0,100)
         self.sld_glass_opacity.setValue(int(CONFIG.get("glass_opacity",0.5)*100))
         self.lbl_glass_opacity = QtWidgets.QLabel(str(self.sld_glass_opacity.value()/100))
-        self.sld_glass_opacity.valueChanged.connect(lambda v: self.lbl_glass_opacity.setText(str(v/100)))
+        self.sld_glass_opacity.valueChanged.connect(lambda v: (self.lbl_glass_opacity.setText(str(v/100)), self._save_config()))
         lay_op = QtWidgets.QHBoxLayout(); lay_op.addWidget(self.sld_glass_opacity,1); lay_op.addWidget(self.lbl_glass_opacity)
         form_color.addRow("Прозрачность", lay_op)
 
@@ -1450,7 +1458,7 @@ class SettingsDialog(QtWidgets.QDialog):
         self.sld_glass_blur.setRange(0,50)
         self.sld_glass_blur.setValue(int(CONFIG.get("glass_blur",10)))
         self.lbl_glass_blur = QtWidgets.QLabel(str(self.sld_glass_blur.value()))
-        self.sld_glass_blur.valueChanged.connect(lambda v: self.lbl_glass_blur.setText(str(v)))
+        self.sld_glass_blur.valueChanged.connect(lambda v: (self.lbl_glass_blur.setText(str(v)), self._save_config()))
         lay_blur = QtWidgets.QHBoxLayout(); lay_blur.addWidget(self.sld_glass_blur,1); lay_blur.addWidget(self.lbl_glass_blur)
         form_color.addRow("Размытие", lay_blur)
 
@@ -1461,13 +1469,14 @@ class SettingsDialog(QtWidgets.QDialog):
 
         self.chk_neon = QtWidgets.QCheckBox(self)
         self.chk_neon.setChecked(CONFIG.get("neon", False))
+        self.chk_neon.toggled.connect(lambda _: self._save_config())
         form_anim.addRow("Неоновая подсветка", self.chk_neon)
 
         self.sld_neon_size = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
         self.sld_neon_size.setRange(1, 50)
         self.sld_neon_size.setValue(CONFIG.get("neon_size", 10))
         self.lbl_neon_size = QtWidgets.QLabel(str(self.sld_neon_size.value()), self)
-        self.sld_neon_size.valueChanged.connect(lambda v: self.lbl_neon_size.setText(str(v)))
+        self.sld_neon_size.valueChanged.connect(lambda v: (self.lbl_neon_size.setText(str(v)), self._save_config()))
         lay_size = QtWidgets.QHBoxLayout(); lay_size.addWidget(self.sld_neon_size,1); lay_size.addWidget(self.lbl_neon_size)
         form_anim.addRow("Размер подсветки", lay_size)
 
@@ -1475,7 +1484,7 @@ class SettingsDialog(QtWidgets.QDialog):
         self.sld_neon_thickness.setRange(1, 10)
         self.sld_neon_thickness.setValue(CONFIG.get("neon_thickness", 1))
         self.lbl_neon_thickness = QtWidgets.QLabel(str(self.sld_neon_thickness.value()), self)
-        self.sld_neon_thickness.valueChanged.connect(lambda v: self.lbl_neon_thickness.setText(str(v)))
+        self.sld_neon_thickness.valueChanged.connect(lambda v: (self.lbl_neon_thickness.setText(str(v)), self._save_config()))
         lay_thick = QtWidgets.QHBoxLayout(); lay_thick.addWidget(self.sld_neon_thickness,1); lay_thick.addWidget(self.lbl_neon_thickness)
         form_anim.addRow("Толщина подсветки", lay_thick)
 
@@ -1483,7 +1492,7 @@ class SettingsDialog(QtWidgets.QDialog):
         self.sld_neon_intensity.setRange(0,255)
         self.sld_neon_intensity.setValue(CONFIG.get("neon_intensity",255))
         self.lbl_neon_intensity = QtWidgets.QLabel(str(self.sld_neon_intensity.value()), self)
-        self.sld_neon_intensity.valueChanged.connect(lambda v: self.lbl_neon_intensity.setText(str(v)))
+        self.sld_neon_intensity.valueChanged.connect(lambda v: (self.lbl_neon_intensity.setText(str(v)), self._save_config()))
         lay_int = QtWidgets.QHBoxLayout(); lay_int.addWidget(self.sld_neon_intensity,1); lay_int.addWidget(self.lbl_neon_intensity)
         form_anim.addRow("Интенсивность", lay_int)
 
@@ -1491,12 +1500,13 @@ class SettingsDialog(QtWidgets.QDialog):
         self.sld_anim_speed.setRange(50,200)
         self.sld_anim_speed.setValue(int(CONFIG.get("animation_speed",1.0)*100))
         self.lbl_anim_speed = QtWidgets.QLabel(str(self.sld_anim_speed.value()/100))
-        self.sld_anim_speed.valueChanged.connect(lambda v: self.lbl_anim_speed.setText(str(v/100)))
+        self.sld_anim_speed.valueChanged.connect(lambda v: (self.lbl_anim_speed.setText(str(v/100)), self._save_config()))
         lay_spd = QtWidgets.QHBoxLayout(); lay_spd.addWidget(self.sld_anim_speed,1); lay_spd.addWidget(self.lbl_anim_speed)
         form_anim.addRow("Скорость", lay_spd)
 
         self.chk_neon_motion = QtWidgets.QCheckBox(self)
         self.chk_neon_motion.setChecked(CONFIG.get("neon_motion", False))
+        self.chk_neon_motion.toggled.connect(lambda _: self._save_config())
         form_anim.addRow("Движение неона", self.chk_neon_motion)
 
         # --- Шрифты ---
@@ -1507,11 +1517,13 @@ class SettingsDialog(QtWidgets.QDialog):
         self.font_header = QtWidgets.QComboBox(self)
         self.font_header.addItems(db.families())
         self.font_header.setCurrentText(CONFIG.get("header_font", "Exo 2"))
+        self.font_header.currentTextChanged.connect(lambda _: self._save_config())
         form_fonts.addRow("Шрифт заголовков", self.font_header)
 
         self.font_text = QtWidgets.QComboBox(self)
         self.font_text.addItems(db.families())
         self.font_text.setCurrentText(CONFIG.get("text_font", "Inter"))
+        self.font_text.currentTextChanged.connect(lambda _: self._save_config())
         form_fonts.addRow("Шрифт текста", self.font_text)
 
         # --- Иконки ---
@@ -1530,10 +1542,12 @@ class SettingsDialog(QtWidgets.QDialog):
         self.spin_day_rows = QtWidgets.QSpinBox(self)
         self.spin_day_rows.setRange(1, 20)
         self.spin_day_rows.setValue(CONFIG.get("day_rows", 6))
+        self.spin_day_rows.valueChanged.connect(lambda _: self._save_config())
         form_gen.addRow("Строк на день", self.spin_day_rows)
 
         path_lay = QtWidgets.QHBoxLayout()
         self.edit_path = QtWidgets.QLineEdit(CONFIG.get("save_path", DATA_DIR), self)
+        self.edit_path.editingFinished.connect(self._save_config)
         btn_browse = StyledPushButton("...", self)
         btn_browse.clicked.connect(self.browse_path)
         path_lay.addWidget(self.edit_path,1)
@@ -1559,9 +1573,10 @@ class SettingsDialog(QtWidgets.QDialog):
         )
         if path:
             self.edit_path.setText(path)
+            self._save_config()
 
-    def accept(self):
-        config = {
+    def _collect_config(self):
+        return {
             "neon": self.chk_neon.isChecked(),
             "neon_size": self.sld_neon_size.value(),
             "neon_thickness": self.sld_neon_thickness.value(),
@@ -1584,8 +1599,16 @@ class SettingsDialog(QtWidgets.QDialog):
             "day_rows": self.spin_day_rows.value(),
             "save_path": self.edit_path.text().strip() or DATA_DIR,
         }
+
+    def _save_config(self):
+        config = self._collect_config()
+        CONFIG.update(config)
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-            json.dump(config, f, ensure_ascii=False, indent=2)
+            json.dump(CONFIG, f, ensure_ascii=False, indent=2)
+        self.settings_changed.emit()
+
+    def accept(self):
+        self._save_config()
         super().accept()
 
     def _on_accent_changed(self, idx):
@@ -1607,6 +1630,7 @@ class SettingsDialog(QtWidgets.QDialog):
         else:
             self._accent_color = self._preset_colors[idx][1]
             self._accent_index = idx
+        self._save_config()
 
     def _update_workspace_button(self):
         self.btn_workspace.setStyleSheet(
@@ -1620,6 +1644,7 @@ class SettingsDialog(QtWidgets.QDialog):
         if color.isValid():
             self._workspace_color = color
             self._update_workspace_button()
+            self._save_config()
 
     def _update_sidebar_button(self):
         self.btn_sidebar.setStyleSheet(
@@ -1633,6 +1658,7 @@ class SettingsDialog(QtWidgets.QDialog):
         if color.isValid():
             self._sidebar_color = color
             self._update_sidebar_button()
+            self._save_config()
 
     def _update_grad_buttons(self):
         self.btn_grad1.setStyleSheet(
@@ -1654,6 +1680,7 @@ class SettingsDialog(QtWidgets.QDialog):
             else:
                 self._grad_color2 = color
             self._update_grad_buttons()
+            self._save_config()
 
 
 class TopBar(QtWidgets.QWidget):
@@ -1886,11 +1913,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def open_settings_dialog(self):
         dlg = SettingsDialog(self)
-        if dlg.exec():
-            global CONFIG, BASE_SAVE_PATH
-            CONFIG = load_config()
-            BASE_SAVE_PATH = os.path.abspath(CONFIG.get("save_path", DATA_DIR))
-            self.apply_settings()
+        dlg.settings_changed.connect(self._on_settings_changed)
+        dlg.exec()
+
+    def _on_settings_changed(self):
+        global CONFIG, BASE_SAVE_PATH
+        CONFIG = load_config()
+        BASE_SAVE_PATH = os.path.abspath(CONFIG.get("save_path", DATA_DIR))
+        self.apply_settings()
 
     def apply_settings(self):
         theme_manager.set_text_font(CONFIG.get("text_font", "Inter"))
@@ -1975,12 +2005,8 @@ class MainWindow(QtWidgets.QMainWindow):
         sidebar = CONFIG.get("sidebar_color", "#1f1f23")
         if CONFIG.get("monochrome", False):
             sidebar = theme_manager.apply_monochrome(QtGui.QColor(sidebar)).name()
-        self.sidebar.setStyleSheet(
-            f"#Sidebar {{ background-color: {sidebar}; }}\n"
-            "QToolButton { color: white; border: none; padding: 10px; border-radius: 8px; }\n"
-            "QToolButton:hover { background-color: rgba(255,255,255,0.08); }\n"
-            "QLabel { color: #c7c7c7; }\n"
-        )
+            accent = theme_manager.apply_monochrome(accent)
+        self.sidebar.apply_style(CONFIG.get("neon", False), accent, sidebar)
     def closeEvent(self, event):
         self.table.save_current_month()
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
