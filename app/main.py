@@ -270,49 +270,20 @@ class ReleaseDialog(QtWidgets.QDialog):
         self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.table.setStyleSheet(
             "QTableWidget{border:1px solid #555; border-radius:8px;} "
-            "QTableWidget::item{border:0;} "
             "QHeaderView::section{padding:0 6px;}"
         )
-        self.table.setRowCount(self.days_in_month)
+        self.table.setRowCount(31)
+        for row in range(31):
+            item = QtWidgets.QTableWidgetItem(str(row + 1))
+            item.setFlags(QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled)
+            item.setTextAlignment(QtCore.Qt.AlignCenter)
+            self.table.setItem(row, 0, item)
 
         app = QtWidgets.QApplication.instance()
         self.setFont(app.font())
         self.table.setFont(app.font())
         header_font = QtGui.QFont(CONFIG.get("header_font"))
         self.table.horizontalHeader().setFont(header_font)
-
-        for row in range(self.days_in_month):
-            sp_day = QtWidgets.QSpinBox(self.table)
-            sp_day.setRange(1, self.days_in_month)
-            sp_day.setValue(row + 1)
-            sp_day.setReadOnly(True)
-            sp_day.setFixedWidth(sp_day.sizeHint().width() + 20)
-            self.table.setCellWidget(row, 0, sp_day)
-            sp_day.setAttribute(QtCore.Qt.WA_Hover, True)
-            sp_day.installEventFilter(NeonEventFilter(sp_day))
-
-            cb_work = QtWidgets.QComboBox(self.table)
-            cb_work.setEditable(True)
-            cb_work.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
-            cb_work.setMinimumWidth(cb_work.sizeHint().width())
-            self.table.setCellWidget(row, 1, cb_work)
-            cb_work.setAttribute(QtCore.Qt.WA_Hover, True)
-            cb_work.installEventFilter(NeonEventFilter(cb_work))
-
-            sp_ch = QtWidgets.QSpinBox(self.table)
-            sp_ch.setRange(0, 9999)
-            sp_ch.setFixedWidth(sp_ch.sizeHint().width() + 20)
-            self.table.setCellWidget(row, 2, sp_ch)
-            sp_ch.setAttribute(QtCore.Qt.WA_Hover, True)
-            sp_ch.installEventFilter(NeonEventFilter(sp_ch))
-
-            te_time = QtWidgets.QTimeEdit(self.table)
-            te_time.setDisplayFormat("HH:mm")
-            te_time.setTime(QtCore.QTime.currentTime())
-            te_time.setMinimumWidth(te_time.sizeHint().width())
-            self.table.setCellWidget(row, 3, te_time)
-            te_time.setAttribute(QtCore.Qt.WA_Hover, True)
-            te_time.installEventFilter(NeonEventFilter(te_time))
 
         lay.addWidget(self.table)
 
@@ -345,55 +316,34 @@ class ReleaseDialog(QtWidgets.QDialog):
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
-        file_works = data.get("works", [])
-        for w in file_works:
-            if w not in self.works:
-                self.works.append(w)
-
-        for row in range(self.days_in_month):
-            cb = self.table.cellWidget(row, 1)
-            if isinstance(cb, QtWidgets.QComboBox):
-                cb.clear()
-                cb.addItems(self.works)
-                cb.setCurrentIndex(-1)
-                cb.setMinimumWidth(cb.sizeHint().width())
-
         for day_str, entries in data.get("days", {}).items():
             day = int(day_str)
             if 1 <= day <= self.days_in_month and entries:
                 entry = entries[0]
-                cb_work = self.table.cellWidget(day - 1, 1)
-                sp_ch = self.table.cellWidget(day - 1, 2)
-                te_time = self.table.cellWidget(day - 1, 3)
-                work = entry.get("work", "")
-                if isinstance(cb_work, QtWidgets.QComboBox):
-                    if work and cb_work.findText(work) < 0:
-                        cb_work.addItem(work)
-                    cb_work.setCurrentText(work)
-                    cb_work.setMinimumWidth(cb_work.sizeHint().width())
-                if isinstance(sp_ch, QtWidgets.QSpinBox):
-                    sp_ch.setValue(entry.get("chapters", 0))
-                if isinstance(te_time, QtWidgets.QTimeEdit):
-                    qt = QtCore.QTime.fromString(entry.get("time", "00:00"), "HH:mm")
-                    if qt.isValid():
-                        te_time.setTime(qt)
+                self.table.setItem(day - 1, 1, QtWidgets.QTableWidgetItem(entry.get("work", "")))
+                self.table.setItem(day - 1, 2, QtWidgets.QTableWidgetItem(str(entry.get("chapters", ""))))
+                self.table.setItem(day - 1, 3, QtWidgets.QTableWidgetItem(entry.get("time", "")))
 
     def save(self):
         days: Dict[str, List[Dict[str, str | int]]] = {}
         for row in range(self.days_in_month):
-            cb_work = self.table.cellWidget(row, 1)
-            sp_ch = self.table.cellWidget(row, 2)
-            te_time = self.table.cellWidget(row, 3)
-            if not (cb_work and sp_ch and te_time):
-                continue
-            work_name = cb_work.currentText().strip()
+            work_item = self.table.item(row, 1)
+            chapters_item = self.table.item(row, 2)
+            time_item = self.table.item(row, 3)
+            work_name = work_item.text().strip() if work_item else ""
             if not work_name:
                 continue
+            chapters_text = chapters_item.text().strip() if chapters_item else ""
+            try:
+                chapters = int(chapters_text)
+            except (TypeError, ValueError):
+                chapters = 0
+            time_text = time_item.text().strip() if time_item else ""
             day = row + 1
             entry = {
                 "work": work_name,
-                "chapters": sp_ch.value(),
-                "time": te_time.time().toString("HH:mm"),
+                "chapters": chapters,
+                "time": time_text,
             }
             days[str(day)] = [entry]
 
