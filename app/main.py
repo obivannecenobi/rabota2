@@ -270,7 +270,8 @@ class ReleaseDialog(QtWidgets.QDialog):
         self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.table.setStyleSheet(
             "QTableWidget{border:1px solid #555; border-radius:8px;} "
-            "QTableWidget::item{border:0;}"
+            "QTableWidget::item{border:0;} "
+            "QHeaderView::section{padding:0 6px;}"
         )
         self.table.setRowCount(self.days_in_month)
 
@@ -518,6 +519,9 @@ class StatsDialog(QtWidgets.QDialog):
         )
         self.table_stats.setSortingEnabled(True)
         self.table_stats.verticalHeader().setVisible(False)
+        self.table_stats.verticalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.Stretch
+        )
         self.table_stats.itemSelectionChanged.connect(self.on_table_selection)
         lay.addWidget(self.table_stats)
 
@@ -896,7 +900,18 @@ class TopDialog(QtWidgets.QDialog):
         ]
         self.table = NeonTableWidget(0, len(headers), self)
         self.table.setHorizontalHeaderLabels(headers)
-        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.setStyleSheet(
+            "QTableWidget{border:1px solid #555; border-radius:8px;} "
+            "QTableWidget::item{border:0;} "
+            "QHeaderView::section{padding:0 6px;}"
+        )
+        self.table.horizontalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.Stretch
+        )
+        self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.Stretch
+        )
         self.table.setSortingEnabled(True)
 
         app = QtWidgets.QApplication.instance()
