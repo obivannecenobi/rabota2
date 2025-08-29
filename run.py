@@ -30,7 +30,14 @@ def main() -> None:
         print(f"Failed to install requirements: {exc}", file=sys.stderr)
         sys.exit(exc.returncode)
 
-    subprocess.check_call([str(PYTHON), str(ROOT / 'app' / 'main.py')])
+    try:
+        subprocess.check_call([str(PYTHON), str(ROOT / 'app' / 'main.py')])
+    except subprocess.CalledProcessError as exc:
+        print(
+            f"Application failed with exit code {exc.returncode}",
+            file=sys.stderr,
+        )
+        sys.exit(exc.returncode)
 
 
 if __name__ == '__main__':
