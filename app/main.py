@@ -1341,7 +1341,8 @@ class CollapsibleSidebar(QtWidgets.QFrame):
                 self.btn_analytics = b
             elif label == "Топы":
                 self.btn_tops = b
-        # Stretch removed since there is no settings button at the bottom
+        # Push buttons to the top when sidebar is taller than content
+        lay.addStretch(1)
 
         self._collapsed = False
         self.anim = QtCore.QPropertyAnimation(self, b"maximumWidth", self)
