@@ -1438,7 +1438,6 @@ class SettingsDialog(QtWidgets.QDialog):
             self.combo_accent.addItem(QtGui.QIcon(pix), name)
         self.combo_accent.addItem("Другой…")
         other_index = self.combo_accent.count() - 1
-        self.combo_accent.currentIndexChanged.connect(self._on_accent_changed)
         current = self._accent_color.name().lower()
         idx = next(
             (i for i, (_, c) in enumerate(self._preset_colors) if c.name().lower() == current),
@@ -1452,6 +1451,7 @@ class SettingsDialog(QtWidgets.QDialog):
             pix.fill(self._accent_color)
             self.combo_accent.setItemIcon(other_index, QtGui.QIcon(pix))
         self._accent_index = idx
+        self.combo_accent.currentIndexChanged.connect(self._on_accent_changed)
         form_color.addRow("Цвет подсветки", self.combo_accent)
 
         self._workspace_color = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21"))
