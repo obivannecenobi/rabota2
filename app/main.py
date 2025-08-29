@@ -177,9 +177,7 @@ class NeonEventFilter(QtCore.QObject):
                 flash.start(QtCore.QAbstractAnimation.DeleteWhenStopped)
         elif isinstance(self._widget, QtWidgets.QToolButton):
             if ev.type() in (QtCore.QEvent.Leave, QtCore.QEvent.HoverLeave):
-                if self._widget.property("neon_selected"):
-                    self._widget.setStyleSheet(self._orig_style)
-                else:
+                if not self._widget.property("neon_selected"):
                     self._stop()
             elif ev.type() == QtCore.QEvent.FocusOut:
                 if not self._widget.property("neon_selected"):
@@ -1334,13 +1332,13 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         self.update_icons()
 
     def activate_button(self, btn: QtWidgets.QToolButton) -> None:
-        for b, filt in self._filters.items():
+        for b in self._filters:
             if b is btn:
                 b.setProperty("neon_selected", True)
-                filt._start()
             else:
                 b.setProperty("neon_selected", False)
-                filt._stop()
+                self._filters[b]._stop()
+        self._filters[btn]._start()
 
     def set_collapsed(self, collapsed: bool):
         self._collapsed = collapsed
