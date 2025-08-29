@@ -22,6 +22,15 @@ def load_config():
         "neon_thickness": 1,
         "neon_intensity": 255,
         "accent_color": "#39ff14",
+        "gradient_colors": ["#39ff14", "#2d7cdb"],
+        "gradient_angle": 0,
+        "monochrome": False,
+        "mono_saturation": 100,
+        "glass_effect": "Acrylic",
+        "glass_opacity": 0.5,
+        "glass_blur": 10,
+        "animation_speed": 1.0,
+        "neon_motion": False,
         "theme": "dark",
         "header_font": "Exo 2",
         "text_font": "Inter",
@@ -102,6 +111,10 @@ def apply_neon_effect(widget: QtWidgets.QWidget, enable: bool) -> None:
 
     if enable and CONFIG.get("neon", False):
         accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
+        if CONFIG.get("monochrome", False):
+            h, s, v, _ = accent.getHsv()
+            s = int(CONFIG.get("mono_saturation", 100))
+            accent.setHsv(h, s, v)
         size = CONFIG.get("neon_size", 10)
         intensity = CONFIG.get("neon_intensity", 255)
         eff = QtWidgets.QGraphicsDropShadowEffect(widget)
@@ -111,10 +124,25 @@ def apply_neon_effect(widget: QtWidgets.QWidget, enable: bool) -> None:
         c.setAlpha(intensity)
         eff.setColor(c)
         widget.setGraphicsEffect(eff)
+        if CONFIG.get("neon_motion", False):
+            anim = QtCore.QPropertyAnimation(eff, b"blurRadius", widget)
+            anim.setStartValue(size)
+            anim.setEndValue(size * 2)
+            dur = int(1000 / max(CONFIG.get("animation_speed", 1.0), 0.1))
+            anim.setDuration(dur)
+            anim.setLoopCount(-1)
+            anim.setEasingCurve(QtCore.QEasingCurve.InOutQuad)
+            anim.start(QtCore.QAbstractAnimation.DeleteWhenStopped)
+            widget._neon_anim = anim
+        else:
+            widget._neon_anim = None
         widget.setStyleSheet(orig + base.replace("transparent", accent.name()))
     else:
         widget.setStyleSheet(orig + base)
         widget.setGraphicsEffect(None)
+        if hasattr(widget, "_neon_anim") and widget._neon_anim:
+            widget._neon_anim.stop()
+            widget._neon_anim = None
 
 
 class NeonEventFilter(QtCore.QObject):
@@ -1297,6 +1325,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         size = CONFIG.get("neon_size", 10)
         intensity = CONFIG.get("neon_intensity", 255)
         sidebar_color = CONFIG.get("sidebar_color", "#1f1f23")
+        speed = CONFIG.get("animation_speed", 1.0)
         if neon:
             style = (
                 f"#Sidebar {{ background-color: {sidebar_color}; }}"
@@ -1314,6 +1343,17 @@ class CollapsibleSidebar(QtWidgets.QFrame):
                 c.setAlpha(intensity)
                 eff.setColor(c)
                 w.setGraphicsEffect(eff)
+                if CONFIG.get("neon_motion", False):
+                    anim = QtCore.QPropertyAnimation(eff, b"blurRadius", w)
+                    anim.setStartValue(size)
+                    anim.setEndValue(size * 2)
+                    anim.setDuration(int(1000 / max(speed, 0.1)))
+                    anim.setLoopCount(-1)
+                    anim.setEasingCurve(QtCore.QEasingCurve.InOutQuad)
+                    anim.start(QtCore.QAbstractAnimation.DeleteWhenStopped)
+                    w._neon_anim = anim
+                else:
+                    w._neon_anim = None
         else:
             style = (
                 f"#Sidebar {{ background-color: {sidebar_color}; }}\n"
@@ -1323,6 +1363,9 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             )
             self.setStyleSheet(style)
             for w in [self.btn_toggle, self.btn_settings] + self.buttons:
+                if hasattr(w, "_neon_anim") and w._neon_anim:
+                    w._neon_anim.stop()
+                    w._neon_anim = None
                 w.setGraphicsEffect(None)
 
     def update_icons(self) -> None:
@@ -1336,45 +1379,16 @@ class SettingsDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Настройки")
-        self.resize(400, 200)
-        form = QtWidgets.QFormLayout(self)
+        self.resize(500, 400)
+        main_lay = QtWidgets.QVBoxLayout(self)
+        tabs = QtWidgets.QTabWidget(self)
+        main_lay.addWidget(tabs)
 
-        self.chk_neon = QtWidgets.QCheckBox(self)
-        self.chk_neon.setChecked(CONFIG.get("neon", False))
-        form.addRow("Неоновая подсветка", self.chk_neon)
+        # --- Цвет и тема ---
+        tab_color = QtWidgets.QWidget()
+        form_color = QtWidgets.QFormLayout(tab_color)
+        tabs.addTab(tab_color, "Цвет и тема")
 
-        # sliders for neon parameters
-        self.sld_neon_size = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        self.sld_neon_size.setRange(1, 50)
-        self.sld_neon_size.setValue(CONFIG.get("neon_size", 10))
-        self.lbl_neon_size = QtWidgets.QLabel(str(self.sld_neon_size.value()), self)
-        self.sld_neon_size.valueChanged.connect(
-            lambda v: self.lbl_neon_size.setText(str(v))
-        )
-        lay_size = QtWidgets.QHBoxLayout(); lay_size.addWidget(self.sld_neon_size, 1); lay_size.addWidget(self.lbl_neon_size)
-        form.addRow("Размер подсветки", lay_size)
-
-        self.sld_neon_thickness = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        self.sld_neon_thickness.setRange(1, 10)
-        self.sld_neon_thickness.setValue(CONFIG.get("neon_thickness", 1))
-        self.lbl_neon_thickness = QtWidgets.QLabel(str(self.sld_neon_thickness.value()), self)
-        self.sld_neon_thickness.valueChanged.connect(
-            lambda v: self.lbl_neon_thickness.setText(str(v))
-        )
-        lay_thick = QtWidgets.QHBoxLayout(); lay_thick.addWidget(self.sld_neon_thickness,1); lay_thick.addWidget(self.lbl_neon_thickness)
-        form.addRow("Толщина подсветки", lay_thick)
-
-        self.sld_neon_intensity = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        self.sld_neon_intensity.setRange(0, 255)
-        self.sld_neon_intensity.setValue(CONFIG.get("neon_intensity", 255))
-        self.lbl_neon_intensity = QtWidgets.QLabel(str(self.sld_neon_intensity.value()), self)
-        self.sld_neon_intensity.valueChanged.connect(
-            lambda v: self.lbl_neon_intensity.setText(str(v))
-        )
-        lay_intensity = QtWidgets.QHBoxLayout(); lay_intensity.addWidget(self.sld_neon_intensity,1); lay_intensity.addWidget(self.lbl_neon_intensity)
-        form.addRow("Интенсивность подсветки", lay_intensity)
-
-        # color selection for neon/accent color
         self._accent_color = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
         self._preset_colors = [
             ("Зелёный", QtGui.QColor("#39ff14")),
@@ -1391,7 +1405,6 @@ class SettingsDialog(QtWidgets.QDialog):
         self.combo_accent.addItem("Другой…")
         other_index = self.combo_accent.count() - 1
         self.combo_accent.currentIndexChanged.connect(self._on_accent_changed)
-        # select current color
         current = self._accent_color.name().lower()
         idx = next(
             (i for i, (_, c) in enumerate(self._preset_colors) if c.name().lower() == current),
@@ -1405,53 +1418,164 @@ class SettingsDialog(QtWidgets.QDialog):
             pix.fill(self._accent_color)
             self.combo_accent.setItemIcon(other_index, QtGui.QIcon(pix))
         self._accent_index = idx
-        form.addRow("Цвет подсветки", self.combo_accent)
+        form_color.addRow("Цвет подсветки", self.combo_accent)
 
-        self._workspace_color = QtGui.QColor(
-            CONFIG.get("workspace_color", "#1e1e21")
-        )
+        self._workspace_color = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21"))
         self.btn_workspace = StyledPushButton(self)
         self._update_workspace_button()
         self.btn_workspace.clicked.connect(self.choose_workspace_color)
-        form.addRow("Цвет рабочей области", self.btn_workspace)
+        form_color.addRow("Цвет рабочей области", self.btn_workspace)
 
-        self._sidebar_color = QtGui.QColor(
-            CONFIG.get("sidebar_color", "#1f1f23")
-        )
+        self._sidebar_color = QtGui.QColor(CONFIG.get("sidebar_color", "#1f1f23"))
         self.btn_sidebar = StyledPushButton(self)
         self._update_sidebar_button()
         self.btn_sidebar.clicked.connect(self.choose_sidebar_color)
-        form.addRow("Цвет боковой панели", self.btn_sidebar)
+        form_color.addRow("Цвет боковой панели", self.btn_sidebar)
 
-        # theme selection
         self.combo_theme = QtWidgets.QComboBox(self)
         self.combo_theme.addItems(["Темная", "Светлая"])
         self.combo_theme.setCurrentIndex(0 if CONFIG.get("theme","dark")=="dark" else 1)
-        form.addRow("Тема", self.combo_theme)
+        form_color.addRow("Тема", self.combo_theme)
 
+        # gradient controls
+        grad = CONFIG.get("gradient_colors", ["#39ff14", "#2d7cdb"])
+        self._grad_color1 = QtGui.QColor(grad[0])
+        self._grad_color2 = QtGui.QColor(grad[1])
+        self.btn_grad1 = StyledPushButton(self)
+        self.btn_grad2 = StyledPushButton(self)
+        self._update_grad_buttons()
+        self.btn_grad1.clicked.connect(lambda: self.choose_grad_color(1))
+        self.btn_grad2.clicked.connect(lambda: self.choose_grad_color(2))
+        lay_grad = QtWidgets.QHBoxLayout(); lay_grad.addWidget(self.btn_grad1); lay_grad.addWidget(self.btn_grad2)
+        form_color.addRow("Градиент", lay_grad)
+        self.sld_grad_angle = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.sld_grad_angle.setRange(0, 360)
+        self.sld_grad_angle.setValue(int(CONFIG.get("gradient_angle", 0)))
+        self.lbl_grad_angle = QtWidgets.QLabel(str(self.sld_grad_angle.value()))
+        self.sld_grad_angle.valueChanged.connect(lambda v: self.lbl_grad_angle.setText(str(v)))
+        lay_angle = QtWidgets.QHBoxLayout(); lay_angle.addWidget(self.sld_grad_angle,1); lay_angle.addWidget(self.lbl_grad_angle)
+        form_color.addRow("Угол градиента", lay_angle)
+
+        # monochrome
+        self.chk_monochrome = QtWidgets.QCheckBox(self)
+        self.chk_monochrome.setChecked(CONFIG.get("monochrome", False))
+        form_color.addRow("Монохром", self.chk_monochrome)
+        self.sld_mono_sat = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.sld_mono_sat.setRange(0, 255)
+        self.sld_mono_sat.setValue(int(CONFIG.get("mono_saturation", 100)))
+        self.lbl_mono_sat = QtWidgets.QLabel(str(self.sld_mono_sat.value()))
+        self.sld_mono_sat.valueChanged.connect(lambda v: self.lbl_mono_sat.setText(str(v)))
+        lay_mono = QtWidgets.QHBoxLayout(); lay_mono.addWidget(self.sld_mono_sat,1); lay_mono.addWidget(self.lbl_mono_sat)
+        form_color.addRow("Насыщенность", lay_mono)
+
+        # glass effect
+        self.combo_glass = QtWidgets.QComboBox(self)
+        self.combo_glass.addItems(["Acrylic", "Mica", "Aero", "Нет"])
+        cur_glass = CONFIG.get("glass_effect", "Acrylic")
+        idx = self.combo_glass.findText(cur_glass) if cur_glass in ["Acrylic","Mica","Aero"] else 3
+        self.combo_glass.setCurrentIndex(idx)
+        form_color.addRow("Стекло", self.combo_glass)
+        self.sld_glass_opacity = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.sld_glass_opacity.setRange(0,100)
+        self.sld_glass_opacity.setValue(int(CONFIG.get("glass_opacity",0.5)*100))
+        self.lbl_glass_opacity = QtWidgets.QLabel(str(self.sld_glass_opacity.value()/100))
+        self.sld_glass_opacity.valueChanged.connect(lambda v: self.lbl_glass_opacity.setText(str(v/100)))
+        lay_op = QtWidgets.QHBoxLayout(); lay_op.addWidget(self.sld_glass_opacity,1); lay_op.addWidget(self.lbl_glass_opacity)
+        form_color.addRow("Прозрачность", lay_op)
+
+        self.sld_glass_blur = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.sld_glass_blur.setRange(0,50)
+        self.sld_glass_blur.setValue(int(CONFIG.get("glass_blur",10)))
+        self.lbl_glass_blur = QtWidgets.QLabel(str(self.sld_glass_blur.value()))
+        self.sld_glass_blur.valueChanged.connect(lambda v: self.lbl_glass_blur.setText(str(v)))
+        lay_blur = QtWidgets.QHBoxLayout(); lay_blur.addWidget(self.sld_glass_blur,1); lay_blur.addWidget(self.lbl_glass_blur)
+        form_color.addRow("Размытие", lay_blur)
+
+        # --- Анимация ---
+        tab_anim = QtWidgets.QWidget()
+        form_anim = QtWidgets.QFormLayout(tab_anim)
+        tabs.addTab(tab_anim, "Анимация")
+
+        self.chk_neon = QtWidgets.QCheckBox(self)
+        self.chk_neon.setChecked(CONFIG.get("neon", False))
+        form_anim.addRow("Неоновая подсветка", self.chk_neon)
+
+        self.sld_neon_size = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.sld_neon_size.setRange(1, 50)
+        self.sld_neon_size.setValue(CONFIG.get("neon_size", 10))
+        self.lbl_neon_size = QtWidgets.QLabel(str(self.sld_neon_size.value()), self)
+        self.sld_neon_size.valueChanged.connect(lambda v: self.lbl_neon_size.setText(str(v)))
+        lay_size = QtWidgets.QHBoxLayout(); lay_size.addWidget(self.sld_neon_size,1); lay_size.addWidget(self.lbl_neon_size)
+        form_anim.addRow("Размер подсветки", lay_size)
+
+        self.sld_neon_thickness = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.sld_neon_thickness.setRange(1, 10)
+        self.sld_neon_thickness.setValue(CONFIG.get("neon_thickness", 1))
+        self.lbl_neon_thickness = QtWidgets.QLabel(str(self.sld_neon_thickness.value()), self)
+        self.sld_neon_thickness.valueChanged.connect(lambda v: self.lbl_neon_thickness.setText(str(v)))
+        lay_thick = QtWidgets.QHBoxLayout(); lay_thick.addWidget(self.sld_neon_thickness,1); lay_thick.addWidget(self.lbl_neon_thickness)
+        form_anim.addRow("Толщина подсветки", lay_thick)
+
+        self.sld_neon_intensity = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.sld_neon_intensity.setRange(0,255)
+        self.sld_neon_intensity.setValue(CONFIG.get("neon_intensity",255))
+        self.lbl_neon_intensity = QtWidgets.QLabel(str(self.sld_neon_intensity.value()), self)
+        self.sld_neon_intensity.valueChanged.connect(lambda v: self.lbl_neon_intensity.setText(str(v)))
+        lay_int = QtWidgets.QHBoxLayout(); lay_int.addWidget(self.sld_neon_intensity,1); lay_int.addWidget(self.lbl_neon_intensity)
+        form_anim.addRow("Интенсивность", lay_int)
+
+        self.sld_anim_speed = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.sld_anim_speed.setRange(50,200)
+        self.sld_anim_speed.setValue(int(CONFIG.get("animation_speed",1.0)*100))
+        self.lbl_anim_speed = QtWidgets.QLabel(str(self.sld_anim_speed.value()/100))
+        self.sld_anim_speed.valueChanged.connect(lambda v: self.lbl_anim_speed.setText(str(v/100)))
+        lay_spd = QtWidgets.QHBoxLayout(); lay_spd.addWidget(self.sld_anim_speed,1); lay_spd.addWidget(self.lbl_anim_speed)
+        form_anim.addRow("Скорость", lay_spd)
+
+        self.chk_neon_motion = QtWidgets.QCheckBox(self)
+        self.chk_neon_motion.setChecked(CONFIG.get("neon_motion", False))
+        form_anim.addRow("Движение неона", self.chk_neon_motion)
+
+        # --- Шрифты ---
+        tab_fonts = QtWidgets.QWidget()
+        form_fonts = QtWidgets.QFormLayout(tab_fonts)
+        tabs.addTab(tab_fonts, "Шрифты")
         db = QtGui.QFontDatabase()
         self.font_header = QtWidgets.QComboBox(self)
         self.font_header.addItems(db.families())
         self.font_header.setCurrentText(CONFIG.get("header_font", "Exo 2"))
-        form.addRow("Шрифт заголовков", self.font_header)
+        form_fonts.addRow("Шрифт заголовков", self.font_header)
 
         self.font_text = QtWidgets.QComboBox(self)
         self.font_text.addItems(db.families())
         self.font_text.setCurrentText(CONFIG.get("text_font", "Inter"))
-        form.addRow("Шрифт текста", self.font_text)
+        form_fonts.addRow("Шрифт текста", self.font_text)
 
+        # --- Иконки ---
+        tab_icons = QtWidgets.QWidget()
+        lay_icons = QtWidgets.QVBoxLayout(tab_icons)
+        lay_icons.addStretch(1)
+        lbl_icons = QtWidgets.QLabel("Нет настроек")
+        lbl_icons.setAlignment(QtCore.Qt.AlignCenter)
+        lay_icons.addWidget(lbl_icons)
+        lay_icons.addStretch(1)
+        tabs.addTab(tab_icons, "Иконки")
+
+        # General options below tabs
+        form_gen = QtWidgets.QFormLayout()
+        main_lay.addLayout(form_gen)
         self.spin_day_rows = QtWidgets.QSpinBox(self)
         self.spin_day_rows.setRange(1, 20)
         self.spin_day_rows.setValue(CONFIG.get("day_rows", 6))
-        form.addRow("Строк на день", self.spin_day_rows)
+        form_gen.addRow("Строк на день", self.spin_day_rows)
 
         path_lay = QtWidgets.QHBoxLayout()
         self.edit_path = QtWidgets.QLineEdit(CONFIG.get("save_path", DATA_DIR), self)
         btn_browse = StyledPushButton("...", self)
         btn_browse.clicked.connect(self.browse_path)
-        path_lay.addWidget(self.edit_path, 1)
+        path_lay.addWidget(self.edit_path,1)
         path_lay.addWidget(btn_browse)
-        form.addRow("Путь сохранения", path_lay)
+        form_gen.addRow("Путь сохранения", path_lay)
 
         box = QtWidgets.QDialogButtonBox(self)
         btn_save = StyledPushButton("Сохранить", self)
@@ -1464,7 +1588,7 @@ class SettingsDialog(QtWidgets.QDialog):
         box.addButton(btn_cancel, QtWidgets.QDialogButtonBox.RejectRole)
         box.accepted.connect(self.accept)
         box.rejected.connect(self.reject)
-        form.addRow(box)
+        main_lay.addWidget(box)
 
     def browse_path(self):
         path = QtWidgets.QFileDialog.getExistingDirectory(
@@ -1479,7 +1603,16 @@ class SettingsDialog(QtWidgets.QDialog):
             "neon_size": self.sld_neon_size.value(),
             "neon_thickness": self.sld_neon_thickness.value(),
             "neon_intensity": self.sld_neon_intensity.value(),
+            "neon_motion": self.chk_neon_motion.isChecked(),
+            "animation_speed": self.sld_anim_speed.value() / 100,
             "accent_color": self._accent_color.name(),
+            "gradient_colors": [self._grad_color1.name(), self._grad_color2.name()],
+            "gradient_angle": self.sld_grad_angle.value(),
+            "monochrome": self.chk_monochrome.isChecked(),
+            "mono_saturation": self.sld_mono_sat.value(),
+            "glass_effect": "" if self.combo_glass.currentText() == "Нет" else self.combo_glass.currentText(),
+            "glass_opacity": self.sld_glass_opacity.value() / 100,
+            "glass_blur": self.sld_glass_blur.value(),
             "workspace_color": self._workspace_color.name(),
             "sidebar_color": self._sidebar_color.name(),
             "theme": "dark" if self.combo_theme.currentIndex() == 0 else "light",
@@ -1537,6 +1670,27 @@ class SettingsDialog(QtWidgets.QDialog):
         if color.isValid():
             self._sidebar_color = color
             self._update_sidebar_button()
+
+    def _update_grad_buttons(self):
+        self.btn_grad1.setStyleSheet(
+            f"background:{self._grad_color1.name()}; border:1px solid #555;"
+        )
+        self.btn_grad2.setStyleSheet(
+            f"background:{self._grad_color2.name()}; border:1px solid #555;"
+        )
+
+    def choose_grad_color(self, idx):
+        color = QtWidgets.QColorDialog.getColor(
+            self._grad_color1 if idx == 1 else self._grad_color2,
+            self,
+            "Цвет",
+        )
+        if color.isValid():
+            if idx == 1:
+                self._grad_color1 = color
+            else:
+                self._grad_color2 = color
+            self._update_grad_buttons()
 
 
 class TopBar(QtWidgets.QWidget):
@@ -1606,9 +1760,14 @@ class TopBar(QtWidgets.QWidget):
 
     def apply_style(self, neon):
         accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
+        if CONFIG.get("monochrome", False):
+            h, s, v, _ = accent.getHsv()
+            s = int(CONFIG.get("mono_saturation", 100))
+            accent.setHsv(h, s, v)
         thickness = CONFIG.get("neon_thickness", 1)
         size = CONFIG.get("neon_size", 10)
         intensity = CONFIG.get("neon_intensity", 255)
+        speed = CONFIG.get("animation_speed", 1.0)
         if neon:
             style = (
                 f"QLabel{{color:{accent.name()};}} "
@@ -1623,6 +1782,17 @@ class TopBar(QtWidgets.QWidget):
                 c.setAlpha(intensity)
                 eff.setColor(c)
                 w.setGraphicsEffect(eff)
+                if CONFIG.get("neon_motion", False):
+                    anim = QtCore.QPropertyAnimation(eff, b"blurRadius", w)
+                    anim.setStartValue(size)
+                    anim.setEndValue(size * 2)
+                    anim.setDuration(int(1000 / max(speed, 0.1)))
+                    anim.setLoopCount(-1)
+                    anim.setEasingCurve(QtCore.QEasingCurve.InOutQuad)
+                    anim.start(QtCore.QAbstractAnimation.DeleteWhenStopped)
+                    w._neon_anim = anim
+                else:
+                    w._neon_anim = None
         else:
             if CONFIG.get("theme", "dark") == "dark":
                 style = self.default_style
@@ -1632,6 +1802,9 @@ class TopBar(QtWidgets.QWidget):
                 )
             self.setStyleSheet(style)
             for w in (self.lbl_month, self.btn_prev, self.btn_next, self.btn_settings):
+                if hasattr(w, "_neon_anim") and w._neon_anim:
+                    w._neon_anim.stop()
+                    w._neon_anim = None
                 w.setGraphicsEffect(None)
 
 
@@ -1779,10 +1952,16 @@ class MainWindow(QtWidgets.QMainWindow):
             self.sidebar.btn_tops,
         ]:
             w.setFont(header_font)
-        self.topbar.apply_style(CONFIG.get("neon", False))
         self.table.update_day_rows()
         accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
+        if CONFIG.get("monochrome", False):
+            h, s, v, _ = accent.getHsv()
+            s = int(CONFIG.get("mono_saturation", 100))
+            accent.setHsv(h, s, v)
+        self.topbar.apply_style(CONFIG.get("neon", False))
         self.sidebar.apply_style(CONFIG.get("neon", False), accent)
+        speed = CONFIG.get("animation_speed", 1.0)
+        self.sidebar.anim.setDuration(int(160 / max(speed, 0.1)))
         for dlg in app.topLevelWidgets():
             if isinstance(dlg, QtWidgets.QDialog):
                 dlg.setFont(app.font())
@@ -1790,9 +1969,26 @@ class MainWindow(QtWidgets.QMainWindow):
                     tbl.setFont(app.font())
                     tbl.horizontalHeader().setFont(header_font)
         self.apply_theme()
+        # apply glass effect
+        eff_type = CONFIG.get("glass_effect", "Acrylic")
+        opacity = float(CONFIG.get("glass_opacity", 0.5))
+        blur = int(CONFIG.get("glass_blur", 10))
+        central = self.centralWidget()
+        if eff_type:
+            eff = QtWidgets.QGraphicsBlurEffect(self)
+            eff.setBlurRadius(blur)
+            central.setGraphicsEffect(eff)
+            self.setWindowOpacity(opacity)
+        else:
+            central.setGraphicsEffect(None)
+            self.setWindowOpacity(1.0)
 
     def apply_theme(self):
         accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
+        if CONFIG.get("monochrome", False):
+            h, s, v, _ = accent.getHsv()
+            s = int(CONFIG.get("mono_saturation", 100))
+            accent.setHsv(h, s, v)
         app = QtWidgets.QApplication.instance()
         if CONFIG.get("theme", "dark") == "dark":
             pal = QtGui.QPalette()
@@ -1811,10 +2007,21 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             app.setPalette(app.style().standardPalette())
         workspace = CONFIG.get("workspace_color", "#1e1e21")
-        base = (
-            f"border:1px solid #555; border-radius:8px; "
-            f"background-color:{workspace};"
-        )
+        grad = CONFIG.get("gradient_colors", None)
+        if grad and len(grad) == 2:
+            angle = CONFIG.get("gradient_angle", 0)
+            rad = math.radians(angle)
+            x2 = 0.5 + 0.5 * math.cos(rad)
+            y2 = 0.5 + 0.5 * math.sin(rad)
+            base = (
+                f"border:1px solid #555; border-radius:8px; "
+                f"background:qlineargradient(x1:0,y1:0,x2:{x2:.2f},y2:{y2:.2f}, stop:0 {grad[0]}, stop:1 {grad[1]});"
+            )
+        else:
+            base = (
+                f"border:1px solid #555; border-radius:8px; "
+                f"background-color:{workspace};"
+            )
         self.setStyleSheet(
             "QPushButton,"
             "QToolButton,QSpinBox,QDoubleSpinBox,QTimeEdit,"
