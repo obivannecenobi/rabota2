@@ -1,5 +1,6 @@
 from PySide6 import QtWidgets, QtGui, QtCore
 import re
+import shiboken6
 
 
 def set_neon(
@@ -53,8 +54,8 @@ def apply_neon_effect(widget: QtWidgets.QWidget, on: bool = True) -> None:
     """
 
     if on:
-        if getattr(widget, "_neon_prev_effect", None) is None:
-            widget._neon_prev_effect = widget.graphicsEffect()
+        if widget.property("_prev_effect") is None:
+            widget.setProperty("_prev_effect", widget.graphicsEffect())
         if getattr(widget, "_neon_prev_style", None) is None:
             widget._neon_prev_style = widget.styleSheet()
             match = re.search(r"border-radius:\s*([0-9.]+)px", widget._neon_prev_style)
@@ -71,12 +72,15 @@ def apply_neon_effect(widget: QtWidgets.QWidget, on: bool = True) -> None:
         widget.setStyleSheet("".join(parts))
         widget._neon_effect = eff
     else:
-        prev = getattr(widget, "_neon_prev_effect", None)
-        widget.setGraphicsEffect(prev)
+        prev = widget.property("_prev_effect")
+        widget.setProperty("_prev_effect", None)
+        if prev is not None and shiboken6.isValid(prev):
+            widget.setGraphicsEffect(prev)
+        else:
+            widget.setGraphicsEffect(None)
         prev_style = getattr(widget, "_neon_prev_style", None)
         if prev_style is not None:
             widget.setStyleSheet(prev_style)
-        widget._neon_prev_effect = None
         widget._neon_prev_style = None
         widget._neon_prev_radius = None
         widget._neon_effect = None
@@ -88,6 +92,7 @@ class NeonEventFilter(QtCore.QObject):
     def __init__(self, widget: QtWidgets.QWidget):
         super().__init__(widget)
         self._widget = widget
+        widget.destroyed.connect(lambda: widget.removeEventFilter(self))
 
     def eventFilter(self, obj, event):  # noqa: D401 - Qt event filter signature
         if event.type() in (QtCore.QEvent.HoverEnter, QtCore.QEvent.FocusIn):
@@ -97,5 +102,9 @@ class NeonEventFilter(QtCore.QObject):
             QtCore.QEvent.Leave,
             QtCore.QEvent.FocusOut,
         ):
+            # clear stored effect and disable neon
+            _ = self._widget.property("_prev_effect")
+            self._widget.setProperty("_prev_effect", None)
+            self._widget.setGraphicsEffect(None)
             apply_neon_effect(self._widget, False)
         return False
