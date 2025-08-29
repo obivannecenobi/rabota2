@@ -1815,6 +1815,7 @@ class TopBar(QtWidgets.QWidget):
         self.btn_prev.clicked.connect(self.prev_clicked)
         lay.addWidget(self.btn_prev)
         self.btn_prev.installEventFilter(NeonEventFilter(self.btn_prev))
+        lay.addStretch(1)
         self.lbl_month = QtWidgets.QLabel("Месяц")
         self.lbl_month.setAlignment(QtCore.Qt.AlignCenter)
         self.lbl_month.setContentsMargins(8, 0, 8, 0)
@@ -1823,6 +1824,7 @@ class TopBar(QtWidgets.QWidget):
         self.spin_year.setRange(2000, 2100)
         self.spin_year.setValue(datetime.now().year)
         self.spin_year.setStyleSheet("padding:0 6px;")
+        self.spin_year.setFixedWidth(self.spin_year.sizeHint().width() + 20)
         self.spin_year.valueChanged.connect(self.year_changed.emit)
         lay.addWidget(self.spin_year)
         self.spin_year.installEventFilter(NeonEventFilter(self.spin_year))
@@ -1957,12 +1959,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setStatusBar(bar)
         self.lbl_timer = QtWidgets.QLabel("000:00:00:00", self)
         bar.addWidget(self.lbl_timer)
-        self._timer_effect, self._timer_anim, self._timer_motion = set_neon(
-            self.lbl_timer,
-            CONFIG.get("accent_color", "#39ff14"),
-            pulse=True,
-            motion_speed=CONFIG.get("animation_speed", 1.0),
-        )
         self.lbl_version = QtWidgets.QLabel("", self)
         bar.addPermanentWidget(self.lbl_version)
         self._timer = QtCore.QTimer(self)
@@ -2087,17 +2083,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sidebar.apply_style(CONFIG.get("neon", False), accent)
         speed = CONFIG.get("animation_speed", 1.0)
         self.sidebar.anim.setDuration(int(160 / max(speed, 0.1)))
-        if hasattr(self, "_timer_anim") and self._timer_anim:
-            self._timer_anim.stop()
-        if hasattr(self, "_timer_motion") and self._timer_motion:
-            self._timer_motion.stop()
-        self._timer_effect, self._timer_anim, self._timer_motion = set_neon(
-            self.lbl_timer,
-            accent,
-            intensity=CONFIG.get("neon_intensity", 255),
-            pulse=True,
-            motion_speed=speed,
-        )
         for dlg in app.topLevelWidgets():
             if isinstance(dlg, QtWidgets.QDialog):
                 dlg.setFont(app.font())
