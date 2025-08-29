@@ -7,7 +7,7 @@ from PySide6 import QtWidgets, QtGui, QtCore
 from dataclasses import dataclass, field
 
 from widgets import StyledPushButton, StyledToolButton
-from resources import register_fonts
+from resources import register_fonts, load_icons, icon
 import theme_manager
 
 ASSETS = os.path.join(os.path.dirname(__file__), "..", "assets")
@@ -258,7 +258,11 @@ class ReleaseDialog(QtWidgets.QDialog):
 
         box = QtWidgets.QDialogButtonBox(self)
         btn_save = StyledPushButton("Сохранить", self)
+        btn_save.setIcon(icon("save"))
+        btn_save.setIconSize(QtCore.QSize(20, 20))
         btn_close = StyledPushButton("Закрыть", self)
+        btn_close.setIcon(icon("x"))
+        btn_close.setIconSize(QtCore.QSize(20, 20))
         box.addButton(btn_save, QtWidgets.QDialogButtonBox.AcceptRole)
         box.addButton(btn_close, QtWidgets.QDialogButtonBox.RejectRole)
         box.accepted.connect(self.save)
@@ -455,7 +459,11 @@ class StatsDialog(QtWidgets.QDialog):
 
         self.btn_box = QtWidgets.QDialogButtonBox(self)
         btn_save = StyledPushButton("Сохранить", self)
+        btn_save.setIcon(icon("save"))
+        btn_save.setIconSize(QtCore.QSize(20, 20))
         btn_close = StyledPushButton("Закрыть", self)
+        btn_close.setIcon(icon("x"))
+        btn_close.setIconSize(QtCore.QSize(20, 20))
         self.btn_box.addButton(btn_save, QtWidgets.QDialogButtonBox.AcceptRole)
         self.btn_box.addButton(btn_close, QtWidgets.QDialogButtonBox.RejectRole)
         self.btn_box.accepted.connect(self.save_record)
@@ -575,7 +583,11 @@ class AnalyticsDialog(QtWidgets.QDialog):
 
         box = QtWidgets.QDialogButtonBox(self)
         btn_save = StyledPushButton("Сохранить", self)
+        btn_save.setIcon(icon("save"))
+        btn_save.setIconSize(QtCore.QSize(20, 20))
         btn_close = StyledPushButton("Закрыть", self)
+        btn_close.setIcon(icon("x"))
+        btn_close.setIconSize(QtCore.QSize(20, 20))
         box.addButton(btn_save, QtWidgets.QDialogButtonBox.AcceptRole)
         box.addButton(btn_close, QtWidgets.QDialogButtonBox.RejectRole)
         box.accepted.connect(self.save)
@@ -801,7 +813,11 @@ class TopDialog(QtWidgets.QDialog):
 
         box = QtWidgets.QDialogButtonBox(self)
         btn_save = StyledPushButton("Сохранить", self)
+        btn_save.setIcon(icon("save"))
+        btn_save.setIconSize(QtCore.QSize(20, 20))
         btn_close = StyledPushButton("Закрыть", self)
+        btn_close.setIcon(icon("x"))
+        btn_close.setIconSize(QtCore.QSize(20, 20))
         box.addButton(btn_save, QtWidgets.QDialogButtonBox.AcceptRole)
         box.addButton(btn_close, QtWidgets.QDialogButtonBox.RejectRole)
         box.accepted.connect(self.save)
@@ -1186,6 +1202,8 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
 
 class CollapsibleSidebar(QtWidgets.QFrame):
     toggled = QtCore.Signal(bool)
+    settings_clicked = QtCore.Signal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("Sidebar")
@@ -1242,11 +1260,21 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             elif label == "Топы":
                 self.btn_tops = b
         lay.addStretch(1)
+
+        self.btn_settings = StyledToolButton(self)
+        self.btn_settings.setCursor(QtCore.Qt.PointingHandCursor)
+        self.btn_settings.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
+        self.btn_settings.setAttribute(QtCore.Qt.WA_Hover, True)
+        lay.addWidget(self.btn_settings)
+        self.btn_settings.installEventFilter(NeonEventFilter(self.btn_settings))
+        self.btn_settings.clicked.connect(self.settings_clicked.emit)
+
         self._collapsed = False
         self.anim = QtCore.QPropertyAnimation(self, b"maximumWidth", self)
         self.anim.setDuration(160)
         self.setMinimumWidth(self.collapsed_width)
         self.setMaximumWidth(self.expanded_width)
+        self.update_icons()
 
     def set_collapsed(self, collapsed: bool):
         self._collapsed = collapsed
@@ -1277,7 +1305,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
                 f"QLabel {{ color: {accent.name()}; }}"
             )
             self.setStyleSheet(style)
-            widgets = [self.btn_toggle] + self.buttons
+            widgets = [self.btn_toggle, self.btn_settings] + self.buttons
             for w in widgets:
                 eff = QtWidgets.QGraphicsDropShadowEffect(self)
                 eff.setOffset(0, 0)
@@ -1294,8 +1322,12 @@ class CollapsibleSidebar(QtWidgets.QFrame):
                 "QLabel { color: #c7c7c7; }\n"
             )
             self.setStyleSheet(style)
-            for w in [self.btn_toggle] + self.buttons:
+            for w in [self.btn_toggle, self.btn_settings] + self.buttons:
                 w.setGraphicsEffect(None)
+
+    def update_icons(self) -> None:
+        self.btn_settings.setIcon(icon("settings"))
+        self.btn_settings.setIconSize(QtCore.QSize(22, 22))
 
 
 class SettingsDialog(QtWidgets.QDialog):
@@ -1423,7 +1455,11 @@ class SettingsDialog(QtWidgets.QDialog):
 
         box = QtWidgets.QDialogButtonBox(self)
         btn_save = StyledPushButton("Сохранить", self)
+        btn_save.setIcon(icon("save"))
+        btn_save.setIconSize(QtCore.QSize(20, 20))
         btn_cancel = StyledPushButton("Отмена", self)
+        btn_cancel.setIcon(icon("x"))
+        btn_cancel.setIconSize(QtCore.QSize(20, 20))
         box.addButton(btn_save, QtWidgets.QDialogButtonBox.AcceptRole)
         box.addButton(btn_cancel, QtWidgets.QDialogButtonBox.RejectRole)
         box.accepted.connect(self.accept)
@@ -1515,7 +1551,8 @@ class TopBar(QtWidgets.QWidget):
         lay.setContentsMargins(8, 8, 8, 8)
         lay.setSpacing(8)
         self.btn_prev = StyledToolButton(self)
-        self.btn_prev.setText(" < ")
+        self.btn_prev.setCursor(QtCore.Qt.PointingHandCursor)
+        self.btn_prev.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
         self.btn_prev.clicked.connect(self.prev_clicked)
         lay.addWidget(self.btn_prev)
         self.btn_prev.installEventFilter(NeonEventFilter(self.btn_prev))
@@ -1532,15 +1569,18 @@ class TopBar(QtWidgets.QWidget):
         self.spin_year.installEventFilter(NeonEventFilter(self.spin_year))
         lay.addStretch(1)
         self.btn_next = StyledToolButton(self)
-        self.btn_next.setText(" > ")
+        self.btn_next.setCursor(QtCore.Qt.PointingHandCursor)
+        self.btn_next.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
         self.btn_next.clicked.connect(self.next_clicked)
         lay.addWidget(self.btn_next)
         self.btn_next.installEventFilter(NeonEventFilter(self.btn_next))
         self.btn_settings = StyledToolButton(self)
-        self.btn_settings.setText("⚙")
+        self.btn_settings.setCursor(QtCore.Qt.PointingHandCursor)
+        self.btn_settings.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
         self.btn_settings.clicked.connect(self.settings_clicked)
         lay.addWidget(self.btn_settings)
         self.btn_settings.installEventFilter(NeonEventFilter(self.btn_settings))
+        self.update_icons()
         self.default_style = (
             "QLabel{color:#e5e5e5;} QToolButton{color:#e5e5e5; border:1px solid #555; border-radius:6px; padding:4px 10px;}"
         )
@@ -1555,6 +1595,14 @@ class TopBar(QtWidgets.QWidget):
         font = QtGui.QFont(CONFIG.get("header_font", "Exo 2"))
         font.setBold(True)
         self.lbl_month.setFont(font)
+
+    def update_icons(self) -> None:
+        self.btn_prev.setIcon(icon("chevron-left"))
+        self.btn_prev.setIconSize(QtCore.QSize(22, 22))
+        self.btn_next.setIcon(icon("chevron-right"))
+        self.btn_next.setIconSize(QtCore.QSize(22, 22))
+        self.btn_settings.setIcon(icon("settings"))
+        self.btn_settings.setIconSize(QtCore.QSize(22, 22))
 
     def apply_style(self, neon):
         accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
@@ -1615,6 +1663,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sidebar.btn_analytics.clicked.connect(self.open_analytics_dialog)
         self.sidebar.btn_tops.clicked.connect(self.open_top_dialog)
         self.topbar.settings_clicked.connect(self.open_settings_dialog)
+        self.sidebar.settings_clicked.connect(self.open_settings_dialog)
         self._update_month_label()
 
         # status bar with timer and version info
@@ -1710,7 +1759,10 @@ class MainWindow(QtWidgets.QMainWindow):
     def apply_settings(self):
         theme_manager.set_text_font(CONFIG.get("text_font", "Inter"))
         theme_manager.set_header_font(CONFIG.get("header_font", "Exo 2"))
+        load_icons(CONFIG.get("theme", "dark"))
         app = QtWidgets.QApplication.instance()
+        self.topbar.update_icons()
+        self.sidebar.update_icons()
         self.topbar.apply_fonts()
         header_font = QtGui.QFont(CONFIG.get("header_font"))
         self.table.setFont(app.font())
@@ -1792,6 +1844,7 @@ def main():
     QtCore.QLocale.setDefault(QtCore.QLocale("ru_RU"))
     app = QtWidgets.QApplication(sys.argv)
     register_fonts()
+    load_icons(CONFIG.get("theme", "dark"))
     theme_manager.set_text_font(CONFIG.get("text_font", "Inter"))
     w = MainWindow()
     w.apply_settings()
