@@ -79,8 +79,7 @@ def apply_neon_effect(widget: QtWidgets.QWidget, on: bool = True) -> None:
         else:
             widget.setGraphicsEffect(None)
         prev_style = getattr(widget, "_neon_prev_style", None)
-        if prev_style is not None:
-            widget.setStyleSheet(prev_style)
+        widget.setStyleSheet(prev_style or "")
         widget._neon_prev_style = None
         widget._neon_prev_radius = None
         widget._neon_effect = None
@@ -94,17 +93,19 @@ class NeonEventFilter(QtCore.QObject):
         self._widget = widget
         widget.destroyed.connect(lambda: widget.removeEventFilter(self))
 
+    def _start(self) -> None:
+        apply_neon_effect(self._widget, True)
+
+    def _stop(self) -> None:
+        apply_neon_effect(self._widget, False)
+
     def eventFilter(self, obj, event):  # noqa: D401 - Qt event filter signature
         if event.type() in (QtCore.QEvent.HoverEnter, QtCore.QEvent.FocusIn):
-            apply_neon_effect(self._widget, True)
+            self._start()
         elif event.type() in (
             QtCore.QEvent.HoverLeave,
             QtCore.QEvent.Leave,
             QtCore.QEvent.FocusOut,
         ):
-            # clear stored effect and disable neon
-            _ = self._widget.property("_prev_effect")
-            self._widget.setProperty("_prev_effect", None)
-            self._widget.setGraphicsEffect(None)
-            apply_neon_effect(self._widget, False)
+            self._stop()
         return False
