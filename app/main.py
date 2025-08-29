@@ -1050,7 +1050,7 @@ class TopDialog(QtWidgets.QDialog):
         self.accept()
 
 class NeonTableWidget(QtWidgets.QTableWidget):
-    """Вложенная таблица с неоновым подсвечиванием при наведении и фокусе."""
+    """Вложенная таблица с neonовым подсвечиванием при наведении и фокусе."""
 
     def __init__(self, rows, cols, parent=None, use_neon=True):
         super().__init__(rows, cols, parent)
@@ -1455,6 +1455,29 @@ class SettingsDialog(QtWidgets.QDialog):
         self.sld_grad_angle.valueChanged.connect(lambda v: (self.lbl_grad_angle.setText(str(v)), self._save_config()))
         lay_angle = QtWidgets.QHBoxLayout(); lay_angle.addWidget(self.sld_grad_angle,1); lay_angle.addWidget(self.lbl_grad_angle)
         form_color.addRow("Угол градиента", lay_angle)
+        # neon controls
+        grp_neon = QtWidgets.QGroupBox("Неон", self)
+        lay_neon = QtWidgets.QFormLayout(grp_neon)
+        self.chk_neon = QtWidgets.QCheckBox(self)
+        self.chk_neon.setChecked(CONFIG.get("neon", False))
+        self.chk_neon.toggled.connect(self._on_neon_changed)
+        lay_neon.addRow("Включен", self.chk_neon)
+        self.spin_neon_size = QtWidgets.QSpinBox(self)
+        self.spin_neon_size.setRange(0, 200)
+        self.spin_neon_size.setValue(CONFIG.get("neon_size", 10))
+        self.spin_neon_size.valueChanged.connect(self._on_neon_changed)
+        lay_neon.addRow("Размер", self.spin_neon_size)
+        self.spin_neon_thickness = QtWidgets.QSpinBox(self)
+        self.spin_neon_thickness.setRange(0, 10)
+        self.spin_neon_thickness.setValue(CONFIG.get("neon_thickness", 1))
+        self.spin_neon_thickness.valueChanged.connect(self._on_neon_changed)
+        lay_neon.addRow("Толщина", self.spin_neon_thickness)
+        self.spin_neon_intensity = QtWidgets.QSpinBox(self)
+        self.spin_neon_intensity.setRange(0, 255)
+        self.spin_neon_intensity.setValue(CONFIG.get("neon_intensity", 255))
+        self.spin_neon_intensity.valueChanged.connect(self._on_neon_changed)
+        lay_neon.addRow("Интенсивность", self.spin_neon_intensity)
+        form_color.addRow(grp_neon)
 
         # glass effect toggle
         self.chk_glass = QtWidgets.QCheckBox(self)
@@ -1528,6 +1551,10 @@ class SettingsDialog(QtWidgets.QDialog):
             self.btn_grad1,
             self.btn_grad2,
             self.sld_grad_angle,
+            self.chk_neon,
+            self.spin_neon_size,
+            self.spin_neon_thickness,
+            self.spin_neon_intensity,
             self.chk_glass,
             self.font_header,
             self.font_text,
@@ -1550,6 +1577,10 @@ class SettingsDialog(QtWidgets.QDialog):
 
     def _collect_config(self):
         return {
+            "neon": self.chk_neon.isChecked(),
+            "neon_size": self.spin_neon_size.value(),
+            "neon_thickness": self.spin_neon_thickness.value(),
+            "neon_intensity": self.spin_neon_intensity.value(),
             "accent_color": self._accent_color.name(),
             "gradient_colors": [self._grad_color1.name(), self._grad_color2.name()],
             "gradient_angle": self.sld_grad_angle.value(),
@@ -1561,6 +1592,12 @@ class SettingsDialog(QtWidgets.QDialog):
             "day_rows": self.spin_day_rows.value(),
             "save_path": self.edit_path.text().strip() or DATA_DIR,
         }
+
+    def _on_neon_changed(self):
+        self._save_config()
+        parent = self.parent()
+        if parent is not None and hasattr(parent, "apply_style"):
+            parent.apply_style(self.chk_neon.isChecked())
 
     def _save_config(self):
         config = self._collect_config()
@@ -1946,6 +1983,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
 
+
+    def apply_style(self, neon: bool):
+        accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
+        if CONFIG.get("monochrome", False):
+            h, s, v, _ = accent.getHsv()
+            s = int(CONFIG.get("mono_saturation", 100))
+            accent.setHsv(h, s, v)
+        sidebar = CONFIG.get("sidebar_color", "#1f1f23")
+        self.topbar.apply_style(neon)
+        self.sidebar.apply_style(neon, accent, sidebar)
 
     def apply_theme(self):
         accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
