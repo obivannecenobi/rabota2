@@ -8,8 +8,6 @@
   "glass_effect": "Acrylic",
   "glass_opacity": 0.5,
   "glass_blur": 10,
-  "animation_speed": 1.0,
-  "neon_motion": false,
   "header_font": "Exo 2",
   "text_font": "Inter",
   "day_rows": 6,
