@@ -422,10 +422,10 @@ class StatsDialog(QtWidgets.QDialog):
         self.table_stats.setStyleSheet(
             "QTableWidget{border:1px solid #555; border-radius:8px;} "
             "QTableWidget::item{border:0;} "
-            "QHeaderView::section{padding:0 6px;}"
+            "QHeaderView::section{padding:0 8px;}"
         )
         header = self.table_stats.horizontalHeader()
-        header.setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        header.setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
         header.setTextElideMode(QtCore.Qt.ElideNone)
         self.table_stats.setHorizontalHeaderLabels(
             [h for _, h in StatsEntryForm.TABLE_COLUMNS]
@@ -466,7 +466,15 @@ class StatsDialog(QtWidgets.QDialog):
         self.current_index = None
         self.year = year
         self.month = month
+        self._settings = QtCore.QSettings("rabota2", "rabota2")
+        geom = self._settings.value("StatsDialog/geometry")
+        if geom is not None:
+            self.restoreGeometry(geom)
         self.load_stats(year, month)
+        sizes = self._settings.value("StatsDialog/columns")
+        if sizes:
+            for i, w in enumerate(sizes):
+                self.table_stats.setColumnWidth(i, int(w))
 
     def resizeEvent(self, event):
         self.table_stats.horizontalHeader().setSectionResizeMode(
@@ -509,8 +517,9 @@ class StatsDialog(QtWidgets.QDialog):
                     item = QtWidgets.QTableWidgetItem(str(val))
                 self.table_stats.setItem(r, c, item)
         self.table_stats.resizeColumnsToContents()
-        self.table_stats.resizeRowsToContents()
         header = self.table_stats.horizontalHeader()
+        header.setTextElideMode(QtCore.Qt.ElideNone)
+        self.table_stats.resizeRowsToContents()
         header.setStretchLastSection(True)
         total_width = sum(header.sectionSize(i) for i in range(header.count()))
         if total_width <= self.table_stats.viewport().width():
@@ -539,6 +548,12 @@ class StatsDialog(QtWidgets.QDialog):
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         self.load_stats(self.year, self.month)
+
+    def closeEvent(self, event):
+        self._settings.setValue("StatsDialog/geometry", self.saveGeometry())
+        cols = [self.table_stats.columnWidth(i) for i in range(self.table_stats.columnCount())]
+        self._settings.setValue("StatsDialog/columns", cols)
+        super().closeEvent(event)
 
 
 class AnalyticsDialog(QtWidgets.QDialog):
@@ -826,10 +841,10 @@ class TopDialog(QtWidgets.QDialog):
         self.table.setStyleSheet(
             "QTableWidget{border:1px solid #555; border-radius:8px;} "
             "QTableWidget::item{border:0;} "
-            "QHeaderView::section{padding:0 6px;}"
+            "QHeaderView::section{padding:0 8px;}"
         )
         self.table.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.Stretch
+            QtWidgets.QHeaderView.Interactive
         )
         self.table.verticalHeader().setVisible(False)
         self.table.verticalHeader().setSectionResizeMode(
@@ -860,6 +875,22 @@ class TopDialog(QtWidgets.QDialog):
         for b in (btn_save, btn_close):
             b.setAttribute(QtCore.Qt.WA_Hover, True)
             b.installEventFilter(NeonEventFilter(b))
+
+        self._settings = QtCore.QSettings("rabota2", "rabota2")
+        geom = self._settings.value("TopDialog/geometry")
+        if geom is not None:
+            self.restoreGeometry(geom)
+        self.calculate()
+        sizes = self._settings.value("TopDialog/columns")
+        if sizes:
+            for i, w in enumerate(sizes):
+                self.table.setColumnWidth(i, int(w))
+
+    def resizeEvent(self, event):
+        self.table.horizontalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.Stretch
+        )
+        super().resizeEvent(event)
 
     def _mode_changed(self):
         mode = self.combo_mode.currentData()
@@ -1004,6 +1035,8 @@ class TopDialog(QtWidgets.QDialog):
             self.table.setItem(row, 12, QtWidgets.QTableWidgetItem(str(sums["likes"])))
             self.table.setItem(row, 13, QtWidgets.QTableWidgetItem(str(sums["thanks"])))
         self.table.setSortingEnabled(True)
+        self.table.resizeColumnsToContents()
+        self.table.horizontalHeader().setTextElideMode(QtCore.Qt.ElideNone)
 
     def _period_key(self):
         mode = self.combo_mode.currentData()
@@ -1048,6 +1081,12 @@ class TopDialog(QtWidgets.QDialog):
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         self.accept()
+
+    def closeEvent(self, event):
+        self._settings.setValue("TopDialog/geometry", self.saveGeometry())
+        cols = [self.table.columnWidth(i) for i in range(self.table.columnCount())]
+        self._settings.setValue("TopDialog/columns", cols)
+        super().closeEvent(event)
 
 class NeonTableWidget(QtWidgets.QTableWidget):
     """Вложенная таблица с neonовым подсвечиванием при наведении и фокусе."""
