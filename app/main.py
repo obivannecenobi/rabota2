@@ -1385,6 +1385,7 @@ class SettingsDialog(QtWidgets.QDialog):
             pix.fill(self._accent_color)
             self.combo_accent.setItemIcon(other_index, QtGui.QIcon(pix))
         self._accent_index = idx
+        # connect after setting initial index to avoid unwanted color dialog
         self.combo_accent.currentIndexChanged.connect(self._on_accent_changed)
         form_color.addRow("Цвет подсветки", self.combo_accent)
 
@@ -1868,8 +1869,7 @@ class MainWindow(QtWidgets.QMainWindow):
         load_icons(CONFIG.get("theme", "dark"))
         app = QtWidgets.QApplication.instance()
         for w in app.allWidgets():
-            if isinstance(w, (QtWidgets.QDialog, QtWidgets.QAbstractButton)):
-                w.setFont(app.font())
+            w.setFont(app.font())
         self.topbar.update_icons()
         self.sidebar.update_icons()
         self.topbar.apply_fonts()
