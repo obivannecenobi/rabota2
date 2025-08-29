@@ -13,7 +13,22 @@ PYTHON = VENV_DIR / ('Scripts' if os.name == 'nt' else 'bin') / 'python'
 def main() -> None:
     if not VENV_DIR.exists():
         subprocess.check_call([sys.executable, '-m', 'venv', str(VENV_DIR)])
-        subprocess.check_call([str(PYTHON), '-m', 'pip', 'install', '-r', str(ROOT / 'requirements.txt')])
+
+    try:
+        subprocess.check_call(
+            [
+                str(PYTHON),
+                '-m',
+                'pip',
+                'install',
+                '--upgrade',
+                '-r',
+                str(ROOT / 'requirements.txt'),
+            ]
+        )
+    except subprocess.CalledProcessError as exc:
+        print(f"Failed to install requirements: {exc}", file=sys.stderr)
+        sys.exit(exc.returncode)
 
     subprocess.check_call([str(PYTHON), str(ROOT / 'app' / 'main.py')])
 
