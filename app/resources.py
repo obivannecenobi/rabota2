@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import logging
 from typing import Dict
 
 from PySide6.QtGui import QFontDatabase, QIcon
@@ -20,7 +21,9 @@ def register_fonts() -> None:
         return
     for fname in os.listdir(FONTS_DIR):
         if fname.lower().endswith((".ttf", ".otf")):
-            QFontDatabase.addApplicationFont(os.path.join(FONTS_DIR, fname))
+            fid = QFontDatabase.addApplicationFont(os.path.join(FONTS_DIR, fname))
+            if fid == -1:
+                logging.getLogger(__name__).error("Failed to load font %s", fname)
 
 
 def load_icons(theme: str = "dark") -> None:

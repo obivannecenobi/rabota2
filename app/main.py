@@ -14,9 +14,6 @@ from resources import register_fonts, load_icons, icon
 import theme_manager
 from effects import NeonEventFilter
 
-# Ensure bundled fonts are loaded before any window is created
-register_fonts()
-
 ASSETS = os.path.join(os.path.dirname(__file__), "..", "assets")
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 CONFIG_PATH = os.path.join(DATA_DIR, "config.json")
@@ -2027,6 +2024,7 @@ class MainWindow(QtWidgets.QMainWindow):
 def main():
     QtCore.QLocale.setDefault(QtCore.QLocale("ru_RU"))
     app = QtWidgets.QApplication(sys.argv)
+    register_fonts()
     load_icons(CONFIG.get("theme", "dark"))
     resolve_font_config()
     theme_manager.set_text_font(CONFIG.get("text_font", "Inter"))
