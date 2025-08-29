@@ -95,6 +95,26 @@ VERSION_FILE = os.path.join(os.path.dirname(__file__), "..", "VERSION")
 RU_MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"]
 
 
+def ensure_font_registered(family: str, parent: QtWidgets.QWidget | None = None) -> str:
+    """Ensure *family* is available, asking user for a font file if necessary."""
+    db = QtGui.QFontDatabase()
+    if family in db.families():
+        return family
+    path, _ = QtWidgets.QFileDialog.getOpenFileName(
+        parent,
+        "Выберите файл шрифта",
+        "",
+        "Font Files (*.ttf *.otf)",
+    )
+    if path:
+        font_id = QtGui.QFontDatabase.addApplicationFont(path)
+        if font_id != -1:
+            families = QtGui.QFontDatabase.applicationFontFamilies(font_id)
+            if families:
+                return families[0]
+    return family
+
+
 class NeonEventFilter(QtCore.QObject):
     """Event filter enabling animated neon highlight on hover and focus."""
 
@@ -1606,17 +1626,19 @@ class SettingsDialog(QtWidgets.QDialog):
         tab_fonts = QtWidgets.QWidget()
         form_fonts = QtWidgets.QFormLayout(tab_fonts)
         tabs.addTab(tab_fonts, "Шрифты")
-        db = QtGui.QFontDatabase()
-        self.font_header = QtWidgets.QComboBox(self)
-        self.font_header.addItems(db.families())
-        self.font_header.setCurrentText(CONFIG.get("header_font", "Exo 2"))
-        self.font_header.currentTextChanged.connect(lambda _: self._save_config())
+
+        header_family = ensure_font_registered(CONFIG.get("header_font", "Exo 2"), self)
+        CONFIG["header_font"] = header_family
+        self.font_header = QtWidgets.QFontComboBox(self)
+        self.font_header.setCurrentFont(QtGui.QFont(header_family))
+        self.font_header.currentFontChanged.connect(lambda _: self._save_config())
         form_fonts.addRow("Шрифт заголовков", self.font_header)
 
-        self.font_text = QtWidgets.QComboBox(self)
-        self.font_text.addItems(db.families())
-        self.font_text.setCurrentText(CONFIG.get("text_font", "Inter"))
-        self.font_text.currentTextChanged.connect(lambda _: self._save_config())
+        text_family = ensure_font_registered(CONFIG.get("text_font", "Inter"), self)
+        CONFIG["text_font"] = text_family
+        self.font_text = QtWidgets.QFontComboBox(self)
+        self.font_text.setCurrentFont(QtGui.QFont(text_family))
+        self.font_text.currentFontChanged.connect(lambda _: self._save_config())
         form_fonts.addRow("Шрифт текста", self.font_text)
 
         # --- Иконки ---
@@ -1687,8 +1709,8 @@ class SettingsDialog(QtWidgets.QDialog):
             "workspace_color": self._workspace_color.name(),
             "sidebar_color": self._sidebar_color.name(),
             "theme": "dark" if self.combo_theme.currentIndex() == 0 else "light",
-            "header_font": self.font_header.currentText(),
-            "text_font": self.font_text.currentText(),
+            "header_font": self.font_header.currentFont().family(),
+            "text_font": self.font_text.currentFont().family(),
             "day_rows": self.spin_day_rows.value(),
             "save_path": self.edit_path.text().strip() or DATA_DIR,
         }
@@ -2029,14 +2051,18 @@ class MainWindow(QtWidgets.QMainWindow):
         self.apply_settings()
 
     def apply_settings(self):
-        theme_manager.set_text_font(CONFIG.get("text_font", "Inter"))
-        theme_manager.set_header_font(CONFIG.get("header_font", "Exo 2"))
+        text_family = ensure_font_registered(CONFIG.get("text_font", "Inter"), self)
+        header_family = ensure_font_registered(CONFIG.get("header_font", "Exo 2"), self)
+        CONFIG["text_font"] = text_family
+        CONFIG["header_font"] = header_family
+        theme_manager.set_text_font(text_family)
+        theme_manager.set_header_font(header_family)
         load_icons(CONFIG.get("theme", "dark"))
         app = QtWidgets.QApplication.instance()
         self.topbar.update_icons()
         self.sidebar.update_icons()
         self.topbar.apply_fonts()
-        header_font = QtGui.QFont(CONFIG.get("header_font"))
+        header_font = QtGui.QFont(header_family)
         self.table.setFont(app.font())
         self.table.horizontalHeader().setFont(header_font)
         for tbl in self.table.cell_tables.values():
