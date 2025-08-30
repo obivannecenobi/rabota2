@@ -8,6 +8,8 @@ from typing import Dict
 
 from PySide6.QtGui import QFontDatabase, QIcon, QFont, QGuiApplication
 
+logger = logging.getLogger(__name__)
+
 ASSETS_DIR = os.path.join(os.path.dirname(__file__), "..", "assets")
 FONTS_DIR = os.path.join(ASSETS_DIR, "fonts")
 ICONS_DIR = os.path.join(ASSETS_DIR, "icons")
@@ -19,15 +21,16 @@ def register_fonts() -> None:
     """Register all fonts located in the assets/fonts directory."""
     if not os.path.isdir(FONTS_DIR):
         return
+    fallback_set = False
     for fname in os.listdir(FONTS_DIR):
         if fname.lower().endswith((".ttf", ".otf")):
             path = os.path.join(FONTS_DIR, fname)
             fid = QFontDatabase.addApplicationFont(path)
-            if fid < 0:
-                logging.getLogger(__name__).error(
-                    "Failed to load font '%s' from '%s'", fname, path
-                )
-                QGuiApplication.setFont(QFont("Arial"))
+            if fid == -1:
+                logger.error("Failed to load font '%s' from '%s'", fname, path)
+                if not fallback_set:
+                    QGuiApplication.setFont(QFont("Arial"))
+                    fallback_set = True
 
 
 def load_icons(theme: str = "dark") -> None:
