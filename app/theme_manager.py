@@ -7,8 +7,14 @@ from PySide6 import QtWidgets, QtGui, QtCore
 def set_text_font(name: str) -> None:
     """Set application wide text font."""
     app = QtWidgets.QApplication.instance()
-    if app:
-        app.setFont(QtGui.QFont(name))
+    if not app:
+        return
+    font = QtGui.QFont(name)
+    app.setFont(font)
+    for widget in app.allWidgets():
+        if isinstance(widget, QtWidgets.QHeaderView):
+            continue
+        widget.setFont(font)
 
 
 def set_header_font(name: str) -> None:
