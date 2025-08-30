@@ -2195,6 +2195,7 @@ class MainWindow(QtWidgets.QMainWindow):
 def main():
     QtCore.QLocale.setDefault(QtCore.QLocale("ru_RU"))
     app = QtWidgets.QApplication(sys.argv)
+    # Register bundled fonts now that the application exists
     register_fonts()
     load_icons(CONFIG.get("theme", "dark"))
     resolve_font_config()
