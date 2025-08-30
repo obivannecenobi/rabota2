@@ -1708,6 +1708,8 @@ class SettingsDialog(QtWidgets.QDialog):
 
     def accept(self):
         self._save_config()
+        theme_manager.set_text_font(self.font_text.currentFont().family())
+        theme_manager.set_header_font(self.font_header.currentFont().family())
         super().accept()
 
     def _on_accent_changed(self, idx):
