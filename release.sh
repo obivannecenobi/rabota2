@@ -19,7 +19,10 @@ bump2version --current-version "$current_version" "$part"
 
 # build distribution
 if command -v pyinstaller >/dev/null 2>&1; then
-    pyinstaller --onefile app/main.py -n webnovel-planner
+    pyinstaller app/main.py -n webnovel-planner \
+        --add-data "assets/fonts:assets/fonts" \
+        --add-data "assets/icons:assets/icons" \
+        --onefile
 else
     mkdir -p dist
     zip -r dist/app.zip app data assets requirements.txt VERSION
