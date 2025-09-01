@@ -8,7 +8,7 @@
   "glass_blur": 10,
   "glass_enabled": false,
   "header_font": "Exo 2",
-  "text_font": "Inter",
+  "text_font": "Exo 2",
   "day_rows": 6,
   "save_path": "."
 }

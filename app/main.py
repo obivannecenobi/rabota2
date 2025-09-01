@@ -34,7 +34,7 @@ def load_config():
         "glass_blur": 10,
         "glass_enabled": False,
         "header_font": "Exo 2",
-        "text_font": "Inter",
+        "text_font": "Exo 2",
         "save_path": DATA_DIR,
         "day_rows": 6,
         "workspace_color": "#1e1e21",
@@ -102,7 +102,7 @@ def ensure_font_registered(family: str, parent: QtWidgets.QWidget | None = None)
 
     If *family* is missing in :class:`QFontDatabase`, the user is prompted to
     locate a font file. If the font cannot be loaded, the safe default
-    ``"Inter"`` is returned.
+    ``"Exo 2"`` is returned.
     """
     if family in QFontDatabase.families():
         return family
@@ -120,7 +120,7 @@ def ensure_font_registered(family: str, parent: QtWidgets.QWidget | None = None)
             if fams:
                 return fams[0]
 
-    return "Inter"
+    return "Exo 2"
 
 
 def resolve_font_config(parent: QtWidgets.QWidget | None = None) -> tuple[str, str]:
@@ -129,7 +129,7 @@ def resolve_font_config(parent: QtWidgets.QWidget | None = None) -> tuple[str, s
     Returns the resolved ``(header_family, text_family)`` tuple.
     """
     header = ensure_font_registered(CONFIG.get("header_font", "Exo 2"), parent)
-    text = ensure_font_registered(CONFIG.get("text_font", "Inter"), parent)
+    text = ensure_font_registered(CONFIG.get("text_font", "Exo 2"), parent)
 
     changed = False
     if header != CONFIG.get("header_font"):
@@ -2201,7 +2201,7 @@ def main():
     register_fonts()
     load_icons(CONFIG.get("theme", "dark"))
     resolve_font_config()
-    theme_manager.set_text_font(CONFIG.get("text_font", "Inter"))
+    theme_manager.set_text_font(CONFIG.get("text_font", "Exo 2"))
     w = MainWindow()
     w.apply_settings()
     w.show()
