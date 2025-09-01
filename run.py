@@ -13,15 +13,25 @@ VENV_DIR = ROOT / '.venv'
 PYTHON = VENV_DIR / ('Scripts' if os.name == 'nt' else 'bin') / 'python'
 
 
-def main() -> None:
+def main() -> int:
     if not VENV_DIR.exists():
         subprocess.check_call([sys.executable, '-m', 'venv', str(VENV_DIR)])
 
     try:
-        subprocess.check_call([str(PYTHON), '-m', 'pip', 'install', '--upgrade', '-r', str(ROOT / 'requirements.txt')])
+        subprocess.check_call(
+            [
+                str(PYTHON),
+                '-m',
+                'pip',
+                'install',
+                '--upgrade',
+                '-r',
+                str(ROOT / 'requirements.txt'),
+            ]
+        )
     except subprocess.CalledProcessError as exc:
         print(f'Не удалось установить зависимости: {exc}', file=sys.stderr)
-        sys.exit(exc.returncode)
+        return exc.returncode
 
     try:
         subprocess.check_call([str(PYTHON), str(ROOT / 'app' / 'main.py')])
@@ -30,8 +40,10 @@ def main() -> None:
             f"Application failed with exit code {exc.returncode}",
             file=sys.stderr,
         )
-        sys.exit(exc.returncode)
+        return exc.returncode
+
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())
