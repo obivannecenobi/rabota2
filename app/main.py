@@ -1151,6 +1151,8 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         self.cell_containers: Dict[tuple[int, int], QtWidgets.QWidget] = {}
         self.cell_filters: Dict[tuple[int, int], NeonEventFilter] = {}
 
+        self._updating_rows = False
+
         self.load_month_data(self.year, self.month)
 
     def mousePressEvent(self, event):
@@ -1172,14 +1174,20 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self._update_row_heights()
+        QtCore.QTimer.singleShot(0, self._update_row_heights)
 
     def _update_row_heights(self):
-        rows = self.rowCount()
-        if rows:
-            height = self.viewport().height() // rows
-            for r in range(rows):
-                self.setRowHeight(r, height)
+        if self._updating_rows:
+            return
+        self._updating_rows = True
+        try:
+            rows = self.rowCount()
+            if rows:
+                height = self.viewport().height() // rows
+                for r in range(rows):
+                    self.setRowHeight(r, height)
+        finally:
+            self._updating_rows = False
 
     # ---------- Persistence ----------
     def save_current_month(self):
