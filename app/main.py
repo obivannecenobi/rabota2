@@ -2200,10 +2200,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
 def main():
-    QtCore.QLocale.setDefault(QtCore.QLocale("ru_RU"))
-    app = QtWidgets.QApplication(sys.argv)
-    # Register bundled fonts now that the application exists
-    register_fonts()
     load_icons(CONFIG.get("theme", "dark"))
     theme_manager.set_header_font("Exo 2")
     theme_manager.set_text_font("Exo 2")
@@ -2211,7 +2207,11 @@ def main():
     w.apply_settings()
     w.show()
     w.showMaximized()
-    sys.exit(app.exec())
+    return w
 
 if __name__ == "__main__":
+    QtCore.QLocale.setDefault(QtCore.QLocale("ru_RU"))
+    app = QtWidgets.QApplication(sys.argv)
+    register_fonts()
     main()
+    sys.exit(app.exec())
