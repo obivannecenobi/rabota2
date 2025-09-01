@@ -2054,6 +2054,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.topbar.spin_year.blockSignals(True)
         self.topbar.spin_year.setValue(self.table.year)
         self.topbar.spin_year.blockSignals(False)
+        self.topbar.apply_fonts()
 
     def _update_timer(self):
         secs = self._start_dt.secsTo(QtCore.QDateTime.currentDateTime())
@@ -2135,10 +2136,11 @@ class MainWindow(QtWidgets.QMainWindow):
         load_icons(CONFIG.get("theme", "dark"))
         app = QtWidgets.QApplication.instance()
         for w in app.allWidgets():
+            if w is self.topbar.lbl_month:
+                continue
             w.setFont(app.font())
         self.topbar.update_icons()
         self.sidebar.update_icons()
-        self.topbar.apply_fonts()
         self.setWindowIcon(QtGui.QIcon(CONFIG.get("app_icon", ICON_TOGGLE)))
         header_font = QtGui.QFont(header_family)
         self.table.setFont(app.font())
@@ -2180,6 +2182,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.apply_theme()
         theme_manager.apply_glass_effect(self, CONFIG)
         update_neon_filters(self)
+        self.topbar.apply_fonts()
 
 
 
