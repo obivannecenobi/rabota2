@@ -1488,6 +1488,8 @@ class SettingsDialog(QtWidgets.QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        # keep a reference to the main window to update glass effect live
+        self.main_window = parent if isinstance(parent, QtWidgets.QWidget) else None
         self.setWindowTitle("Настройки")
         self.resize(500, 400)
         main_lay = QtWidgets.QVBoxLayout(self)
@@ -1770,6 +1772,8 @@ class SettingsDialog(QtWidgets.QDialog):
         CONFIG.update(config)
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(CONFIG, f, ensure_ascii=False, indent=2)
+        if getattr(self, "main_window", None):
+            theme_manager.apply_glass_effect(self.main_window, CONFIG)
         self.settings_changed.emit()
 
     def accept(self):
@@ -2266,6 +2270,12 @@ class MainWindow(QtWidgets.QMainWindow):
             sidebar = theme_manager.apply_monochrome(QtGui.QColor(sidebar)).name()
             accent = theme_manager.apply_monochrome(accent)
         self.sidebar.apply_style(CONFIG.get("neon", False), accent, sidebar)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        # Reapply glass effect to match new window geometry
+        theme_manager.apply_glass_effect(self, CONFIG)
+
     def closeEvent(self, event):
         self.table.save_current_month()
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
