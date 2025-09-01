@@ -7,7 +7,6 @@ from datetime import datetime, date
 from typing import Dict, List, Union
 
 from PySide6 import QtWidgets, QtGui, QtCore
-from PySide6.QtGui import QFontDatabase
 from dataclasses import dataclass, field
 
 from widgets import StyledPushButton, StyledToolButton
@@ -100,11 +99,11 @@ RU_MONTHS = ["Январь","Февраль","Март","Апрель","Май",
 def ensure_font_registered(family: str, parent: QtWidgets.QWidget | None = None) -> str:
     """Ensure *family* is available and return its name.
 
-    If *family* is missing in :class:`QFontDatabase`, the user is prompted to
+    If *family* is missing in :class:`QtGui.QFontDatabase`, the user is prompted to
     locate a font file. If the font cannot be loaded, the safe default
     ``"Exo 2"`` is returned.
     """
-    if family in QFontDatabase.families():
+    if family in QtGui.QFontDatabase.families():
         return family
 
     file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
@@ -114,9 +113,9 @@ def ensure_font_registered(family: str, parent: QtWidgets.QWidget | None = None)
         "Font Files (*.ttf *.otf)"
     )
     if file_path:
-        fid = QFontDatabase.addApplicationFont(file_path)
+        fid = QtGui.QFontDatabase.addApplicationFont(file_path)
         if fid != -1:
-            fams = QFontDatabase.applicationFontFamilies(fid)
+            fams = QtGui.QFontDatabase.applicationFontFamilies(fid)
             if fams:
                 return fams[0]
 
