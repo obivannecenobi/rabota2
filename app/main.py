@@ -2231,5 +2231,12 @@ if __name__ == "__main__":
     QtCore.QLocale.setDefault(QtCore.QLocale("ru_RU"))
     app = QtWidgets.QApplication(sys.argv)
     register_fonts()
-    main()
-    sys.exit(app.exec())
+    try:
+        main()
+        sys.exit(app.exec())
+    except Exception as exc:
+        logging.exception("Unhandled exception in application")
+        QtWidgets.QMessageBox.critical(
+            None, "Ошибка", f"{type(exc).__name__}: {exc}"
+        )
+        sys.exit(1)
