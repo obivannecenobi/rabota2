@@ -77,6 +77,7 @@ def apply_neon_effect(widget: QtWidgets.QWidget, on: bool = True) -> None:
             widget._neon_prev_style = widget.styleSheet()
         prev_style = widget._neon_prev_style or ""
         color = widget.palette().color(QtGui.QPalette.Highlight)
+        text_color = widget.palette().buttonText().color()
         eff = QtWidgets.QGraphicsDropShadowEffect(widget)
         eff.setOffset(0, 0)
         eff.setBlurRadius(20)
@@ -85,7 +86,10 @@ def apply_neon_effect(widget: QtWidgets.QWidget, on: bool = True) -> None:
             widget.setGraphicsEffect(eff)
         except RuntimeError:
             return
-        widget.setStyleSheet(prev_style + f" border-color:{color.name()};")
+        widget.setStyleSheet(
+            prev_style
+            + f" color:{text_color.name()}; border-color:{color.name()};"
+        )
         widget._neon_effect = eff
     else:
         prev = getattr(widget, "_neon_prev_effect", None)
