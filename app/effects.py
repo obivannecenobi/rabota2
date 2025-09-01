@@ -58,8 +58,14 @@ def apply_neon_effect(widget: QtWidgets.QWidget, on: bool = True) -> None:
         return
 
     if on:
-        if widget.property("_prev_effect") is None:
-            widget.setProperty("_prev_effect", widget.graphicsEffect())
+        if getattr(widget, "_prev_effect", None) is None:
+            prev = widget.graphicsEffect()
+            if prev is not None and shiboken6.isValid(prev):
+                try:
+                    prev.setParent(None)
+                except RuntimeError:
+                    prev = None
+            widget._prev_effect = prev
         if getattr(widget, "_neon_prev_style", None) is None:
             widget._neon_prev_style = widget.styleSheet()
         eff = QtWidgets.QGraphicsDropShadowEffect(widget)
@@ -67,18 +73,28 @@ def apply_neon_effect(widget: QtWidgets.QWidget, on: bool = True) -> None:
         eff.setBlurRadius(20)
         color = widget.palette().color(QtGui.QPalette.Highlight)
         eff.setColor(color)
-        widget.setGraphicsEffect(eff)
+        try:
+            widget.setGraphicsEffect(eff)
+        except RuntimeError:
+            return
         widget.setStyleSheet(
             f"{widget._neon_prev_style}border-color:{color.name()};"
         )
         widget._neon_effect = eff
     else:
-        prev = widget.property("_prev_effect")
-        widget.setProperty("_prev_effect", None)
-        if prev is not None and shiboken6.isValid(prev):
-            widget.setGraphicsEffect(prev)
-        else:
-            widget.setGraphicsEffect(None)
+        prev = getattr(widget, "_prev_effect", None)
+        widget._prev_effect = None
+        try:
+            if prev is not None and shiboken6.isValid(prev):
+                widget.setGraphicsEffect(prev)
+                try:
+                    prev.setParent(widget)
+                except RuntimeError:
+                    pass
+            else:
+                widget.setGraphicsEffect(None)
+        except RuntimeError:
+            pass
         prev_style = getattr(widget, "_neon_prev_style", None)
         widget.setStyleSheet(prev_style or "")
         widget._neon_prev_style = None
