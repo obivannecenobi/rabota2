@@ -6,7 +6,7 @@ set -e
 part=${1:-patch}
 
 # check for syntax errors early
-python -m py_compile app/main.py app/effects.py
+python -m py_compile app/main_window.py app/effects.py
 
 # run tests if present
 if [ -d tests ]; then
@@ -19,10 +19,7 @@ bump2version --current-version "$current_version" "$part"
 
 # build distribution
 if command -v pyinstaller >/dev/null 2>&1; then
-    pyinstaller app/main.py -n webnovel-planner \
-        --add-data "assets/fonts:assets/fonts" \
-        --add-data "assets/icons:assets/icons" \
-        --onefile
+    pyinstaller pyinstaller.spec
 else
     mkdir -p dist
     zip -r dist/app.zip app data assets requirements.txt VERSION

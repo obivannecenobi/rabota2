@@ -1,7 +1,15 @@
+"""Utilities for theming and visual effects."""
+
 from typing import Dict, Tuple
 import math
 
 from PySide6 import QtWidgets, QtGui, QtCore
+
+try:  # optional dependency
+    from blurwindow import BlurWindow, GlobalBlur  # type: ignore
+except Exception:  # pragma: no cover - graceful degradation
+    BlurWindow = None
+    GlobalBlur = None
 
 
 def set_text_font(name: str = "Exo 2") -> None:
@@ -74,8 +82,12 @@ def apply_glass_effect(window: QtWidgets.QWidget, config: Dict) -> None:
     back = getattr(window, "_glass_back", None)
 
     try:
-        from blurwindow import BlurWindow, GlobalBlur
-        if enabled and getattr(BlurWindow, "is_supported", lambda: True)():
+        if (
+            enabled
+            and BlurWindow is not None
+            and GlobalBlur is not None
+            and getattr(BlurWindow, "is_supported", lambda: True)()
+        ):
             if back:
                 back.setParent(None)
                 window._glass_back = None
