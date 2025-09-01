@@ -8,7 +8,8 @@ class ButtonStyleMixin:
         """Apply shared base QSS to the widget."""
         self.setStyleSheet(
             "border-radius:12px; padding:8px 12px; "
-            "border:1px solid transparent;"
+            "border:1px solid transparent; min-width:24px; "
+            "min-height:24px; color:#e5e5e5;"
         )
 
 

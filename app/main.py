@@ -273,6 +273,7 @@ class ReleaseDialog(QtWidgets.QDialog):
         lay.addWidget(box)
 
         for b in (btn_save, btn_close):
+            b.setFixedSize(b.sizeHint())
             b.setAttribute(QtCore.Qt.WA_Hover, True)
             if neon_enabled():
                 filt = NeonEventFilter(b)
@@ -474,6 +475,7 @@ class StatsDialog(QtWidgets.QDialog):
         self.btn_box.rejected.connect(self.reject)
         lay.addWidget(self.btn_box)
         for b in (btn_save, btn_close):
+            b.setFixedSize(b.sizeHint())
             b.setAttribute(QtCore.Qt.WA_Hover, True)
             if neon_enabled():
                 filt = NeonEventFilter(b)
@@ -925,6 +927,7 @@ class TopDialog(QtWidgets.QDialog):
         box.rejected.connect(self.reject)
         lay.addWidget(box)
         for b in (btn_save, btn_close):
+            b.setFixedSize(b.sizeHint())
             b.setAttribute(QtCore.Qt.WA_Hover, True)
             if neon_enabled():
                 filt = NeonEventFilter(b)
@@ -1698,9 +1701,11 @@ class SettingsDialog(QtWidgets.QDialog):
         btn_save = StyledPushButton("Сохранить", self)
         btn_save.setIcon(icon("save"))
         btn_save.setIconSize(QtCore.QSize(20, 20))
+        btn_save.setFixedSize(btn_save.sizeHint())
         btn_cancel = StyledPushButton("Отмена", self)
         btn_cancel.setIcon(icon("x"))
         btn_cancel.setIconSize(QtCore.QSize(20, 20))
+        btn_cancel.setFixedSize(btn_cancel.sizeHint())
         box.addButton(btn_save, QtWidgets.QDialogButtonBox.AcceptRole)
         box.addButton(btn_cancel, QtWidgets.QDialogButtonBox.RejectRole)
         box.accepted.connect(self.accept)
