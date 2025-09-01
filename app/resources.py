@@ -6,7 +6,8 @@ import os
 import logging
 from typing import Dict
 
-from PySide6.QtGui import QFontDatabase, QIcon, QFont, QGuiApplication
+from PySide6 import QtGui
+from PySide6.QtGui import QIcon, QFont, QGuiApplication
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +29,14 @@ def register_fonts() -> None:
         for fname in files:
             if fname.lower().endswith((".ttf", ".otf")):
                 path = os.path.join(root, fname)
-                fid = QFontDatabase.addApplicationFont(path)
+                fid = QtGui.QFontDatabase.addApplicationFont(path)
                 if fid == -1:
                     logger.error("Failed to load font '%s' from '%s'", fname, path)
                     if not fallback_set:
                         QGuiApplication.setFont(QFont("Arial"))
                         fallback_set = True
 
-    if "Exo 2" not in QFontDatabase().families():
+    if "Exo 2" not in QtGui.QFontDatabase.families():
         logger.error("Font 'Exo 2' not registered")
 
 
