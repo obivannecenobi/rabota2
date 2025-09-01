@@ -1923,7 +1923,6 @@ class MainWindow(QtWidgets.QMainWindow):
         h.addWidget(right, 1)
 
         self.setCentralWidget(central)
-        self.showMaximized()
 
         # Connect topbar
         self.topbar.prev_clicked.connect(self.prev_month)
@@ -2203,6 +2202,7 @@ def main():
     w = MainWindow()
     w.apply_settings()
     w.show()
+    w.showMaximized()
     sys.exit(app.exec())
 
 if __name__ == "__main__":
