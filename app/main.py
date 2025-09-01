@@ -2232,8 +2232,9 @@ if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     register_fonts()
     try:
-        main()
-        sys.exit(app.exec())
+        window = main()
+        exit_code = app.exec()
+        sys.exit(exit_code)
     except Exception as exc:
         logging.exception("Unhandled exception in application")
         QtWidgets.QMessageBox.critical(
