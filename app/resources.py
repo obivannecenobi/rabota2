@@ -33,11 +33,13 @@ def register_fonts() -> None:
                 if fid == -1:
                     logger.error("Failed to load font '%s' from '%s'", fname, path)
                     if not fallback_set:
-                        QGuiApplication.setFont(QFont("Arial"))
+                        QGuiApplication.setFont(QFont("Sans Serif"))
                         fallback_set = True
 
     if "Exo 2" not in QtGui.QFontDatabase.families():
         logger.error("Font 'Exo 2' not registered")
+        if not fallback_set:
+            QGuiApplication.setFont(QFont("Sans Serif"))
 
 
 def load_icons(theme: str = "dark") -> None:
