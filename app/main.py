@@ -1561,14 +1561,13 @@ class SettingsDialog(QtWidgets.QDialog):
         self.spin_glass_blur.valueChanged.connect(lambda _: self._save_config())
         form_interface.addRow("Размытие стекла", self.spin_glass_blur)
 
-        header_family, text_family = resolve_font_config(self)
         self.font_header = QtWidgets.QFontComboBox(self)
-        self.font_header.setCurrentFont(QtGui.QFont(header_family))
+        self.font_header.setCurrentFont(QtGui.QFont("Exo 2"))
         self.font_header.currentFontChanged.connect(lambda _: self._save_config())
         form_interface.addRow("Шрифт заголовков", self.font_header)
 
         self.font_text = QtWidgets.QFontComboBox(self)
-        self.font_text.setCurrentFont(QtGui.QFont(text_family))
+        self.font_text.setCurrentFont(QtGui.QFont("Exo 2"))
         self.font_text.currentFontChanged.connect(lambda _: self._save_config())
         form_interface.addRow("Шрифт текста", self.font_text)
 
@@ -2200,8 +2199,8 @@ def main():
     # Register bundled fonts now that the application exists
     register_fonts()
     load_icons(CONFIG.get("theme", "dark"))
-    resolve_font_config()
-    theme_manager.set_text_font(CONFIG.get("text_font", "Exo 2"))
+    theme_manager.set_header_font("Exo 2")
+    theme_manager.set_text_font("Exo 2")
     w = MainWindow()
     w.apply_settings()
     w.show()

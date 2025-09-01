@@ -35,6 +35,9 @@ def register_fonts() -> None:
                         QGuiApplication.setFont(QFont("Arial"))
                         fallback_set = True
 
+    if "Exo 2" not in QFontDatabase().families():
+        logger.error("Font 'Exo 2' not registered")
+
 
 def load_icons(theme: str = "dark") -> None:
     """Load themed icons into the global :data:`ICONS` dictionary."""
