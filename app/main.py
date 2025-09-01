@@ -442,7 +442,7 @@ class StatsDialog(QtWidgets.QDialog):
             "QHeaderView::section{padding:0 8px;}"
         )
         header = self.table_stats.horizontalHeader()
-        header.setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
+        header.setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
         header.setTextElideMode(QtCore.Qt.ElideNone)
         self.table_stats.setHorizontalHeaderLabels(
             [h for _, h in StatsEntryForm.TABLE_COLUMNS]
@@ -498,7 +498,7 @@ class StatsDialog(QtWidgets.QDialog):
 
     def resizeEvent(self, event):
         self.table_stats.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.Stretch
+            QtWidgets.QHeaderView.ResizeToContents
         )
         super().resizeEvent(event)
 
@@ -538,6 +538,7 @@ class StatsDialog(QtWidgets.QDialog):
                 self.table_stats.setItem(r, c, item)
         self.table_stats.resizeColumnsToContents()
         header = self.table_stats.horizontalHeader()
+        header.setMinimumSectionSize(50)
         header.setTextElideMode(QtCore.Qt.ElideNone)
         self.table_stats.resizeRowsToContents()
         header.setStretchLastSection(True)
@@ -620,7 +621,9 @@ class AnalyticsDialog(QtWidgets.QDialog):
         )
         self.table.setHorizontalHeaderLabels(RU_MONTHS + ["Итого за год"])
         self.table.setVerticalHeaderLabels(self.INDICATORS)
-        self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.ResizeToContents
+        )
         self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         lay.addWidget(self.table, 1)
 
@@ -663,7 +666,9 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self.load(year)
 
     def resizeEvent(self, event):
-        self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.ResizeToContents
+        )
         self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         super().resizeEvent(event)
 
@@ -702,8 +707,11 @@ class AnalyticsDialog(QtWidgets.QDialog):
 
         self._recalculate()
         self.table.resizeColumnsToContents()
+        self.table.horizontalHeader().setMinimumSectionSize(50)
         self.table.resizeRowsToContents()
-        self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.ResizeToContents
+        )
         self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self._loading = False
 
@@ -888,7 +896,7 @@ class TopDialog(QtWidgets.QDialog):
             "QHeaderView::section{padding:0 8px;}"
         )
         self.table.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.Interactive
+            QtWidgets.QHeaderView.ResizeToContents
         )
         self.table.verticalHeader().setVisible(False)
         self.table.verticalHeader().setSectionResizeMode(
@@ -935,7 +943,7 @@ class TopDialog(QtWidgets.QDialog):
 
     def resizeEvent(self, event):
         self.table.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.Stretch
+            QtWidgets.QHeaderView.ResizeToContents
         )
         super().resizeEvent(event)
 
@@ -1083,7 +1091,9 @@ class TopDialog(QtWidgets.QDialog):
             self.table.setItem(row, 13, QtWidgets.QTableWidgetItem(str(sums["thanks"])))
         self.table.setSortingEnabled(True)
         self.table.resizeColumnsToContents()
-        self.table.horizontalHeader().setTextElideMode(QtCore.Qt.ElideNone)
+        header = self.table.horizontalHeader()
+        header.setMinimumSectionSize(50)
+        header.setTextElideMode(QtCore.Qt.ElideNone)
 
     def _period_key(self):
         mode = self.combo_mode.currentData()
