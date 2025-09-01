@@ -1,7 +1,13 @@
 {
-  "version": "1.2.0",
   "neon": false,
-  "gradient_colors": ["#39ff14", "#2d7cdb"],
+  "neon_size": 10,
+  "neon_thickness": 1,
+  "neon_intensity": 255,
+  "accent_color": "#39ff14",
+  "gradient_colors": [
+    "#39ff14",
+    "#2d7cdb"
+  ],
   "gradient_angle": 0,
   "glass_effect": "",
   "glass_opacity": 0.5,
@@ -9,6 +15,9 @@
   "glass_enabled": false,
   "header_font": "Exo 2",
   "text_font": "Exo 2",
+  "save_path": "/workspace/rabota2/data",
   "day_rows": 6,
-  "save_path": "."
+  "workspace_color": "#1e1e21",
+  "sidebar_color": "#1f1f23",
+  "version": "1.2.0"
 }
