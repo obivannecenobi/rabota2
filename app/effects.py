@@ -1,6 +1,7 @@
 from PySide6 import QtWidgets, QtGui, QtCore
 import re
 import shiboken6
+import weakref
 
 
 def set_neon(
@@ -53,6 +54,9 @@ def apply_neon_effect(widget: QtWidgets.QWidget, on: bool = True) -> None:
     applied. Passing ``False`` restores the previous effect, if any.
     """
 
+    if widget is None or not shiboken6.isValid(widget):
+        return
+
     if on:
         if widget.property("_prev_effect") is None:
             widget.setProperty("_prev_effect", widget.graphicsEffect())
@@ -86,14 +90,23 @@ class NeonEventFilter(QtCore.QObject):
 
     def __init__(self, widget: QtWidgets.QWidget):
         super().__init__(widget)
-        self._widget = widget
-        widget.destroyed.connect(lambda: widget.removeEventFilter(self))
+        self._widget = weakref.ref(widget)
+        widget.destroyed.connect(self._on_widget_destroyed)
+
+    def _on_widget_destroyed(self, obj=None) -> None:
+        widget = self._widget()
+        if widget is not None and shiboken6.isValid(widget):
+            widget.removeEventFilter(self)
 
     def _start(self) -> None:
-        apply_neon_effect(self._widget, True)
+        widget = self._widget()
+        apply_neon_effect(widget, True)
 
     def _stop(self) -> None:
-        apply_neon_effect(self._widget, False)
+        widget = self._widget()
+        if widget is None or not shiboken6.isValid(widget):
+            return
+        apply_neon_effect(widget, False)
 
     def eventFilter(self, obj, event):  # noqa: D401 - Qt event filter signature
         if event.type() in (QtCore.QEvent.HoverEnter, QtCore.QEvent.FocusIn):
