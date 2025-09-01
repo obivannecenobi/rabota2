@@ -5,6 +5,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+if sys.version_info < (3, 13):
+    sys.exit('Требуется Python 3.13+')
+
 ROOT = Path(__file__).resolve().parent
 VENV_DIR = ROOT / '.venv'
 PYTHON = VENV_DIR / ('Scripts' if os.name == 'nt' else 'bin') / 'python'
@@ -15,19 +18,9 @@ def main() -> None:
         subprocess.check_call([sys.executable, '-m', 'venv', str(VENV_DIR)])
 
     try:
-        subprocess.check_call(
-            [
-                str(PYTHON),
-                '-m',
-                'pip',
-                'install',
-                '--upgrade',
-                '-r',
-                str(ROOT / 'requirements.txt'),
-            ]
-        )
+        subprocess.check_call([str(PYTHON), '-m', 'pip', 'install', '--upgrade', '-r', str(ROOT / 'requirements.txt')])
     except subprocess.CalledProcessError as exc:
-        print(f"Failed to install requirements: {exc}", file=sys.stderr)
+        print(f'Не удалось установить зависимости: {exc}', file=sys.stderr)
         sys.exit(exc.returncode)
 
     try:
