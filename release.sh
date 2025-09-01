@@ -13,7 +13,13 @@ if [ -d tests ]; then
     python -m pytest
 fi
 
-# bump version in VERSION and config.json
+# ensure changelog is updated before bumping version
+if git diff --quiet HEAD -- CHANGELOG.md2; then
+    echo "CHANGELOG.md2 must be updated before releasing."
+    exit 1
+fi
+
+# bump version in VERSION and data/config.json
 current_version=$(cat VERSION)
 bump2version --current-version "$current_version" "$part"
 
