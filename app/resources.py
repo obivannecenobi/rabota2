@@ -20,26 +20,24 @@ ICONS: Dict[str, QIcon] = {}
 
 
 def register_fonts() -> None:
-    """Register all Exo2 fonts found under :data:`EXO2_FONTS_DIR` recursively."""
+    """Register the Exo2 regular font and set a fallback on failure."""
     if not os.path.isdir(EXO2_FONTS_DIR):
         return
 
-    fallback_set = False
-    for root, _dirs, files in os.walk(EXO2_FONTS_DIR):
-        for fname in files:
-            if fname.lower().endswith((".ttf", ".otf")):
-                path = os.path.join(root, fname)
-                fid = QtGui.QFontDatabase.addApplicationFont(path)
-                if fid == -1:
-                    logger.error("Failed to load font '%s' from '%s'", fname, path)
-                    if not fallback_set:
-                        QGuiApplication.setFont(QFont("Sans Serif"))
-                        fallback_set = True
+    font_path = os.path.join(EXO2_FONTS_DIR, "Exo2-Regular.ttf")
+    if not os.path.isfile(font_path):
+        logger.error("Font file 'Exo2-Regular.ttf' not found at '%s'", font_path)
+        QGuiApplication.setFont(QFont("Arial"))
+        return
+
+    fid = QtGui.QFontDatabase.addApplicationFont(font_path)
+    if fid == -1:
+        logger.error("Failed to load font 'Exo2-Regular.ttf' from '%s'", font_path)
+        QGuiApplication.setFont(QFont("Arial"))
 
     if "Exo 2" not in QtGui.QFontDatabase.families():
         logger.error("Font 'Exo 2' not registered")
-        if not fallback_set:
-            QGuiApplication.setFont(QFont("Sans Serif"))
+        QGuiApplication.setFont(QFont("Arial"))
 
 
 def load_icons(theme: str = "dark") -> None:
