@@ -3,6 +3,7 @@ import sys
 import os
 import json
 import calendar
+import logging
 from datetime import datetime, date
 from typing import Dict, List, Union
 
@@ -13,6 +14,8 @@ from widgets import StyledPushButton, StyledToolButton
 from resources import register_fonts, load_icons, icon
 import theme_manager
 from effects import NeonEventFilter
+
+logger = logging.getLogger(__name__)
 
 ASSETS = os.path.join(os.path.dirname(__file__), "..", "assets")
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
@@ -101,7 +104,7 @@ def ensure_font_registered(family: str, parent: QtWidgets.QWidget | None = None)
 
     If *family* is missing in :class:`QtGui.QFontDatabase`, the user is prompted to
     locate a font file. If the font cannot be loaded, the safe default
-    ``"Exo 2"`` is returned.
+    ``"Sans Serif"`` is returned.
     """
     if family in QtGui.QFontDatabase.families():
         return family
@@ -114,12 +117,16 @@ def ensure_font_registered(family: str, parent: QtWidgets.QWidget | None = None)
     )
     if file_path:
         fid = QtGui.QFontDatabase.addApplicationFont(file_path)
-        if fid != -1:
+        if fid == -1:
+            logger.error("Failed to load font from '%s'", file_path)
+        else:
             fams = QtGui.QFontDatabase.applicationFontFamilies(fid)
             if fams:
                 return fams[0]
+            logger.error("No font families found in '%s'", file_path)
 
-    return "Exo 2"
+    logger.warning("Falling back to system font 'Sans Serif'")
+    return "Sans Serif"
 
 
 def resolve_font_config(parent: QtWidgets.QWidget | None = None) -> tuple[str, str]:
