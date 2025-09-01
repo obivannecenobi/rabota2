@@ -105,7 +105,7 @@ def ensure_font_registered(family: str, parent: QtWidgets.QWidget | None = None)
 
     If *family* is missing in :class:`QtGui.QFontDatabase`, the user is prompted to
     locate a font file. If the font cannot be loaded, the safe default
-    ``"Sans Serif"`` is returned.
+    ``"Arial"`` is returned.
     """
     if family in QtGui.QFontDatabase.families():
         return family
@@ -126,8 +126,8 @@ def ensure_font_registered(family: str, parent: QtWidgets.QWidget | None = None)
                 return fams[0]
             logger.error("No font families found in '%s'", file_path)
 
-    logger.warning("Falling back to system font 'Sans Serif'")
-    return "Sans Serif"
+    logger.warning("Unable to load font '%s'; falling back to 'Arial'", family)
+    return "Arial"
 
 
 def resolve_font_config(parent: QtWidgets.QWidget | None = None) -> tuple[str, str]:
