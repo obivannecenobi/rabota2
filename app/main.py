@@ -8,6 +8,7 @@ from datetime import datetime, date
 from typing import Dict, List, Union
 
 from PySide6 import QtWidgets, QtGui, QtCore
+import shiboken6
 from dataclasses import dataclass, field
 
 from widgets import StyledPushButton, StyledToolButton
@@ -1160,6 +1161,12 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
 
         self._updating_rows = False
 
+        # Timer for deferred row height updates
+        self._row_timer = QtCore.QTimer(self)
+        self._row_timer.setSingleShot(True)
+        self._row_timer.timeout.connect(self._update_row_heights)
+        self.destroyed.connect(lambda: self._row_timer.stop())
+
         self.load_month_data(self.year, self.month)
 
     def mousePressEvent(self, event):
@@ -1181,10 +1188,14 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        QtCore.QTimer.singleShot(0, self._update_row_heights)
+        # Schedule a deferred update of row heights
+        self._row_timer.stop()
+        self._row_timer.start(0)
 
     def _update_row_heights(self):
         if self._updating_rows:
+            return
+        if not shiboken6.isValid(self) or self.model() is None:
             return
         self._updating_rows = True
         try:
