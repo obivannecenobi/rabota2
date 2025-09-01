@@ -42,6 +42,8 @@ def load_config():
         "day_rows": 6,
         "workspace_color": "#1e1e21",
         "sidebar_color": "#1f1f23",
+        "sidebar_icon": os.path.join(ASSETS, "gpt_icon.png"),
+        "app_icon": os.path.join(ASSETS, "gpt_icon.png"),
     }
     if os.path.exists(CONFIG_PATH):
         try:
@@ -1653,33 +1655,64 @@ class SettingsDialog(QtWidgets.QDialog):
         self.edit_path.editingFinished.connect(self._save_config)
         btn_browse = StyledPushButton("...", self)
         btn_browse.clicked.connect(self.browse_path)
-        path_lay.addWidget(self.edit_path,1)
+        path_lay.addWidget(self.edit_path, 1)
         path_lay.addWidget(btn_browse)
         form_interface.addRow("Путь сохранения", path_lay)
 
         # --- Иконки ---
         tab_icons = QtWidgets.QWidget()
         form_icons = QtWidgets.QFormLayout(tab_icons)
-        icon_files = [f for f in os.listdir(ASSETS) if f.lower().endswith((".png", ".ico"))]
+        icon_files = [
+            f for f in os.listdir(ASSETS) if f.lower().endswith((".png", ".ico"))
+        ]
+
+        # sidebar icon
         self.combo_sidebar_icon = QtWidgets.QComboBox(self)
         for f in icon_files:
             path = os.path.join(ASSETS, f)
             self.combo_sidebar_icon.addItem(QtGui.QIcon(path), f, path)
-        idx = self.combo_sidebar_icon.findData(CONFIG.get("sidebar_icon", ICON_TOGGLE))
+        current_sidebar = CONFIG.get("sidebar_icon", ICON_TOGGLE)
+        idx = self.combo_sidebar_icon.findData(current_sidebar)
+        if idx < 0 and os.path.isfile(current_sidebar):
+            self.combo_sidebar_icon.addItem(
+                QtGui.QIcon(current_sidebar), os.path.basename(current_sidebar), current_sidebar
+            )
+            idx = self.combo_sidebar_icon.count() - 1
         if idx >= 0:
             self.combo_sidebar_icon.setCurrentIndex(idx)
         self.combo_sidebar_icon.currentIndexChanged.connect(lambda _: self._save_config())
-        form_icons.addRow("Иконка боковой панели", self.combo_sidebar_icon)
+        btn_sidebar_browse = StyledPushButton("Обзор…", self)
+        btn_sidebar_browse.clicked.connect(
+            lambda: self.browse_icon(self.combo_sidebar_icon)
+        )
+        lay_sidebar = QtWidgets.QHBoxLayout()
+        lay_sidebar.addWidget(self.combo_sidebar_icon, 1)
+        lay_sidebar.addWidget(btn_sidebar_browse)
+        form_icons.addRow("Иконка боковой панели", lay_sidebar)
 
+        # application icon
         self.combo_app_icon = QtWidgets.QComboBox(self)
         for f in icon_files:
             path = os.path.join(ASSETS, f)
             self.combo_app_icon.addItem(QtGui.QIcon(path), f, path)
-        idx = self.combo_app_icon.findData(CONFIG.get("app_icon", ICON_TOGGLE))
+        current_app = CONFIG.get("app_icon", ICON_TOGGLE)
+        idx = self.combo_app_icon.findData(current_app)
+        if idx < 0 and os.path.isfile(current_app):
+            self.combo_app_icon.addItem(
+                QtGui.QIcon(current_app), os.path.basename(current_app), current_app
+            )
+            idx = self.combo_app_icon.count() - 1
         if idx >= 0:
             self.combo_app_icon.setCurrentIndex(idx)
         self.combo_app_icon.currentIndexChanged.connect(lambda _: self._save_config())
-        form_icons.addRow("Иконка приложения", self.combo_app_icon)
+        btn_app_browse = StyledPushButton("Обзор…", self)
+        btn_app_browse.clicked.connect(
+            lambda: self.browse_icon(self.combo_app_icon)
+        )
+        lay_app = QtWidgets.QHBoxLayout()
+        lay_app.addWidget(self.combo_app_icon, 1)
+        lay_app.addWidget(btn_app_browse)
+        form_icons.addRow("Иконка приложения", lay_app)
 
         hint = QtWidgets.QLabel("Размер иконок: 20×20 px", self)
         hint.setAlignment(QtCore.Qt.AlignCenter)
@@ -1732,7 +1765,9 @@ class SettingsDialog(QtWidgets.QDialog):
             self.edit_path,
             btn_browse,
             self.combo_sidebar_icon,
+            btn_sidebar_browse,
             self.combo_app_icon,
+            btn_app_browse,
             self.spin_day_rows,
             btn_save,
             btn_cancel,
@@ -1749,6 +1784,21 @@ class SettingsDialog(QtWidgets.QDialog):
         )
         if path:
             self.edit_path.setText(path)
+            self._save_config()
+
+    def browse_icon(self, combo: QtWidgets.QComboBox):
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            "Выберите иконку",
+            "",
+            "Image Files (*.png *.ico)",
+        )
+        if path:
+            idx = combo.findData(path)
+            if idx < 0:
+                combo.addItem(QtGui.QIcon(path), os.path.basename(path), path)
+                idx = combo.count() - 1
+            combo.setCurrentIndex(idx)
             self._save_config()
 
     def _collect_config(self):
