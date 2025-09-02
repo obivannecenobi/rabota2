@@ -1953,6 +1953,10 @@ class TopBar(QtWidgets.QWidget):
         font.setBold(True)
         self.lbl_month.setFont(font)
 
+    def update_labels(self):
+        """Refresh label fonts based on current configuration."""
+        self.apply_fonts()
+
     def update_icons(self) -> None:
         self.btn_prev.setIcon(icon("chevron-left"))
         self.btn_prev.setIconSize(QtCore.QSize(22, 22))
@@ -1968,7 +1972,9 @@ class TopBar(QtWidgets.QWidget):
             pal.setColor(QtGui.QPalette.Window, qcolor)
             w.setAutoFillBackground(True)
             w.setPalette(pal)
-        self.lbl_month.setStyleSheet(f"background-color:{qcolor.name()};")
+        self.lbl_month.setStyleSheet(
+            f"background-color:{qcolor.name()}; border:none;"
+        )
         self.spin_year.setStyleSheet(
             f"background-color:{qcolor.name()}; padding:0 6px;"
         )
@@ -2061,7 +2067,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.topbar.spin_year.blockSignals(True)
         self.topbar.spin_year.setValue(self.table.year)
         self.topbar.spin_year.blockSignals(False)
-        self.topbar.apply_fonts()
+        self.topbar.update_labels()
 
     def _update_timer(self):
         secs = self._start_dt.secsTo(QtCore.QDateTime.currentDateTime())
@@ -2189,7 +2195,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.apply_theme()
         theme_manager.apply_glass_effect(self, CONFIG)
         update_neon_filters(self)
-        self.topbar.apply_fonts()
+        self.topbar.update_labels()
 
 
 
@@ -2248,7 +2254,7 @@ class MainWindow(QtWidgets.QMainWindow):
             f"background-color:{workspace};" + self.topbar.styleSheet()
         )
         self.topbar.lbl_month.setStyleSheet(
-            f"background-color:{workspace};"
+            f"background-color:{workspace}; border:none;"
         )
         self.topbar.spin_year.setStyleSheet(
             f"background-color:{workspace}; padding:0 6px;"

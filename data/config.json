@@ -13,11 +13,14 @@
   "glass_opacity": 0.5,
   "glass_blur": 10,
   "glass_enabled": false,
-  "header_font": "Exo 2",
+  "header_font": "Arial",
   "text_font": "Exo 2",
   "save_path": "/workspace/rabota2/data",
   "day_rows": 6,
   "workspace_color": "#1e1e21",
   "sidebar_color": "#1f1f23",
-  "version": "1.2.0"
+  "sidebar_icon": "/workspace/rabota2/app/../assets/gpt_icon.png",
+  "app_icon": "/workspace/rabota2/app/../assets/gpt_icon.png",
+  "version": "1.2.0",
+  "theme": "light"
 }
