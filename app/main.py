@@ -2011,8 +2011,11 @@ class TopBar(QtWidgets.QWidget):
         self.btn_settings.clicked.connect(self.settings_clicked)
         lay.addWidget(self.btn_settings)
         self.update_icons()
+        # Base stylesheet used when neon is disabled in dark theme
+        # Explicitly remove borders for QLabel to avoid unwanted frames
         self.default_style = (
-            "QLabel{color:#e5e5e5;} QToolButton{color:#e5e5e5; border:1px solid #555; border-radius:6px; padding:4px 10px;}"
+            "QLabel{color:#e5e5e5; border:none;} "
+            "QToolButton{color:#e5e5e5; border:1px solid #555; border-radius:6px; padding:4px 10px;}"
         )
         self.setAutoFillBackground(True)
         color = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21"))
@@ -2070,7 +2073,7 @@ class TopBar(QtWidgets.QWidget):
         intensity = CONFIG.get("neon_intensity", 255)
         if neon:
             style = (
-                f"QLabel{{color:{accent.name()};}} "
+                f"QLabel{{color:{accent.name()}; border:none;}} "
                 f"QToolButton{{color:{accent.name()}; border:{thickness}px solid {accent.name()}; border-radius:6px; padding:4px 10px;}}"
             )
             self.setStyleSheet(style)
@@ -2087,7 +2090,8 @@ class TopBar(QtWidgets.QWidget):
                 style = self.default_style
             else:
                 style = (
-                    "QLabel{color:#000;} QToolButton{color:#000; border:1px solid #999; border-radius:6px; padding:4px 10px;}"
+                    "QLabel{color:#000; border:none;} "
+                    "QToolButton{color:#000; border:1px solid #999; border-radius:6px; padding:4px 10px;}"
                 )
             self.setStyleSheet(style)
             for w in (self.lbl_month, self.btn_prev, self.btn_next, self.btn_settings):
@@ -2095,6 +2099,10 @@ class TopBar(QtWidgets.QWidget):
                     w._neon_anim.stop()
                     w._neon_anim = None
                 w.setGraphicsEffect(None)
+
+        # Re-apply background color and ensure border is removed for the month label
+        bg_color = self.lbl_month.palette().color(QtGui.QPalette.Window).name()
+        self.lbl_month.setStyleSheet(f"background-color:{bg_color}; border:none;")
 
 
 class MainWindow(QtWidgets.QMainWindow):
