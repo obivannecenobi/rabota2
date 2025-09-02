@@ -59,31 +59,43 @@ def apply_gradient(config: Dict) -> Tuple[str, str]:
     return base, workspace
 
 
-def apply_glass_effect(window: QtWidgets.QWidget, config: Dict) -> None:
-    """Apply glass effect to the main workspace."""
+def apply_glass_effect(widget: QtWidgets.QWidget, config: Dict | None = None) -> None:
+    """Apply glass effect to *widget* or its central widget.
+
+    When ``config`` is ``None`` the global ``CONFIG`` from ``main`` module is
+    used. The function gracefully handles plain widgets and ``QMainWindow``
+    instances by applying the effect to the central widget when available.
+    """
+
+    if config is None:
+        try:  # deferred import to avoid circular dependency at module import time
+            from . import main as _main
+            config = getattr(_main, "CONFIG", {})
+        except Exception:  # pragma: no cover - extremely defensive
+            config = {}
+
     enabled = config.get("glass_enabled", False)
     eff_type = config.get("glass_effect") or "Acrylic"
     opacity = float(config.get("glass_opacity", 0.5))
     blur = int(config.get("glass_blur", 10))
 
-    central = window.centralWidget()
-    if not central:
-        return
+    central = widget.centralWidget() if hasattr(widget, "centralWidget") else None
+    target = central or widget
 
     # remove fallback layer if present
-    back = getattr(window, "_glass_back", None)
+    back = getattr(widget, "_glass_back", None)
 
     try:
         from blurwindow import BlurWindow, GlobalBlur
         if enabled and getattr(BlurWindow, "is_supported", lambda: True)():
             if back:
                 back.setParent(None)
-                window._glass_back = None
+                widget._glass_back = None
             blur_type = getattr(GlobalBlur, eff_type, getattr(GlobalBlur, "Acrylic", None))
-            BlurWindow.blur(central.winId(), blur_type, blur, int(opacity * 255))
+            BlurWindow.blur(target.winId(), blur_type, blur, int(opacity * 255))
         else:
             try:
-                BlurWindow.blur(central.winId(), getattr(GlobalBlur, "CLEAR", 0))
+                BlurWindow.blur(target.winId(), getattr(GlobalBlur, "CLEAR", 0))
             except Exception:
                 pass
             enabled = False
@@ -91,11 +103,11 @@ def apply_glass_effect(window: QtWidgets.QWidget, config: Dict) -> None:
     except Exception:
         if enabled:
             if back is None:
-                back = QtWidgets.QWidget(central)
+                back = QtWidgets.QWidget(target)
                 back.setObjectName("_glass_back")
                 back.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, True)
-                window._glass_back = back
-            back.setGeometry(central.rect())
+                widget._glass_back = back
+            back.setGeometry(target.rect())
             eff = QtWidgets.QGraphicsBlurEffect(back)
             eff.setBlurRadius(blur)
             back.setGraphicsEffect(eff)
@@ -107,7 +119,7 @@ def apply_glass_effect(window: QtWidgets.QWidget, config: Dict) -> None:
             back.setPalette(pal)
             back.lower()
             back.show()
-            central.raise_()
+            target.raise_()
         elif back is not None:
             back.setParent(None)
-            window._glass_back = None
+            widget._glass_back = None

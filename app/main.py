@@ -515,6 +515,8 @@ class StatsDialog(QtWidgets.QDialog):
         if sizes:
             for i, w in enumerate(sizes):
                 self.table_stats.setColumnWidth(i, int(w))
+        if CONFIG.get("glass_enabled"):
+            theme_manager.apply_glass_effect(self)
 
     def resizeEvent(self, event):
         self.table_stats.horizontalHeader().setSectionResizeMode(
@@ -683,6 +685,8 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self._software = {str(m): 0.0 for m in range(1, 13)}
         self._net = {str(m): 0.0 for m in range(1, 13)}
         self.load(year)
+        if CONFIG.get("glass_enabled"):
+            theme_manager.apply_glass_effect(self)
 
     def resizeEvent(self, event):
         self.table.horizontalHeader().setSectionResizeMode(
@@ -954,6 +958,8 @@ class TopDialog(QtWidgets.QDialog):
         if sizes:
             for i, w in enumerate(sizes):
                 self.table.setColumnWidth(i, int(w))
+        if CONFIG.get("glass_enabled"):
+            theme_manager.apply_glass_effect(self)
 
     def resizeEvent(self, event):
         self.table.horizontalHeader().setSectionResizeMode(
@@ -1802,7 +1808,8 @@ class SettingsDialog(QtWidgets.QDialog):
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(CONFIG, f, ensure_ascii=False, indent=2)
         if getattr(self, "main_window", None):
-            theme_manager.apply_glass_effect(self.main_window, CONFIG)
+            theme_manager.apply_glass_effect(self.main_window)
+        theme_manager.apply_glass_effect(self)
         self.settings_changed.emit()
 
     def accept(self):
@@ -2063,6 +2070,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self._timer.start(1000)
         self._update_timer()
         self._update_version()
+        if CONFIG.get("glass_enabled"):
+            theme_manager.apply_glass_effect(self)
 
     def _update_month_label(self):
         self.topbar.lbl_month.setText(RU_MONTHS[self.table.month-1])
@@ -2196,7 +2205,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     tbl.setFont(app.font())
                     tbl.horizontalHeader().setFont(header_font)
         self.apply_theme()
-        theme_manager.apply_glass_effect(self, CONFIG)
+        theme_manager.apply_glass_effect(self)
         update_neon_filters(self)
         self.topbar.update_background(sidebar_color)
         self.topbar.update_labels()
@@ -2309,7 +2318,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         # Reapply glass effect to match new window geometry
-        theme_manager.apply_glass_effect(self, CONFIG)
+        theme_manager.apply_glass_effect(self)
 
     def closeEvent(self, event):
         self.table.save_current_month()
