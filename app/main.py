@@ -80,6 +80,34 @@ def ensure_year_dirs(year):
         os.makedirs(os.path.join(base, sub), exist_ok=True)
     return base
 
+
+def apply_neon_to_inputs(root: QtWidgets.QWidget) -> None:
+    """Install neon event filters on editable input widgets under ``root``."""
+
+    if not neon_enabled() or root is None or not shiboken6.isValid(root):
+        return
+
+    targets = (
+        QtWidgets.QLineEdit,
+        QtWidgets.QPlainTextEdit,
+        QtWidgets.QTextEdit,
+        QtWidgets.QAbstractSpinBox,
+        QtWidgets.QComboBox,
+        QtWidgets.QCheckBox,
+        QtWidgets.QSlider,
+    )
+
+    widgets = [root] + root.findChildren(QtWidgets.QWidget)
+    for w in widgets:
+        if not isinstance(w, targets):
+            continue
+        if getattr(w, "_neon_filter", None) is not None:
+            continue
+        w.setAttribute(QtCore.Qt.WA_Hover, True)
+        filt = NeonEventFilter(w)
+        w.installEventFilter(filt)
+        w._neon_filter = filt
+
 def stats_dir(year):
     return os.path.join(ensure_year_dirs(year), "stats")
 
@@ -1280,10 +1308,12 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                 lay.addWidget(inner)
                 filt = None
                 if neon_enabled():
-                    filt = NeonEventFilter(inner)
+                    container.setAttribute(QtCore.Qt.WA_Hover, True)
+                    filt = NeonEventFilter(container)
+                    container.installEventFilter(filt)
                     inner.installEventFilter(filt)
                     inner.viewport().installEventFilter(filt)
-                    inner._neon_filter = filt
+                    container._neon_filter = filt
                 self.setCellWidget(r, c, container)
                 self.date_map[(r, c)] = day
                 self.cell_tables[(r, c)] = inner
@@ -1710,41 +1740,7 @@ class SettingsDialog(QtWidgets.QDialog):
         box.accepted.connect(self.accept)
         box.rejected.connect(self.reject)
         main_lay.addWidget(box)
-
-        for w in (
-            self.combo_accent,
-            self.btn_workspace,
-            self.btn_sidebar,
-            self.btn_grad1,
-            self.btn_grad2,
-            self.sld_grad_angle,
-            self.chk_neon,
-            self.spin_neon_size,
-            self.spin_neon_thickness,
-            self.spin_neon_intensity,
-            self.chk_glass,
-            self.combo_glass_effect,
-            self.sld_glass_opacity,
-            self.spin_glass_blur,
-            self.font_header,
-            self.font_text,
-            self.edit_path,
-            btn_browse,
-            self.combo_sidebar_icon,
-            btn_sidebar_browse,
-            self.combo_app_icon,
-            btn_app_browse,
-            self.spin_day_rows,
-            btn_save,
-            btn_cancel,
-        ):
-            w.setAttribute(QtCore.Qt.WA_Hover, True)
-            if neon_enabled() and not isinstance(
-                w, (StyledPushButton, StyledToolButton, SpinButton)
-            ):
-                filt = NeonEventFilter(w)
-                w.installEventFilter(filt)
-                w._neon_filter = filt
+        apply_neon_to_inputs(self)
 
     def browse_path(self):
         path = QtWidgets.QFileDialog.getExistingDirectory(
