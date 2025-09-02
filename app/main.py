@@ -1993,11 +1993,7 @@ class TopBar(QtWidgets.QWidget):
         self.spin_year.setFixedWidth(self.spin_year.sizeHint().width() + 20)
         self.spin_year.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
         self.spin_year.valueChanged.connect(self.year_changed.emit)
-        self.btn_year_dec = SpinButton(self.spin_year, -1, self)
-        self.btn_year_inc = SpinButton(self.spin_year, 1, self)
-        lay.addWidget(self.btn_year_dec)
         lay.addWidget(self.spin_year)
-        lay.addWidget(self.btn_year_inc)
         self.spin_year.setAttribute(QtCore.Qt.WA_Hover, True)
         if neon_enabled():
             filt = NeonEventFilter(self.spin_year)
