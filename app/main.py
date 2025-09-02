@@ -1428,13 +1428,13 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         self.update_icons()
 
     def activate_button(self, btn: QtWidgets.QToolButton) -> None:
-        for b in self._filters:
-            if b is btn:
-                b.setProperty("neon_selected", True)
-            else:
-                b.setProperty("neon_selected", False)
-                self._filters[b]._stop()
-        self._filters[btn]._start()
+        for button, filt in self._filters.items():
+            button.setProperty("neon_selected", button is btn)
+            if filt is not None and button is not btn:
+                filt._stop()
+        filt = self._filters.get(btn)
+        if filt is not None:
+            filt._start()
 
     def set_collapsed(self, collapsed: bool):
         self._collapsed = collapsed
