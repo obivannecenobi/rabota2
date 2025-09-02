@@ -1353,6 +1353,26 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         for lbl in self.day_labels.values():
             lbl.setFont(header_font)
 
+    def apply_theme(self) -> None:
+        """Apply palette-based colors to calendar widgets."""
+        workspace = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21"))
+        if CONFIG.get("monochrome", False):
+            workspace = theme_manager.apply_monochrome(workspace)
+        text_color = QtWidgets.QApplication.palette().color(QtGui.QPalette.WindowText).name()
+        ws = workspace.name()
+        style = (
+            f"QTableWidget{{background-color:{ws};color:{text_color};}}"
+            f"QTableWidget::item{{background-color:{ws};color:{text_color};}}"
+            f"QTableWidget::item:selected{{background-color:{ws};color:{text_color};}}"
+        )
+        self.setStyleSheet(style)
+        self.horizontalHeader().setStyleSheet(f"background-color:{ws};")
+        for tbl in self.cell_tables.values():
+            tbl.setStyleSheet(style)
+            tbl.horizontalHeader().setStyleSheet(f"background-color:{ws};")
+        for container in self.cell_containers.values():
+            container.setStyleSheet(f"background-color:{ws};color:{text_color};")
+
     # ---------- Navigation ----------
     def go_prev_month(self):
         self.save_current_month()
@@ -2312,9 +2332,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.topbar.spin_year.setStyleSheet(
             f"background-color:{workspace}; padding:0 6px;"
         )
-        self.table.horizontalHeader().setStyleSheet(
-            f"background-color:{workspace};"
-        )
         theme = CONFIG.get("theme", "dark")
         self.setStyleSheet(
             "QPushButton,"
@@ -2344,11 +2361,7 @@ class MainWindow(QtWidgets.QMainWindow):
             QSpinBox::down-arrow,QDoubleSpinBox::down-arrow{{ image:url(assets/icons/{theme}/chevron-down.svg); }}
             """
         )
-        self.table.setStyleSheet(f"QTableWidget {{ background-color: {workspace}; }}")
-        for tbl in self.table.cell_tables.values():
-            tbl.setStyleSheet(f"QTableWidget {{ background-color: {workspace}; }}")
-        for container in self.table.cell_containers.values():
-            container.setStyleSheet(f"background-color: {workspace};")
+        self.table.apply_theme()
         sidebar = CONFIG.get("sidebar_color", "#1f1f23")
         if CONFIG.get("monochrome", False):
             sidebar = theme_manager.apply_monochrome(QtGui.QColor(sidebar)).name()
