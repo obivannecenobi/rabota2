@@ -1343,6 +1343,15 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         self._update_row_heights()
         return True
 
+    def apply_fonts(self):
+        """Apply current header font to calendar elements."""
+        header_font = QtGui.QFont(CONFIG.get("header_font", "Exo 2"))
+        self.horizontalHeader().setFont(header_font)
+        for tbl in self.cell_tables.values():
+            tbl.horizontalHeader().setFont(header_font)
+        for lbl in self.day_labels.values():
+            lbl.setFont(header_font)
+
     # ---------- Navigation ----------
     def go_prev_month(self):
         self.save_current_month()
@@ -1644,7 +1653,7 @@ class SettingsDialog(QtWidgets.QDialog):
 
         self.font_header = QtWidgets.QFontComboBox(self)
         self.font_header.setCurrentFont(QtGui.QFont("Exo 2"))
-        self.font_header.currentFontChanged.connect(lambda _: self._save_config())
+        self.font_header.currentFontChanged.connect(lambda _: self.apply_fonts())
         form_interface.addRow("Шрифт заголовков", self.font_header)
 
         self.font_text = QtWidgets.QFontComboBox(self)
@@ -1811,6 +1820,16 @@ class SettingsDialog(QtWidgets.QDialog):
             theme_manager.apply_glass_effect(self.main_window)
         theme_manager.apply_glass_effect(self)
         self.settings_changed.emit()
+
+    def apply_fonts(self):
+        """Save and apply new header font immediately."""
+        self._save_config()
+        theme_manager.set_header_font(self.font_header.currentFont().family())
+        parent = self.parent()
+        if parent and hasattr(parent, "table"):
+            parent.table.apply_fonts()
+            if hasattr(parent, "topbar"):
+                parent.topbar.update_labels()
 
     def accept(self):
         self._save_config()
