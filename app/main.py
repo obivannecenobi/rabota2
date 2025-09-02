@@ -1975,6 +1975,12 @@ class TopBar(QtWidgets.QWidget):
             f"background-color:{qcolor.name()}; padding:0 6px;"
         )
 
+    def update_background(self, color: Union[str, QtGui.QColor]) -> None:
+        qcolor = QtGui.QColor(color)
+        self.setStyleSheet(
+            f"background-color:{qcolor.name()};" + self.styleSheet()
+        )
+
     def apply_style(self, neon):
         accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
         if CONFIG.get("monochrome", False):
@@ -2180,8 +2186,9 @@ class MainWindow(QtWidgets.QMainWindow):
             h, s, v, _ = accent.getHsv()
             s = int(CONFIG.get("mono_saturation", 100))
             accent.setHsv(h, s, v)
+        sidebar_color = CONFIG.get("sidebar_color", "#1f1f23")
         self.topbar.apply_style(CONFIG.get("neon", False))
-        self.sidebar.apply_style(CONFIG.get("neon", False), accent)
+        self.sidebar.apply_style(CONFIG.get("neon", False), accent, sidebar_color)
         self.sidebar.anim.setDuration(160)
         for dlg in app.topLevelWidgets():
             if isinstance(dlg, QtWidgets.QDialog):
@@ -2191,6 +2198,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.apply_theme()
         theme_manager.apply_glass_effect(self, CONFIG)
         update_neon_filters(self)
+        self.topbar.update_background(sidebar_color)
         self.topbar.update_labels()
 
 
