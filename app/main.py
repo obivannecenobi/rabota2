@@ -11,10 +11,10 @@ from PySide6 import QtWidgets, QtGui, QtCore
 import shiboken6
 from dataclasses import dataclass, field
 
-from widgets import StyledPushButton, StyledToolButton
+from widgets import StyledPushButton, StyledToolButton, SpinButton
 from resources import register_fonts, load_icons, icon
 import theme_manager
-from effects import NeonEventFilter, neon_enabled, update_neon_filters
+from effects import NeonEventFilter, neon_enabled, update_neon_filters, apply_neon_effect
 
 logger = logging.getLogger(__name__)
 
@@ -276,11 +276,6 @@ class ReleaseDialog(QtWidgets.QDialog):
 
         for b in (btn_save, btn_close):
             b.setFixedSize(b.sizeHint())
-            b.setAttribute(QtCore.Qt.WA_Hover, True)
-            if neon_enabled():
-                filt = NeonEventFilter(b)
-                b.installEventFilter(filt)
-                b._neon_filter = filt
 
         self.load()
 
@@ -476,13 +471,6 @@ class StatsDialog(QtWidgets.QDialog):
         self.btn_box.accepted.connect(self.save_record)
         self.btn_box.rejected.connect(self.reject)
         lay.addWidget(self.btn_box)
-        for b in (btn_save, btn_close):
-            b.setFixedSize(b.sizeHint())
-            b.setAttribute(QtCore.Qt.WA_Hover, True)
-            if neon_enabled():
-                filt = NeonEventFilter(b)
-                b.installEventFilter(filt)
-                b._neon_filter = filt
         lay.setStretch(0, 2)
         lay.setStretch(1, 1)
 
@@ -606,7 +594,11 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self.spin_year.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
         self.spin_year.valueChanged.connect(self._year_changed)
         self.spin_year.setAttribute(QtCore.Qt.WA_Hover, True)
+        self.btn_year_dec = SpinButton(self.spin_year, -1, self)
+        self.btn_year_inc = SpinButton(self.spin_year, 1, self)
+        top.addWidget(self.btn_year_dec)
         top.addWidget(self.spin_year)
+        top.addWidget(self.btn_year_inc)
         if neon_enabled():
             filt = NeonEventFilter(self.spin_year)
             self.spin_year.installEventFilter(filt)
@@ -641,11 +633,6 @@ class AnalyticsDialog(QtWidgets.QDialog):
         for btn in (btn_save, btn_close):
             btn.setFixedSize(btn.sizeHint())
             btn.setStyleSheet(btn.styleSheet() + "border:1px solid transparent;")
-            btn.setAttribute(QtCore.Qt.WA_Hover, True)
-            if neon_enabled():
-                filt = NeonEventFilter(btn)
-                btn.installEventFilter(filt)
-                btn._neon_filter = filt
         box.addButton(btn_save, QtWidgets.QDialogButtonBox.AcceptRole)
         box.addButton(btn_close, QtWidgets.QDialogButtonBox.RejectRole)
         box.accepted.connect(self.save)
@@ -833,6 +820,8 @@ class TopDialog(QtWidgets.QDialog):
         self.spin_year.setFixedWidth(self.spin_year.sizeHint().width() + 20)
         self.spin_year.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
         self.spin_year.setAttribute(QtCore.Qt.WA_Hover, True)
+        self.btn_year_dec = SpinButton(self.spin_year, -1, self)
+        self.btn_year_inc = SpinButton(self.spin_year, 1, self)
         if neon_enabled():
             filt = NeonEventFilter(self.spin_year)
             self.spin_year.installEventFilter(filt)
@@ -860,15 +849,12 @@ class TopDialog(QtWidgets.QDialog):
 
         self.btn_calc = StyledPushButton("Сформировать", self)
         self.btn_calc.clicked.connect(self.calculate)
-        self.btn_calc.setAttribute(QtCore.Qt.WA_Hover, True)
-        if neon_enabled():
-            filt = NeonEventFilter(self.btn_calc)
-            self.btn_calc.installEventFilter(filt)
-            self.btn_calc._neon_filter = filt
 
         row = QtWidgets.QHBoxLayout()
         row.setContentsMargins(0, 0, 0, 0)
+        row.addWidget(self.btn_year_dec)
         row.addWidget(self.spin_year)
+        row.addWidget(self.btn_year_inc)
         row.addWidget(self.combo_mode)
         row.addWidget(self.combo_period)
         row.addWidget(self.btn_calc)
@@ -930,11 +916,6 @@ class TopDialog(QtWidgets.QDialog):
         lay.addWidget(box)
         for b in (btn_save, btn_close):
             b.setFixedSize(b.sizeHint())
-            b.setAttribute(QtCore.Qt.WA_Hover, True)
-            if neon_enabled():
-                filt = NeonEventFilter(b)
-                b.installEventFilter(filt)
-                b._neon_filter = filt
 
         self._settings = QtCore.QSettings("rabota2", "rabota2")
         geom = self._settings.value("TopDialog/geometry")
@@ -1368,12 +1349,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         self.btn_toggle.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
         self.btn_toggle.setCursor(QtCore.Qt.PointingHandCursor)
         self.btn_toggle.clicked.connect(self.toggle)
-        self.btn_toggle.setAttribute(QtCore.Qt.WA_Hover, True)
         lay.addWidget(self.btn_toggle)
-        if neon_enabled():
-            filt = NeonEventFilter(self.btn_toggle)
-            self.btn_toggle.installEventFilter(filt)
-            self.btn_toggle._neon_filter = filt
 
         line = QtWidgets.QFrame(self); line.setFrameShape(QtWidgets.QFrame.HLine); line.setStyleSheet("color:#333;")
         lay.addWidget(line)
@@ -1385,7 +1361,6 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             ("Топы", ICON_TP),
         ]
         self.buttons = []
-        self._filters = {}
         self.btn_inputs = None
         self.btn_release = None
         self.btn_analytics = None
@@ -1398,16 +1373,9 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             b.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
             b.setCursor(QtCore.Qt.PointingHandCursor)
             b.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
-            b.setAttribute(QtCore.Qt.WA_Hover, True)
             b.setProperty("neon_selected", False)
             lay.addWidget(b)
             self.buttons.append(b)
-            filt = None
-            if neon_enabled():
-                filt = NeonEventFilter(b)
-                b.installEventFilter(filt)
-                b._neon_filter = filt
-            self._filters[b] = filt
             b.clicked.connect(lambda _, btn=b: self.activate_button(btn))
             if label == "Вводные":
                 self.btn_inputs = b
@@ -1428,13 +1396,11 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         self.update_icons()
 
     def activate_button(self, btn: QtWidgets.QToolButton) -> None:
-        for button, filt in self._filters.items():
-            button.setProperty("neon_selected", button is btn)
-            if filt is not None and button is not btn:
-                filt._stop()
-        filt = self._filters.get(btn)
-        if filt is not None:
-            filt._start()
+        for b in self.buttons:
+            selected = b is btn
+            b.setProperty("neon_selected", selected)
+            if neon_enabled():
+                apply_neon_effect(b, selected)
 
     def set_collapsed(self, collapsed: bool):
         self._collapsed = collapsed
@@ -1773,7 +1739,9 @@ class SettingsDialog(QtWidgets.QDialog):
             btn_cancel,
         ):
             w.setAttribute(QtCore.Qt.WA_Hover, True)
-            if neon_enabled():
+            if neon_enabled() and not isinstance(
+                w, (StyledPushButton, StyledToolButton, SpinButton)
+            ):
                 filt = NeonEventFilter(w)
                 w.installEventFilter(filt)
                 w._neon_filter = filt
@@ -1935,11 +1903,6 @@ class TopBar(QtWidgets.QWidget):
         self.btn_prev.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
         self.btn_prev.clicked.connect(self.prev_clicked)
         lay.addWidget(self.btn_prev)
-        self.btn_prev.setAttribute(QtCore.Qt.WA_Hover, True)
-        if neon_enabled():
-            filt = NeonEventFilter(self.btn_prev)
-            self.btn_prev.installEventFilter(filt)
-            self.btn_prev._neon_filter = filt
         lay.addStretch(1)
         self.lbl_month = QtWidgets.QLabel("Месяц")
         self.lbl_month.setAlignment(QtCore.Qt.AlignCenter)
@@ -1952,7 +1915,11 @@ class TopBar(QtWidgets.QWidget):
         self.spin_year.setFixedWidth(self.spin_year.sizeHint().width() + 20)
         self.spin_year.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
         self.spin_year.valueChanged.connect(self.year_changed.emit)
+        self.btn_year_dec = SpinButton(self.spin_year, -1, self)
+        self.btn_year_inc = SpinButton(self.spin_year, 1, self)
+        lay.addWidget(self.btn_year_dec)
         lay.addWidget(self.spin_year)
+        lay.addWidget(self.btn_year_inc)
         self.spin_year.setAttribute(QtCore.Qt.WA_Hover, True)
         if neon_enabled():
             filt = NeonEventFilter(self.spin_year)
@@ -1964,21 +1931,11 @@ class TopBar(QtWidgets.QWidget):
         self.btn_next.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
         self.btn_next.clicked.connect(self.next_clicked)
         lay.addWidget(self.btn_next)
-        self.btn_next.setAttribute(QtCore.Qt.WA_Hover, True)
-        if neon_enabled():
-            filt = NeonEventFilter(self.btn_next)
-            self.btn_next.installEventFilter(filt)
-            self.btn_next._neon_filter = filt
         self.btn_settings = StyledToolButton(self)
         self.btn_settings.setCursor(QtCore.Qt.PointingHandCursor)
         self.btn_settings.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
         self.btn_settings.clicked.connect(self.settings_clicked)
         lay.addWidget(self.btn_settings)
-        self.btn_settings.setAttribute(QtCore.Qt.WA_Hover, True)
-        if neon_enabled():
-            filt = NeonEventFilter(self.btn_settings)
-            self.btn_settings.installEventFilter(filt)
-            self.btn_settings._neon_filter = filt
         self.update_icons()
         self.default_style = (
             "QLabel{color:#e5e5e5;} QToolButton{color:#e5e5e5; border:1px solid #555; border-radius:6px; padding:4px 10px;}"
