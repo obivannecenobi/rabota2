@@ -1430,6 +1430,10 @@ class CollapsibleSidebar(QtWidgets.QFrame):
                 self.btn_analytics = b
             elif label == "Топы":
                 self.btn_tops = b
+        # Settings button
+        self.btn_settings = StyledPushButton("Настройки", self)
+        self.btn_settings.clicked.connect(self.settings_clicked)
+        lay.addWidget(self.btn_settings)
         # Push buttons to the top when sidebar is taller than content
         lay.addStretch(1)
 
@@ -1474,12 +1478,12 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         if neon:
             style = (
                 f"#Sidebar {{ background-color: {sidebar_color}; }}"
-                f"QToolButton {{ color: {accent.name()}; border:{thickness}px solid {accent.name()}; padding: 10px; border-radius: 8px; }}"
-                "QToolButton:hover { background-color: rgba(255,255,255,0.08); }"
+                f"QToolButton, QPushButton {{ color: {accent.name()}; border:{thickness}px solid {accent.name()}; padding: 10px; border-radius: 8px; }}"
+                "QToolButton:hover, QPushButton:hover { background-color: rgba(255,255,255,0.08); }"
                 f"QLabel {{ color: {accent.name()}; }}"
             )
             self.setStyleSheet(style)
-            widgets = [self.btn_toggle] + self.buttons
+            widgets = [self.btn_toggle] + self.buttons + [self.btn_settings]
             for w in widgets:
                 eff = QtWidgets.QGraphicsDropShadowEffect(self)
                 eff.setOffset(0, 0)
@@ -1491,12 +1495,12 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         else:
             style = (
                 f"#Sidebar {{ background-color: {sidebar_color}; }}\n"
-                "QToolButton { color: white; border: none; padding: 10px; border-radius: 8px; }\n"
-                "QToolButton:hover { background-color: rgba(255,255,255,0.08); }\n"
+                "QToolButton, QPushButton { color: white; border: none; padding: 10px; border-radius: 8px; }\n"
+                "QToolButton:hover, QPushButton:hover { background-color: rgba(255,255,255,0.08); }\n"
                 "QLabel { color: #c7c7c7; }\n"
             )
             self.setStyleSheet(style)
-            for w in [self.btn_toggle] + self.buttons:
+            for w in [self.btn_toggle] + self.buttons + [self.btn_settings]:
                 if hasattr(w, "_neon_anim") and w._neon_anim:
                     w._neon_anim.stop()
                     w._neon_anim = None
