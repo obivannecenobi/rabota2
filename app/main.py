@@ -38,6 +38,7 @@ def load_config():
         "glass_enabled": False,
         "header_font": "Exo 2",
         "text_font": "Exo 2",
+        "sidebar_font": "Exo 2",
         "save_path": DATA_DIR,
         "day_rows": 6,
         "workspace_color": "#1e1e21",
@@ -1443,6 +1444,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         self.setMinimumWidth(self.collapsed_width)
         self.setMaximumWidth(self.expanded_width)
         self.update_icons()
+        self.apply_fonts()
 
     def activate_button(self, btn: QtWidgets.QToolButton) -> None:
         for b in self.buttons:
@@ -1509,6 +1511,14 @@ class CollapsibleSidebar(QtWidgets.QFrame):
     def update_icons(self) -> None:
         """Update sidebar icon from configuration."""
         self.btn_toggle.setIcon(QtGui.QIcon(CONFIG.get("sidebar_icon", ICON_TOGGLE)))
+
+    def apply_fonts(self):
+        """Apply configured sidebar font to heading widgets."""
+        family = CONFIG.get("sidebar_font", CONFIG.get("header_font", "Exo 2"))
+        font = QtGui.QFont(family)
+        widgets = [self.btn_toggle] + self.buttons + [self.btn_settings]
+        for w in widgets:
+            w.setFont(font)
 
 
 class SettingsDialog(QtWidgets.QDialog):
@@ -1665,6 +1675,11 @@ class SettingsDialog(QtWidgets.QDialog):
         self.font_text.currentFontChanged.connect(lambda _: self._save_config())
         form_interface.addRow("Шрифт текста", self.font_text)
 
+        self.font_sidebar = QtWidgets.QFontComboBox(self)
+        self.font_sidebar.setCurrentFont(QtGui.QFont(CONFIG.get("sidebar_font", "Exo 2")))
+        self.font_sidebar.currentFontChanged.connect(lambda _: self._on_sidebar_font_changed())
+        form_interface.addRow("Шрифт боковой панели", self.font_sidebar)
+
         path_lay = QtWidgets.QHBoxLayout()
         self.edit_path = QtWidgets.QLineEdit(CONFIG.get("save_path", DATA_DIR), self)
         self.edit_path.editingFinished.connect(self._save_config)
@@ -1801,11 +1816,17 @@ class SettingsDialog(QtWidgets.QDialog):
             "sidebar_color": self._sidebar_color.name(),
             "header_font": self.font_header.currentFont().family(),
             "text_font": self.font_text.currentFont().family(),
+            "sidebar_font": self.font_sidebar.currentFont().family(),
             "sidebar_icon": self.combo_sidebar_icon.currentData(),
             "app_icon": self.combo_app_icon.currentData(),
             "day_rows": self.spin_day_rows.value(),
             "save_path": self.edit_path.text().strip() or DATA_DIR,
         }
+
+    def _on_sidebar_font_changed(self):
+        self._save_config()
+        if self.main_window and hasattr(self.main_window, "sidebar"):
+            self.main_window.sidebar.apply_fonts()
 
     def _on_neon_changed(self):
         self._save_config()
@@ -2185,6 +2206,8 @@ class MainWindow(QtWidgets.QMainWindow):
         for w in app.allWidgets():
             if w is self.topbar.lbl_month:
                 continue
+            if w is self.sidebar or self.sidebar.isAncestorOf(w):
+                continue
             w.setFont(app.font())
         self.topbar.update_icons()
         self.sidebar.update_icons()
@@ -2198,13 +2221,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # update fonts for calendar day labels
         for lbl in self.table.day_labels.values():
             lbl.setFont(header_font)
-        for w in [
-            self.sidebar.btn_inputs,
-            self.sidebar.btn_release,
-            self.sidebar.btn_analytics,
-            self.sidebar.btn_tops,
-        ]:
-            w.setFont(header_font)
+        self.sidebar.apply_fonts()
         self.table.update_day_rows()
         workspace = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21"))
         if CONFIG.get("monochrome", False):

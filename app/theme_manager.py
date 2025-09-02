@@ -11,7 +11,17 @@ def set_text_font(name: str = "Exo 2") -> None:
         return
     font = QtGui.QFont(name)
     app.setFont(font)
+    def _in_sidebar(w: QtWidgets.QWidget) -> bool:
+        parent = w
+        while parent is not None:
+            if parent.objectName() == "Sidebar":
+                return True
+            parent = parent.parent()
+        return False
+
     for widget in app.allWidgets():
+        if _in_sidebar(widget):
+            continue
         widget.setFont(font)
 
 
