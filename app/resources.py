@@ -20,24 +20,51 @@ ICONS: Dict[str, QIcon] = {}
 
 
 def register_fonts() -> None:
-    """Register the Exo2 regular font and set a fallback on failure."""
+    """Register the Exo2 regular font and set a fallback on failure.
+
+    Only ``Exo2-Regular.ttf`` is attempted. When registration fails the
+    application font is set to ``"Arial"`` and ``CONFIG['font_family']`` is
+    updated accordingly so that subsequent saves persist the fallback.
+    """
+
+    def _set_fallback() -> None:
+        """Apply the Arial fallback and store it in global CONFIG."""
+        QGuiApplication.setFont(QFont("Arial"))
+        try:  # deferred import to avoid circular dependency
+            from . import main as _main
+
+            _main.CONFIG["font_family"] = "Arial"
+        except Exception:  # pragma: no cover - extremely defensive
+            pass
+
     if not os.path.isdir(EXO2_FONTS_DIR):
+        _set_fallback()
         return
 
     font_path = os.path.join(EXO2_FONTS_DIR, "Exo2-Regular.ttf")
     if not os.path.isfile(font_path):
         logger.error("Font file 'Exo2-Regular.ttf' not found at '%s'", font_path)
-        QGuiApplication.setFont(QFont("Arial"))
+        _set_fallback()
         return
 
     fid = QtGui.QFontDatabase.addApplicationFont(font_path)
     if fid == -1:
         logger.error("Failed to load font 'Exo2-Regular.ttf' from '%s'", font_path)
-        QGuiApplication.setFont(QFont("Arial"))
+        _set_fallback()
+        return
 
     if "Exo 2" not in QtGui.QFontDatabase.families():
         logger.error("Font 'Exo 2' not registered")
-        QGuiApplication.setFont(QFont("Arial"))
+        _set_fallback()
+        return
+
+    # Success – ensure CONFIG reflects the available family
+    try:  # pragma: no cover - defensive
+        from . import main as _main
+
+        _main.CONFIG.setdefault("font_family", "Exo 2")
+    except Exception:
+        pass
 
 
 def load_icons(theme: str = "dark") -> None:

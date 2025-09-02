@@ -36,6 +36,7 @@ def load_config():
         "glass_opacity": 0.5,
         "glass_blur": 10,
         "glass_enabled": False,
+        "font_family": "Exo 2",
         "header_font": "Exo 2",
         "text_font": "Exo 2",
         "sidebar_font": "Exo 2",
@@ -164,10 +165,11 @@ def ensure_font_registered(family: str, parent: QtWidgets.QWidget | None = None)
 def resolve_font_config(parent: QtWidgets.QWidget | None = None) -> tuple[str, str]:
     """Resolve configured font families and persist any changes.
 
-    Returns the resolved ``(header_family, text_family)`` tuple.
-    """
-    header = ensure_font_registered(CONFIG.get("header_font", "Exo 2"), parent)
-    text = ensure_font_registered(CONFIG.get("text_font", "Exo 2"), parent)
+    Returns the resolved ``(header_family, text_family)`` tuple."""
+
+    default = CONFIG.get("font_family", "Exo 2")
+    header = ensure_font_registered(CONFIG.get("header_font", default), parent)
+    text = ensure_font_registered(CONFIG.get("text_font", default), parent)
 
     changed = False
     if header != CONFIG.get("header_font"):
@@ -1686,12 +1688,16 @@ class SettingsDialog(QtWidgets.QDialog):
         form_interface.addRow("Размытие стекла", self.spin_glass_blur)
 
         self.font_header = QtWidgets.QFontComboBox(self)
-        self.font_header.setCurrentFont(QtGui.QFont("Exo 2"))
+        self.font_header.setCurrentFont(
+            QtGui.QFont(CONFIG.get("header_font", CONFIG.get("font_family", "Exo 2")))
+        )
         self.font_header.currentFontChanged.connect(lambda _: self.apply_fonts())
         form_interface.addRow("Шрифт заголовков", self.font_header)
 
         self.font_text = QtWidgets.QFontComboBox(self)
-        self.font_text.setCurrentFont(QtGui.QFont("Exo 2"))
+        self.font_text.setCurrentFont(
+            QtGui.QFont(CONFIG.get("text_font", CONFIG.get("font_family", "Exo 2")))
+        )
         self.font_text.currentFontChanged.connect(lambda _: self._save_config())
         form_interface.addRow("Шрифт текста", self.font_text)
 
@@ -1834,6 +1840,7 @@ class SettingsDialog(QtWidgets.QDialog):
             "glass_blur": self.spin_glass_blur.value(),
             "workspace_color": self._workspace_color.name(),
             "sidebar_color": self._sidebar_color.name(),
+            "font_family": self.font_text.currentFont().family(),
             "header_font": self.font_header.currentFont().family(),
             "text_font": self.font_text.currentFont().family(),
             "sidebar_font": self.font_sidebar.currentFont().family(),
@@ -1865,6 +1872,10 @@ class SettingsDialog(QtWidgets.QDialog):
             theme_manager.apply_glass_effect(self.main_window)
         theme_manager.apply_glass_effect(self)
         self.settings_changed.emit()
+
+    def save(self) -> None:
+        """Public method to persist configuration changes."""
+        self._save_config()
 
     def apply_fonts(self):
         """Save and apply new header font immediately."""
@@ -2382,8 +2393,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
 def main():
     load_icons(CONFIG.get("theme", "dark"))
-    theme_manager.set_header_font("Exo 2")
-    theme_manager.set_text_font("Exo 2")
+
+    # Ensure the configured base font is available before applying it globally
+    base_family = ensure_font_registered(CONFIG.get("font_family", "Exo 2"))
+    CONFIG["font_family"] = base_family
+
+    theme_manager.set_header_font(CONFIG.get("header_font", base_family))
+    theme_manager.set_text_font(CONFIG.get("text_font", base_family))
+
     w = MainWindow()
     w.apply_settings()
     w.show()
