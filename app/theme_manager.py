@@ -51,21 +51,22 @@ def apply_gradient(config: Dict) -> Tuple[str, str]:
         workspace = apply_monochrome(QtGui.QColor(workspace)).name()
         if grad and len(grad) == 2:
             grad = [apply_monochrome(QtGui.QColor(c)).name() for c in grad]
-    if grad and len(grad) == 2:
+
+    base = (
+        f"border:1px solid #555; border-radius:8px; "
+        f"background-color:{workspace};"
+    )
+
+    if grad and len(grad) == 2 and grad[0] != grad[1]:
         angle = config.get("gradient_angle", 0)
         rad = math.radians(angle)
         x2 = 0.5 + 0.5 * math.cos(rad)
         y2 = 0.5 + 0.5 * math.sin(rad)
-        base = (
-            f"border:1px solid #555; border-radius:8px; "
-            f"background:qlineargradient(x1:0,y1:0,x2:{x2:.2f},y2:{y2:.2f}, "
+        base += (
+            f" background:qlineargradient(x1:0,y1:0,x2:{x2:.2f},y2:{y2:.2f}, "
             f"stop:0 {grad[0]}, stop:1 {grad[1]});"
         )
-    else:
-        base = (
-            f"border:1px solid #555; border-radius:8px; "
-            f"background-color:{workspace};"
-        )
+
     return base, workspace
 
 
