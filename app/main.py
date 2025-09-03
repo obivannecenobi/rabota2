@@ -2334,7 +2334,10 @@ class MainWindow(QtWidgets.QMainWindow):
             app.setPalette(pal)
         else:
             app.setPalette(app.style().standardPalette())
-        base, workspace = theme_manager.apply_gradient(CONFIG)
+        # Exclude gradient for input widgets to keep a flat background
+        grad_cfg = CONFIG.copy()
+        grad_cfg.pop("gradient_colors", None)
+        base, workspace = theme_manager.apply_gradient(grad_cfg)
         self.topbar.setStyleSheet(
             f"background-color:{workspace};" + self.topbar.styleSheet()
         )
