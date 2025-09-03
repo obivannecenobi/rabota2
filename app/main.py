@@ -1453,12 +1453,15 @@ class CollapsibleSidebar(QtWidgets.QFrame):
                 self.btn_analytics = b
             elif label == "Топы":
                 self.btn_tops = b
-        # Settings button
-        self.btn_settings = StyledPushButton("Настройки", self)
+        # Settings button at the bottom
+        self.btn_settings = StyledToolButton(self)
+        self.btn_settings.setIcon(icon("settings"))
+        self.btn_settings.setIconSize(QtCore.QSize(22, 22))
+        self.btn_settings.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
         self.btn_settings.clicked.connect(self.settings_clicked)
-        lay.addWidget(self.btn_settings)
-        # Push buttons to the top when sidebar is taller than content
+        # Push other buttons to the top when sidebar is taller than content
         lay.addStretch(1)
+        lay.addWidget(self.btn_settings)
 
         self._collapsed = False
         self.anim = QtCore.QPropertyAnimation(self, b"maximumWidth", self)
@@ -1533,6 +1536,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
     def update_icons(self) -> None:
         """Update sidebar icon from configuration."""
         self.btn_toggle.setIcon(QtGui.QIcon(CONFIG.get("sidebar_icon", ICON_TOGGLE)))
+        self.btn_settings.setIcon(icon("settings"))
 
     def apply_fonts(self):
         """Apply configured sidebar font to heading widgets."""
@@ -1968,7 +1972,6 @@ class SettingsDialog(QtWidgets.QDialog):
 class TopBar(QtWidgets.QWidget):
     prev_clicked = QtCore.Signal()
     next_clicked = QtCore.Signal()
-    settings_clicked = QtCore.Signal()
     year_changed = QtCore.Signal(int)
 
     def __init__(self, parent=None):
@@ -2005,11 +2008,6 @@ class TopBar(QtWidgets.QWidget):
         self.btn_next.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
         self.btn_next.clicked.connect(self.next_clicked)
         lay.addWidget(self.btn_next)
-        self.btn_settings = StyledToolButton(self)
-        self.btn_settings.setCursor(QtCore.Qt.PointingHandCursor)
-        self.btn_settings.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
-        self.btn_settings.clicked.connect(self.settings_clicked)
-        lay.addWidget(self.btn_settings)
         self.update_icons()
         # Base stylesheet used when neon is disabled in dark theme
         # Explicitly remove borders for QLabel to avoid unwanted frames
@@ -2039,8 +2037,6 @@ class TopBar(QtWidgets.QWidget):
         self.btn_prev.setIconSize(QtCore.QSize(22, 22))
         self.btn_next.setIcon(icon("chevron-right"))
         self.btn_next.setIconSize(QtCore.QSize(22, 22))
-        self.btn_settings.setIcon(icon("settings"))
-        self.btn_settings.setIconSize(QtCore.QSize(22, 22))
 
     def apply_background(self, color: Union[str, QtGui.QColor]) -> None:
         qcolor = QtGui.QColor(color)
@@ -2077,7 +2073,7 @@ class TopBar(QtWidgets.QWidget):
                 f"QToolButton{{color:{accent.name()}; border:{thickness}px solid {accent.name()}; border-radius:6px; padding:4px 10px;}}"
             )
             self.setStyleSheet(style)
-            for w in (self.lbl_month, self.btn_prev, self.btn_next, self.btn_settings):
+            for w in (self.lbl_month, self.btn_prev, self.btn_next):
                 eff = QtWidgets.QGraphicsDropShadowEffect(self)
                 eff.setOffset(0, 0)
                 eff.setBlurRadius(size)
@@ -2094,7 +2090,7 @@ class TopBar(QtWidgets.QWidget):
                     "QToolButton{color:#000; border:1px solid #999; border-radius:6px; padding:4px 10px;}"
                 )
             self.setStyleSheet(style)
-            for w in (self.lbl_month, self.btn_prev, self.btn_next, self.btn_settings):
+            for w in (self.lbl_month, self.btn_prev, self.btn_next):
                 if hasattr(w, "_neon_anim") and w._neon_anim:
                     w._neon_anim.stop()
                     w._neon_anim = None
@@ -2132,7 +2128,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sidebar.btn_release.clicked.connect(self.open_release_dialog)
         self.sidebar.btn_analytics.clicked.connect(self.open_analytics_dialog)
         self.sidebar.btn_tops.clicked.connect(self.open_top_dialog)
-        self.topbar.settings_clicked.connect(self.open_settings_dialog)
         self.sidebar.settings_clicked.connect(self.open_settings_dialog)
         self._update_month_label()
 
