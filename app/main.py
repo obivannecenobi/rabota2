@@ -2277,7 +2277,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.apply_theme()
         theme_manager.apply_glass_effect(self)
         update_neon_filters(self)
-        self.topbar.update_background(sidebar_color)
+        # Ensure the top bar follows the workspace color rather than the sidebar
+        # color so that changing the workspace theme updates the bar
+        self.topbar.update_background(workspace)
         self.topbar.update_labels()
 
 
