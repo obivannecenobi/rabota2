@@ -32,10 +32,6 @@ def load_config():
         "accent_color": "#39ff14",
         "gradient_colors": ["#39ff14", "#2d7cdb"],
         "gradient_angle": 0,
-        "glass_effect": "",
-        "glass_opacity": 0.5,
-        "glass_blur": 10,
-        "glass_enabled": False,
         "font_family": "Exo 2",
         "header_font": "Exo 2",
         "text_font": "Exo 2",
@@ -518,8 +514,6 @@ class StatsDialog(QtWidgets.QDialog):
         if sizes:
             for i, w in enumerate(sizes):
                 self.table_stats.setColumnWidth(i, int(w))
-        if CONFIG.get("glass_enabled"):
-            theme_manager.apply_glass_effect(self)
 
     def resizeEvent(self, event):
         self.table_stats.horizontalHeader().setSectionResizeMode(
@@ -684,8 +678,6 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self._software = {str(m): 0.0 for m in range(1, 13)}
         self._net = {str(m): 0.0 for m in range(1, 13)}
         self.load(year)
-        if CONFIG.get("glass_enabled"):
-            theme_manager.apply_glass_effect(self)
 
     def resizeEvent(self, event):
         self.table.horizontalHeader().setSectionResizeMode(
@@ -957,8 +949,6 @@ class TopDialog(QtWidgets.QDialog):
         if sizes:
             for i, w in enumerate(sizes):
                 self.table.setColumnWidth(i, int(w))
-        if CONFIG.get("glass_enabled"):
-            theme_manager.apply_glass_effect(self)
 
     def resizeEvent(self, event):
         self.table.horizontalHeader().setSectionResizeMode(
@@ -1550,7 +1540,7 @@ class SettingsDialog(QtWidgets.QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        # keep a reference to the main window to update glass effect live
+        # keep a reference to the main window
         self.main_window = parent if isinstance(parent, QtWidgets.QWidget) else None
         self.setWindowTitle("Настройки")
         self.resize(500, 400)
@@ -1649,43 +1639,6 @@ class SettingsDialog(QtWidgets.QDialog):
         lay_neon.addRow("Интенсивность", self.spin_neon_intensity)
         form_interface.addRow(grp_neon)
 
-        # glass effect toggle
-        self.chk_glass = QtWidgets.QCheckBox(self)
-        self.chk_glass.setChecked(CONFIG.get("glass_enabled", False))
-        self.chk_glass.toggled.connect(lambda _: self._save_config())
-        form_interface.addRow("Стекло", self.chk_glass)
-
-        self.combo_glass_effect = QtWidgets.QComboBox(self)
-        self.combo_glass_effect.addItems(["Acrylic", "Mica", "Aero"])
-        self.combo_glass_effect.setCurrentText(
-            CONFIG.get("glass_effect") or "Acrylic"
-        )
-        self.combo_glass_effect.currentTextChanged.connect(
-            lambda _: self._save_config()
-        )
-        form_interface.addRow("Эффект стекла", self.combo_glass_effect)
-
-        self.sld_glass_opacity = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        self.sld_glass_opacity.setRange(0, 100)
-        self.sld_glass_opacity.setValue(
-            int(float(CONFIG.get("glass_opacity", 0.5)) * 100)
-        )
-        self.lbl_glass_opacity = QtWidgets.QLabel(
-            str(self.sld_glass_opacity.value())
-        )
-        self.sld_glass_opacity.valueChanged.connect(
-            lambda v: (self.lbl_glass_opacity.setText(str(v)), self._save_config())
-        )
-        lay_glass_opacity = QtWidgets.QHBoxLayout()
-        lay_glass_opacity.addWidget(self.sld_glass_opacity, 1)
-        lay_glass_opacity.addWidget(self.lbl_glass_opacity)
-        form_interface.addRow("Прозрачность стекла", lay_glass_opacity)
-
-        self.spin_glass_blur = QtWidgets.QSpinBox(self)
-        self.spin_glass_blur.setRange(0, 100)
-        self.spin_glass_blur.setValue(CONFIG.get("glass_blur", 10))
-        self.spin_glass_blur.valueChanged.connect(lambda _: self._save_config())
-        form_interface.addRow("Размытие стекла", self.spin_glass_blur)
 
         self.font_header = QtWidgets.QFontComboBox(self)
         self.font_header.setCurrentFont(
@@ -1834,10 +1787,6 @@ class SettingsDialog(QtWidgets.QDialog):
             "accent_color": self._accent_color.name(),
             "gradient_colors": [self._grad_color1.name(), self._grad_color2.name()],
             "gradient_angle": self.sld_grad_angle.value(),
-            "glass_enabled": self.chk_glass.isChecked(),
-            "glass_effect": self.combo_glass_effect.currentText(),
-            "glass_opacity": self.sld_glass_opacity.value() / 100,
-            "glass_blur": self.spin_glass_blur.value(),
             "workspace_color": self._workspace_color.name(),
             "sidebar_color": self._sidebar_color.name(),
             "font_family": self.font_text.currentFont().family(),
@@ -1868,9 +1817,6 @@ class SettingsDialog(QtWidgets.QDialog):
         CONFIG.update(config)
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(CONFIG, f, ensure_ascii=False, indent=2)
-        if getattr(self, "main_window", None):
-            theme_manager.apply_glass_effect(self.main_window)
-        theme_manager.apply_glass_effect(self)
         self.settings_changed.emit()
 
     def save(self) -> None:
@@ -2140,8 +2086,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self._timer.start(1000)
         self._update_timer()
         self._update_version()
-        if CONFIG.get("glass_enabled"):
-            theme_manager.apply_glass_effect(self)
 
     def _update_month_label(self):
         self.topbar.lbl_month.setText(RU_MONTHS[self.table.month-1])
@@ -2271,7 +2215,6 @@ class MainWindow(QtWidgets.QMainWindow):
                     tbl.setFont(app.font())
                     tbl.horizontalHeader().setFont(header_font)
         self.apply_theme()
-        theme_manager.apply_glass_effect(self)
         update_neon_filters(self)
         # Ensure the top bar follows the workspace color rather than the sidebar
         # color so that changing the workspace theme updates the bar
@@ -2390,8 +2333,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        # Reapply glass effect to match new window geometry
-        theme_manager.apply_glass_effect(self)
 
     def closeEvent(self, event):
         self.table.save_current_month()
