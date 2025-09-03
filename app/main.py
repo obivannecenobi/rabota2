@@ -2370,6 +2370,15 @@ class MainWindow(QtWidgets.QMainWindow):
             }}
             QSpinBox::up-arrow,QDoubleSpinBox::up-arrow{{ image:url(assets/icons/{theme}/chevron-up.svg); }}
             QSpinBox::down-arrow,QDoubleSpinBox::down-arrow{{ image:url(assets/icons/{theme}/chevron-down.svg); }}
+            QComboBox::down-arrow{{
+                image:url(assets/icons/{theme}/chevron-down.svg);
+                width:10px;height:10px;
+            }}
+            QComboBox::drop-down{{
+                subcontrol-origin:padding;
+                subcontrol-position:right center;
+                width:16px;
+            }}
             """
         )
         self.table.apply_theme()
