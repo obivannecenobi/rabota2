@@ -1603,13 +1603,15 @@ class SettingsDialog(QtWidgets.QDialog):
         form_interface.addRow("Цвет подсветки", self.combo_accent)
 
         self._workspace_color = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21"))
-        self.btn_workspace = StyledPushButton(self)
+        self.btn_workspace = QtWidgets.QPushButton(self)
+        self.btn_workspace.setCursor(QtCore.Qt.PointingHandCursor)
         self._update_workspace_button()
         self.btn_workspace.clicked.connect(self.choose_workspace_color)
         form_interface.addRow("Цвет рабочей области", self.btn_workspace)
 
         self._sidebar_color = QtGui.QColor(CONFIG.get("sidebar_color", "#1f1f23"))
-        self.btn_sidebar = StyledPushButton(self)
+        self.btn_sidebar = QtWidgets.QPushButton(self)
+        self.btn_sidebar.setCursor(QtCore.Qt.PointingHandCursor)
         self._update_sidebar_button()
         self.btn_sidebar.clicked.connect(self.choose_sidebar_color)
         form_interface.addRow("Цвет боковой панели", self.btn_sidebar)
@@ -1618,8 +1620,10 @@ class SettingsDialog(QtWidgets.QDialog):
         grad = CONFIG.get("gradient_colors", ["#39ff14", "#2d7cdb"])
         self._grad_color1 = QtGui.QColor(grad[0])
         self._grad_color2 = QtGui.QColor(grad[1])
-        self.btn_grad1 = StyledPushButton(self)
-        self.btn_grad2 = StyledPushButton(self)
+        self.btn_grad1 = QtWidgets.QPushButton(self)
+        self.btn_grad1.setCursor(QtCore.Qt.PointingHandCursor)
+        self.btn_grad2 = QtWidgets.QPushButton(self)
+        self.btn_grad2.setCursor(QtCore.Qt.PointingHandCursor)
         self._update_grad_buttons()
         self.btn_grad1.clicked.connect(lambda: self.choose_grad_color(1))
         self.btn_grad2.clicked.connect(lambda: self.choose_grad_color(2))
@@ -1878,8 +1882,9 @@ class SettingsDialog(QtWidgets.QDialog):
         self._save_config()
 
     def _update_workspace_button(self):
+        color = self._workspace_color.name()
         self.btn_workspace.setStyleSheet(
-            f"background:{self._workspace_color.name()}; border:1px solid #555;"
+            f"QPushButton{{background:{color}; border:1px solid #555;}} QPushButton:hover{{background:{color};}}"
         )
 
     def choose_workspace_color(self):
@@ -1892,8 +1897,9 @@ class SettingsDialog(QtWidgets.QDialog):
             self._save_config()
 
     def _update_sidebar_button(self):
+        color = self._sidebar_color.name()
         self.btn_sidebar.setStyleSheet(
-            f"background:{self._sidebar_color.name()}; border:1px solid #555;"
+            f"QPushButton{{background:{color}; border:1px solid #555;}} QPushButton:hover{{background:{color};}}"
         )
 
     def choose_sidebar_color(self):
@@ -1906,11 +1912,13 @@ class SettingsDialog(QtWidgets.QDialog):
             self._save_config()
 
     def _update_grad_buttons(self):
+        c1 = self._grad_color1.name()
+        c2 = self._grad_color2.name()
         self.btn_grad1.setStyleSheet(
-            f"background:{self._grad_color1.name()}; border:1px solid #555;"
+            f"QPushButton{{background:{c1}; border:1px solid #555;}} QPushButton:hover{{background:{c1};}}"
         )
         self.btn_grad2.setStyleSheet(
-            f"background:{self._grad_color2.name()}; border:1px solid #555;"
+            f"QPushButton{{background:{c2}; border:1px solid #555;}} QPushButton:hover{{background:{c2};}}"
         )
 
     def choose_grad_color(self, idx):
