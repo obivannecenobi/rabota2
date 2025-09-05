@@ -5,7 +5,7 @@ import json
 import calendar
 import logging
 from datetime import datetime, date
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Iterable
 
 from PySide6 import QtWidgets, QtGui, QtCore
 import shiboken6
@@ -1206,6 +1206,8 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         self.cell_containers: Dict[tuple[int, int], QtWidgets.QWidget] = {}
         self.cell_filters: Dict[tuple[int, int], NeonEventFilter] = {}
 
+        self._col_widths: List[int] | None = None
+
         self._updating_rows = False
 
         # Timer for deferred row height updates
@@ -1224,9 +1226,24 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         tbl = NeonTableWidget(CONFIG.get("day_rows", 6), 3, self, use_neon=False)
         tbl.setHorizontalHeaderLabels(["Работа", "План", "Готово"])
         tbl.verticalHeader().setVisible(False)
-        tbl.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        tbl.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
         tbl.setEditTriggers(QtWidgets.QAbstractItemView.DoubleClicked)
+        if self._col_widths:
+            for i, w in enumerate(self._col_widths):
+                tbl.setColumnWidth(i, w)
         return tbl
+
+    def set_day_column_widths(self, widths: Iterable[int]):
+        self._col_widths = [int(w) for w in widths]
+        for tbl in self.cell_tables.values():
+            for i, w in enumerate(self._col_widths):
+                tbl.setColumnWidth(i, w)
+
+    def get_day_column_widths(self) -> List[int]:
+        tbl = next(iter(self.cell_tables.values()), None)
+        if tbl:
+            return [tbl.columnWidth(i) for i in range(tbl.columnCount())]
+        return []
 
     def update_day_rows(self):
         rows = CONFIG.get("day_rows", 6)
@@ -2062,6 +2079,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.setCentralWidget(central)
 
+        self._settings = QtCore.QSettings("rabota2", "rabota2")
+        cols = self._settings.value("MainWindow/columns")
+        if cols:
+            self.table.set_day_column_widths([int(w) for w in cols])
+
         # Connect topbar
         self.topbar.prev_clicked.connect(self.prev_month)
         self.topbar.next_clicked.connect(self.next_month)
@@ -2338,6 +2360,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.table.save_current_month()
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(CONFIG, f, ensure_ascii=False, indent=2)
+        cols = self.table.get_day_column_widths()
+        self._settings.setValue("MainWindow/columns", cols)
         super().closeEvent(event)
 
 
