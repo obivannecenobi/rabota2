@@ -2303,10 +2303,10 @@ class MainWindow(QtWidgets.QMainWindow):
             app.setPalette(pal)
         else:
             app.setPalette(app.style().standardPalette())
-        # Exclude gradient for input widgets to keep a flat background
-        grad_cfg = CONFIG.copy()
-        grad_cfg.pop("gradient_colors", None)
-        base, workspace = theme_manager.apply_gradient(grad_cfg)
+        base, workspace = theme_manager.apply_gradient(CONFIG)
+        flat_cfg = CONFIG.copy()
+        flat_cfg.pop("gradient_colors", None)
+        flat_base, _ = theme_manager.apply_gradient(flat_cfg)
         self.topbar.setStyleSheet(
             f"background-color:{workspace};" + self.topbar.styleSheet()
         )
@@ -2318,9 +2318,9 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         theme = CONFIG.get("theme", "dark")
         self.setStyleSheet(
-            "QPushButton,"
-            "QToolButton,QSpinBox,QDoubleSpinBox,QTimeEdit,"
-            "QComboBox,QLineEdit{" + base + "}"
+            "QPushButton,QToolButton{" + base + "}"
+            "QPushButton:hover,QToolButton:hover{" + flat_base + "}"
+            "QSpinBox,QDoubleSpinBox,QTimeEdit,QComboBox,QLineEdit{" + flat_base + "}"
             f"""
             QSpinBox::up-button,QDoubleSpinBox::up-button{{
                 subcontrol-origin:border;
