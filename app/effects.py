@@ -86,10 +86,15 @@ def apply_neon_effect(widget: QtWidgets.QWidget, on: bool = True) -> None:
             widget.setGraphicsEffect(eff)
         except RuntimeError:
             return
-        widget.setStyleSheet(
-            prev_style
-            + f" color:{text_color.name()}; border-color:{color.name()};"
-        )
+        if isinstance(widget, QtWidgets.QLabel):
+            widget.setStyleSheet(
+                prev_style + f" color:{text_color.name()}; border-width:0;"
+            )
+        else:
+            widget.setStyleSheet(
+                prev_style
+                + f" color:{text_color.name()}; border-color:{color.name()};"
+            )
         widget._neon_effect = eff
     else:
         prev = getattr(widget, "_neon_prev_effect", None)
@@ -106,7 +111,10 @@ def apply_neon_effect(widget: QtWidgets.QWidget, on: bool = True) -> None:
         except RuntimeError:
             pass
         prev_style = getattr(widget, "_neon_prev_style", None)
-        widget.setStyleSheet(prev_style or "")
+        style = prev_style or ""
+        if isinstance(widget, QtWidgets.QLabel):
+            style += " border:none;"
+        widget.setStyleSheet(style)
         widget._neon_prev_style = None
         widget._neon_effect = None
 
