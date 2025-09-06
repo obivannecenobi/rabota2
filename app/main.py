@@ -1180,6 +1180,17 @@ class NeonTableWidget(QtWidgets.QTableWidget):
         super().itemSelectionChanged()
         self.clearSelection()
 
+    def edit(self, index, trigger, event):
+        res = super().edit(index, trigger, event)
+        if res and self._neon_filter is not None:
+            editor = self.findChild(QtWidgets.QLineEdit)
+            if editor and getattr(editor, "_neon_filter", None) is None:
+                editor.setAttribute(QtCore.Qt.WA_Hover, True)
+                filt = NeonEventFilter(editor)
+                editor.installEventFilter(filt)
+                editor._neon_filter = filt
+        return res
+
 class ExcelCalendarTable(QtWidgets.QTableWidget):
     """Таблица календаря месяца с вложенными таблицами по дням."""
 
@@ -1223,7 +1234,7 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         event.ignore()
 
     def _create_inner_table(self) -> QtWidgets.QTableWidget:
-        tbl = NeonTableWidget(CONFIG.get("day_rows", 6), 3, self, use_neon=False)
+        tbl = NeonTableWidget(CONFIG.get("day_rows", 6), 3, self, use_neon=True)
         tbl.setHorizontalHeaderLabels(["Работа", "План", "Готово"])
         tbl.verticalHeader().setVisible(False)
         tbl.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
