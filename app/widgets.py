@@ -67,24 +67,3 @@ class StyledToolButton(ButtonStyleMixin, QtWidgets.QToolButton):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.apply_base_style()
-
-
-class SpinButton(StyledToolButton):
-    """Small tool button used to step a spin box."""
-
-    def __init__(self, spinbox: QtWidgets.QAbstractSpinBox, step: int, parent=None):
-        super().__init__(parent)
-        self._spinbox = spinbox
-        self._step = 1 if step >= 0 else -1
-        icon_name = "chevron-up" if self._step > 0 else "chevron-down"
-        self.setIcon(icon(icon_name))
-        self.setIconSize(QtCore.QSize(12, 12))
-        self.setFixedSize(20, 20)
-        self.setAutoRepeat(True)
-        self.clicked.connect(self._on_clicked)
-
-    def _on_clicked(self) -> None:
-        if self._step > 0:
-            self._spinbox.stepUp()
-        else:
-            self._spinbox.stepDown()
