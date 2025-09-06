@@ -2170,10 +2170,12 @@ class MainWindow(QtWidgets.QMainWindow):
     def open_input_dialog(self):
         dlg = StatsDialog(self.table.year, self.table.month, self)
         dlg.exec()
+        self.sidebar.activate_button(None)
 
     def open_analytics_dialog(self):
         dlg = AnalyticsDialog(self.table.year, self)
         dlg.exec()
+        self.sidebar.activate_button(None)
 
     def _collect_work_names(self) -> List[str]:
         names = set()
@@ -2195,10 +2197,12 @@ class MainWindow(QtWidgets.QMainWindow):
         works = self._collect_work_names()
         dlg = ReleaseDialog(self.table.year, self.table.month, works, self)
         dlg.exec()
+        self.sidebar.activate_button(None)
 
     def open_top_dialog(self):
         dlg = TopDialog(self.table.year, self)
         dlg.exec()
+        self.sidebar.activate_button(None)
 
     def open_settings_dialog(self):
         dlg = SettingsDialog(self)
