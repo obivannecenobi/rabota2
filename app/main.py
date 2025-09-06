@@ -257,7 +257,7 @@ class ReleaseDialog(QtWidgets.QDialog):
 
         self.table = QtWidgets.QTableWidget(0, 4, self)
         self.table.setHorizontalHeaderLabels(["День", "Работа", "Глав", "Время"])
-        self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
         self.table.verticalHeader().setVisible(False)
         self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.table.setStyleSheet(
@@ -304,7 +304,18 @@ class ReleaseDialog(QtWidgets.QDialog):
         for b in (btn_save, btn_close):
             b.setFixedSize(b.sizeHint())
 
+        self._settings = QtCore.QSettings("rabota2", "rabota2")
+        sizes = self._settings.value("ReleaseDialog/columns")
+        if sizes:
+            for i, w in enumerate(sizes):
+                self.table.setColumnWidth(i, int(w))
+
         self.load()
+
+    def closeEvent(self, event):
+        cols = [self.table.columnWidth(i) for i in range(self.table.columnCount())]
+        self._settings.setValue("ReleaseDialog/columns", cols)
+        super().closeEvent(event)
 
     def file_path(self):
         return os.path.join(release_dir(self.year), f"{self.month:02d}.json")
@@ -467,7 +478,7 @@ class StatsDialog(QtWidgets.QDialog):
             "QHeaderView::section{padding:0 8px;}"
         )
         header = self.table_stats.horizontalHeader()
-        header.setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
         header.setTextElideMode(QtCore.Qt.ElideNone)
         self.table_stats.setHorizontalHeaderLabels(
             [h for _, h in StatsEntryForm.TABLE_COLUMNS]
@@ -517,7 +528,7 @@ class StatsDialog(QtWidgets.QDialog):
 
     def resizeEvent(self, event):
         self.table_stats.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.ResizeToContents
+            QtWidgets.QHeaderView.Interactive
         )
         super().resizeEvent(event)
 
@@ -641,7 +652,7 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self.table.setHorizontalHeaderLabels(RU_MONTHS + ["Итого за год"])
         self.table.setVerticalHeaderLabels(self.INDICATORS)
         self.table.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.ResizeToContents
+            QtWidgets.QHeaderView.Interactive
         )
         self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         lay.addWidget(self.table, 1)
@@ -677,11 +688,16 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self._commissions = {str(m): 0.0 for m in range(1, 13)}
         self._software = {str(m): 0.0 for m in range(1, 13)}
         self._net = {str(m): 0.0 for m in range(1, 13)}
+        self._settings = QtCore.QSettings("rabota2", "rabota2")
         self.load(year)
+        sizes = self._settings.value("AnalyticsDialog/columns")
+        if sizes:
+            for i, w in enumerate(sizes):
+                self.table.setColumnWidth(i, int(w))
 
     def resizeEvent(self, event):
         self.table.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.ResizeToContents
+            QtWidgets.QHeaderView.Interactive
         )
         self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         super().resizeEvent(event)
@@ -724,7 +740,7 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self.table.horizontalHeader().setMinimumSectionSize(50)
         self.table.resizeRowsToContents()
         self.table.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.ResizeToContents
+            QtWidgets.QHeaderView.Interactive
         )
         self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self._loading = False
@@ -739,6 +755,11 @@ class AnalyticsDialog(QtWidgets.QDialog):
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         self.accept()
+
+    def closeEvent(self, event):
+        cols = [self.table.columnWidth(i) for i in range(self.table.columnCount())]
+        self._settings.setValue("AnalyticsDialog/columns", cols)
+        super().closeEvent(event)
 
     # --- helpers -------------------------------------------------------
     def _calc_month_stats(self, year, month):
@@ -903,7 +924,7 @@ class TopDialog(QtWidgets.QDialog):
             "QHeaderView::section{padding:0 8px;}"
         )
         self.table.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.ResizeToContents
+            QtWidgets.QHeaderView.Interactive
         )
         self.table.verticalHeader().setVisible(False)
         self.table.verticalHeader().setSectionResizeMode(
@@ -946,7 +967,7 @@ class TopDialog(QtWidgets.QDialog):
 
     def resizeEvent(self, event):
         self.table.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.ResizeToContents
+            QtWidgets.QHeaderView.Interactive
         )
         super().resizeEvent(event)
 
