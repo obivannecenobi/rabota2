@@ -31,6 +31,10 @@ def test_sidebar_font_persists(tmp_path):
     dlg.font_sidebar.setCurrentFont(QtGui.QFont("DejaVu Serif"))
     assert first_btn.font().family() == "DejaVu Serif"
 
+    main.CONFIG["workspace_color"] = "#ffffff"
+    window.apply_palette()
+    assert first_btn.font().family() == "DejaVu Serif"
+
     window.apply_settings()
     assert first_btn.font().family() == "DejaVu Serif"
 
