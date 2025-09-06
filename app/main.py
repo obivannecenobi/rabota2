@@ -2197,11 +2197,10 @@ class MainWindow(QtWidgets.QMainWindow):
         BASE_SAVE_PATH = os.path.abspath(CONFIG.get("save_path", DATA_DIR))
         self.apply_settings()
 
-    def apply_settings(self):
+    def apply_fonts(self):
         header_family, text_family = resolve_font_config(self)
         theme_manager.set_text_font(text_family)
         theme_manager.set_header_font(header_family)
-        load_icons(CONFIG.get("theme", "dark"))
         app = QtWidgets.QApplication.instance()
         for w in app.allWidgets():
             if w is self.topbar.lbl_month:
@@ -2209,20 +2208,27 @@ class MainWindow(QtWidgets.QMainWindow):
             if w is self.sidebar or self.sidebar.isAncestorOf(w):
                 continue
             w.setFont(app.font())
-        self.topbar.update_icons()
-        self.sidebar.update_icons()
-        self.setWindowIcon(QtGui.QIcon(CONFIG.get("app_icon", ICON_TOGGLE)))
         header_font = QtGui.QFont(header_family)
         self.table.setFont(app.font())
         self.table.horizontalHeader().setFont(header_font)
         for tbl in self.table.cell_tables.values():
             tbl.setFont(app.font())
             tbl.horizontalHeader().setFont(header_font)
-        # update fonts for calendar day labels
         for lbl in self.table.day_labels.values():
             lbl.setFont(header_font)
         self.sidebar.apply_fonts()
         self.table.update_day_rows()
+        for dlg in app.topLevelWidgets():
+            if isinstance(dlg, QtWidgets.QDialog):
+                for tbl in dlg.findChildren(QtWidgets.QTableWidget):
+                    tbl.setFont(app.font())
+                    tbl.horizontalHeader().setFont(header_font)
+
+    def apply_palette(self):
+        load_icons(CONFIG.get("theme", "dark"))
+        self.topbar.update_icons()
+        self.sidebar.update_icons()
+        self.setWindowIcon(QtGui.QIcon(CONFIG.get("app_icon", ICON_TOGGLE)))
         workspace = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21"))
         if CONFIG.get("monochrome", False):
             workspace = theme_manager.apply_monochrome(workspace)
@@ -2239,17 +2245,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.topbar.apply_style(CONFIG.get("neon", False))
         self.sidebar.apply_style(CONFIG.get("neon", False), accent, sidebar_color)
         self.sidebar.anim.setDuration(160)
-        for dlg in app.topLevelWidgets():
-            if isinstance(dlg, QtWidgets.QDialog):
-                for tbl in dlg.findChildren(QtWidgets.QTableWidget):
-                    tbl.setFont(app.font())
-                    tbl.horizontalHeader().setFont(header_font)
         self.apply_theme()
         update_neon_filters(self)
-        # Ensure the top bar follows the workspace color rather than the sidebar
-        # color so that changing the workspace theme updates the bar
         self.topbar.update_background(workspace)
         self.topbar.update_labels()
+
+    def apply_settings(self):
+        self.apply_fonts()
+        self.apply_palette()
 
 
 
