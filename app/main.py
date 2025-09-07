@@ -305,6 +305,9 @@ class ReleaseDialog(QtWidgets.QDialog):
             b.setFixedSize(b.sizeHint())
 
         self._settings = QtCore.QSettings("rabota2", "rabota2")
+        geom = self._settings.value("ReleaseDialog/geometry")
+        if geom is not None:
+            self.restoreGeometry(geom)
         sizes = self._settings.value("ReleaseDialog/columns", type=list)
         if sizes:
             for i, w in enumerate(sizes):
@@ -313,6 +316,7 @@ class ReleaseDialog(QtWidgets.QDialog):
         self.load()
 
     def closeEvent(self, event):
+        self._settings.setValue("ReleaseDialog/geometry", self.saveGeometry())
         cols = [self.table.columnWidth(i) for i in range(self.table.columnCount())]
         self._settings.setValue("ReleaseDialog/columns", cols)
         self._settings.sync()
@@ -691,6 +695,9 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self._software = {str(m): 0.0 for m in range(1, 13)}
         self._net = {str(m): 0.0 for m in range(1, 13)}
         self._settings = QtCore.QSettings("rabota2", "rabota2")
+        geom = self._settings.value("AnalyticsDialog/geometry")
+        if geom is not None:
+            self.restoreGeometry(geom)
         self.load(year)
         sizes = self._settings.value("AnalyticsDialog/columns", type=list)
         if sizes:
@@ -759,6 +766,7 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self.accept()
 
     def closeEvent(self, event):
+        self._settings.setValue("AnalyticsDialog/geometry", self.saveGeometry())
         cols = [self.table.columnWidth(i) for i in range(self.table.columnCount())]
         self._settings.setValue("AnalyticsDialog/columns", cols)
         self._settings.sync()
