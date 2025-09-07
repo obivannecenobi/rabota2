@@ -1628,7 +1628,8 @@ class SettingsDialog(QtWidgets.QDialog):
             self.combo_accent.setItemIcon(other_index, QtGui.QIcon(pix))
         self._accent_index = idx
         # connect after setting initial index to avoid unwanted color dialog
-        self.combo_accent.currentIndexChanged.connect(self._on_accent_changed)
+        # use activated so selecting "Другой" again reopens the color picker
+        self.combo_accent.activated.connect(self._on_accent_changed)
         form_interface.addRow("Цвет подсветки", self.combo_accent)
 
         self._workspace_color = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21"))
