@@ -11,7 +11,7 @@ from PySide6 import QtWidgets, QtGui, QtCore
 import shiboken6
 from dataclasses import dataclass, field
 
-from widgets import StyledPushButton, StyledToolButton, SpinButton
+from widgets import StyledPushButton, StyledToolButton
 from resources import register_fonts, load_icons, icon
 import theme_manager
 from effects import NeonEventFilter, neon_enabled, update_neon_filters, apply_neon_effect
@@ -849,10 +849,8 @@ class TopDialog(QtWidgets.QDialog):
         self.spin_year.setValue(year)
         self.spin_year.setStyleSheet("padding:0 6px;")
         self.spin_year.setFixedWidth(self.spin_year.sizeHint().width() + 20)
-        self.spin_year.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
+        self.spin_year.setButtonSymbols(QtWidgets.QAbstractSpinBox.UpDownArrows)
         self.spin_year.setAttribute(QtCore.Qt.WA_Hover, True)
-        self.btn_year_dec = SpinButton(self.spin_year, -1, self)
-        self.btn_year_inc = SpinButton(self.spin_year, 1, self)
         if neon_enabled():
             filt = NeonEventFilter(self.spin_year)
             self.spin_year.installEventFilter(filt)
@@ -883,9 +881,7 @@ class TopDialog(QtWidgets.QDialog):
 
         row = QtWidgets.QHBoxLayout()
         row.setContentsMargins(0, 0, 0, 0)
-        row.addWidget(self.btn_year_dec)
         row.addWidget(self.spin_year)
-        row.addWidget(self.btn_year_inc)
         row.addWidget(self.combo_mode)
         row.addWidget(self.combo_period)
         row.addWidget(self.btn_calc)
