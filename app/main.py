@@ -2274,6 +2274,11 @@ class MainWindow(QtWidgets.QMainWindow):
             h, s, v, _ = accent.getHsv()
             s = int(CONFIG.get("mono_saturation", 100))
             accent.setHsv(h, s, v)
+        # ensure widgets use the latest accent color for borders and neon effects
+        app = QtWidgets.QApplication.instance()
+        pal = app.palette()
+        pal.setColor(QtGui.QPalette.Highlight, accent)
+        app.setPalette(pal)
         sidebar_color = CONFIG.get("sidebar_color", "#1f1f23")
         self.topbar.apply_style(CONFIG.get("neon", False))
         self.sidebar.apply_style(CONFIG.get("neon", False), accent, sidebar_color)
@@ -2312,6 +2317,10 @@ class MainWindow(QtWidgets.QMainWindow):
         ):
             for w in self.findChildren(cls):
                 w.setStyleSheet(style)
+        app = QtWidgets.QApplication.instance()
+        pal = app.palette()
+        pal.setColor(QtGui.QPalette.Highlight, accent)
+        app.setPalette(pal)
         self.topbar.apply_style(neon)
         self.sidebar.apply_style(neon, accent, sidebar)
         update_neon_filters(self)
