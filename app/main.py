@@ -1208,6 +1208,7 @@ class NeonTableWidget(QtWidgets.QTableWidget):
                 filt = NeonEventFilter(editor)
                 editor.installEventFilter(filt)
                 editor._neon_filter = filt
+                apply_neon_effect(editor, True)
         return res
 
 class ExcelCalendarTable(QtWidgets.QTableWidget):
