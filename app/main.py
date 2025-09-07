@@ -1337,7 +1337,13 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                 lay.setContentsMargins(0, 0, 0, 0)
                 lay.setSpacing(2)
                 lbl = QtWidgets.QLabel(str(day.day), container)
-                lbl.setFont(QtGui.QFont(CONFIG["header_font"]))
+                lbl.setFont(
+                    QtGui.QFont(
+                        CONFIG.get(
+                            "header_font", CONFIG.get("font_family", "Exo 2")
+                        )
+                    )
+                )
                 lbl.setAlignment(QtCore.Qt.AlignCenter)
                 lbl.setAttribute(QtCore.Qt.WA_Hover, True)
                 # keep reference for later font updates
@@ -1376,11 +1382,14 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                             item = QtWidgets.QTableWidgetItem(str(row.get(key, "")))
                             inner.setItem(rr, cc, item)
         self._update_row_heights()
+        self.apply_fonts()
         return True
 
     def apply_fonts(self):
         """Apply current header font to calendar elements."""
-        header_font = QtGui.QFont(CONFIG.get("header_font", "Exo 2"))
+        header_font = QtGui.QFont(
+            CONFIG.get("header_font", CONFIG.get("font_family", "Exo 2"))
+        )
         self.horizontalHeader().setFont(header_font)
         for tbl in self.cell_tables.values():
             tbl.horizontalHeader().setFont(header_font)
@@ -2021,7 +2030,9 @@ class TopBar(QtWidgets.QWidget):
         self.apply_fonts()
 
     def apply_fonts(self):
-        font = QtGui.QFont(CONFIG.get("header_font", "Exo 2"))
+        font = QtGui.QFont(
+            CONFIG.get("header_font", CONFIG.get("font_family", "Exo 2"))
+        )
         font.setBold(True)
         self.lbl_month.setFont(font)
 
