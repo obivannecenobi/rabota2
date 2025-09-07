@@ -1264,13 +1264,26 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         if self._col_widths:
             for i, w in enumerate(self._col_widths):
                 tbl.setColumnWidth(i, w)
+        tbl.horizontalHeader().sectionResized.connect(self._sync_day_columns)
         return tbl
 
     def set_day_column_widths(self, widths: Iterable[int]):
         self._col_widths = [int(w) for w in widths]
         for tbl in self.cell_tables.values():
+            header = tbl.horizontalHeader()
+            blocker = QtCore.QSignalBlocker(header)
             for i, w in enumerate(self._col_widths):
                 tbl.setColumnWidth(i, w)
+
+    def _sync_day_columns(self, *_):
+        header = self.sender()
+        if not isinstance(header, QtWidgets.QHeaderView):
+            return
+        widths = [header.sectionSize(i) for i in range(header.count())]
+        self.set_day_column_widths(widths)
+        settings = QtCore.QSettings("rabota2", "rabota2")
+        settings.setValue("MainWindow/columns", self._col_widths)
+        settings.sync()
 
     def get_day_column_widths(self) -> List[int]:
         tbl = next(iter(self.cell_tables.values()), None)
