@@ -1966,6 +1966,12 @@ class SettingsDialog(QtWidgets.QDialog):
             self._workspace_color = color
             self._update_workspace_button()
             self._save_config()
+            parent = self.parent()
+            if parent is not None:
+                if hasattr(parent, "table"):
+                    parent.table.apply_theme()
+                if hasattr(parent, "topbar"):
+                    parent.topbar.apply_background(self._workspace_color)
 
     def _update_sidebar_button(self):
         color = self._sidebar_color.name()
