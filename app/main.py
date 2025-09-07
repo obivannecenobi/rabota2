@@ -1900,6 +1900,11 @@ class SettingsDialog(QtWidgets.QDialog):
     def accept(self):
         self._save_config()
         theme_manager.set_text_font(self.font_text.currentFont().family())
+        parent = self.parent()
+        if parent and hasattr(parent, "table"):
+            parent.table.apply_fonts()
+            if hasattr(parent, "topbar"):
+                parent.topbar.update_labels()
         theme_manager.set_header_font(self.font_header.currentFont().family())
         super().accept()
 
