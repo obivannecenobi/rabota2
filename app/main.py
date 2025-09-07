@@ -2063,12 +2063,14 @@ class TopBar(QtWidgets.QWidget):
         self.spin_year.setStyleSheet(
             f"background-color:{qcolor.name()}; padding:0 6px;"
         )
+        self.apply_fonts()
 
     def update_background(self, color: Union[str, QtGui.QColor]) -> None:
         qcolor = QtGui.QColor(color)
         self.setStyleSheet(
             f"background-color:{qcolor.name()};" + self.styleSheet()
         )
+        self.apply_fonts()
 
     def apply_style(self, neon):
         accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
@@ -2077,22 +2079,22 @@ class TopBar(QtWidgets.QWidget):
             s = int(CONFIG.get("mono_saturation", 100))
             accent.setHsv(h, s, v)
         thickness = CONFIG.get("neon_thickness", 1)
-        size = CONFIG.get("neon_size", 10)
-        intensity = CONFIG.get("neon_intensity", 255)
+        # ``neon_size`` and ``neon_intensity`` are no longer used directly but kept
+        # for compatibility with existing configuration files.
+        CONFIG.get("neon_size", 10)
+        CONFIG.get("neon_intensity", 255)
         if neon:
             style = (
-                f"QLabel{{color:{accent.name()}; border:none;}} "
+                "QLabel{color:#e5e5e5; border:none;} "
                 f"QToolButton{{color:{accent.name()}; border:{thickness}px solid {accent.name()}; border-radius:6px; padding:4px 10px;}}"
             )
             self.setStyleSheet(style)
-            for w in (self.lbl_month, self.btn_prev, self.btn_next):
-                eff = QtWidgets.QGraphicsDropShadowEffect(self)
-                eff.setOffset(0, 0)
-                eff.setBlurRadius(size)
-                c = QtGui.QColor(accent)
-                c.setAlpha(intensity)
-                eff.setColor(c)
-                w.setGraphicsEffect(eff)
+            apply_neon_effect(self.lbl_month, True)
+            for w in (self.btn_prev, self.btn_next):
+                if hasattr(w, "_neon_anim") and w._neon_anim:
+                    w._neon_anim.stop()
+                    w._neon_anim = None
+                w.setGraphicsEffect(None)
         else:
             if CONFIG.get("theme", "dark") == "dark":
                 style = self.default_style
@@ -2102,7 +2104,8 @@ class TopBar(QtWidgets.QWidget):
                     "QToolButton{color:#000; border:1px solid #999; border-radius:6px; padding:4px 10px;}"
                 )
             self.setStyleSheet(style)
-            for w in (self.lbl_month, self.btn_prev, self.btn_next):
+            apply_neon_effect(self.lbl_month, False)
+            for w in (self.btn_prev, self.btn_next):
                 if hasattr(w, "_neon_anim") and w._neon_anim:
                     w._neon_anim.stop()
                     w._neon_anim = None
@@ -2111,6 +2114,7 @@ class TopBar(QtWidgets.QWidget):
         # Re-apply background color and ensure border is removed for the month label
         bg_color = self.lbl_month.palette().color(QtGui.QPalette.Window).name()
         self.lbl_month.setStyleSheet(f"background-color:{bg_color}; border:none;")
+        self.apply_fonts()
 
 
 class MainWindow(QtWidgets.QMainWindow):
