@@ -1258,6 +1258,8 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         tbl.verticalHeader().setVisible(False)
         tbl.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
         tbl.setEditTriggers(QtWidgets.QAbstractItemView.DoubleClicked)
+        tbl.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        tbl.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         if self._col_widths:
             for i, w in enumerate(self._col_widths):
                 tbl.setColumnWidth(i, w)
