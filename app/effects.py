@@ -94,6 +94,14 @@ def apply_neon_effect(
         prev_style = widget._neon_prev_style or ""
         color = widget.palette().color(QtGui.QPalette.Highlight)
         text_color = widget.palette().buttonText().color()
+        try:  # local import to avoid circular dependency on ``main``
+            from . import main
+
+            thickness = int(
+                getattr(main, "CONFIG", {}).get("neon_thickness", 1)
+            )
+        except Exception:
+            thickness = 1
         eff = None
         if shadow:
             eff = QtWidgets.QGraphicsDropShadowEffect(widget)
@@ -108,12 +116,15 @@ def apply_neon_effect(
             widget.setGraphicsEffect(None)
         if isinstance(widget, QtWidgets.QLabel):
             widget.setStyleSheet(
-                prev_style + f" color:{text_color.name()}; border-width:0;"
+                prev_style
+                + f" color:{text_color.name()}; border-color:{color.name()};"
+                + f" border-width:{thickness}px;"
             )
         else:
             widget.setStyleSheet(
                 prev_style
-                + f" color:{text_color.name()}; border-color:{color.name()};"
+                + f" color:{text_color.name()};"
+                + f" border:{thickness}px solid {color.name()};"
             )
         widget._neon_effect = eff
     else:
@@ -131,10 +142,7 @@ def apply_neon_effect(
         except RuntimeError:
             pass
         prev_style = getattr(widget, "_neon_prev_style", None)
-        style = prev_style or ""
-        if isinstance(widget, QtWidgets.QLabel):
-            style += " border:none;"
-        widget.setStyleSheet(style)
+        widget.setStyleSheet(prev_style or "")
         widget._neon_prev_style = None
         widget._neon_effect = None
 
