@@ -2231,8 +2231,21 @@ class MainWindow(QtWidgets.QMainWindow):
         self.topbar.prev_clicked.connect(self.prev_month)
         self.topbar.next_clicked.connect(self.next_month)
         self.topbar.year_changed.connect(self.change_year)
-        self.sidebar.btn_inputs.clicked.connect(self.open_input_dialog)
-        self.sidebar.btn_release.clicked.connect(self.open_release_dialog)
+        if self.sidebar.btn_inputs is not None:
+            self.sidebar.btn_inputs.clicked.connect(self.open_input_dialog)
+        else:
+            logger.error("sidebar.btn_inputs is missing; input dialog feature disabled")
+            def _disabled_input_dialog(*_, **__):
+                logger.error("Input dialog feature is disabled because btn_inputs is missing")
+            self.open_input_dialog = _disabled_input_dialog  # type: ignore[assignment]
+
+        if self.sidebar.btn_release is not None:
+            self.sidebar.btn_release.clicked.connect(self.open_release_dialog)
+        else:
+            logger.error("sidebar.btn_release is missing; release dialog feature disabled")
+            def _disabled_release_dialog(*_, **__):
+                logger.error("Release dialog feature is disabled because btn_release is missing")
+            self.open_release_dialog = _disabled_release_dialog  # type: ignore[assignment]
         self.sidebar.btn_analytics.clicked.connect(self.open_analytics_dialog)
         self.sidebar.settings_clicked.connect(self.open_settings_dialog)
         self._update_month_label()
