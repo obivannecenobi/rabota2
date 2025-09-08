@@ -2167,6 +2167,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # left sidebar
         self.sidebar=CollapsibleSidebar(self); h.addWidget(self.sidebar)
+        self.sidebar.btn_tops.clicked.connect(self.open_top_dialog)
 
         # right: vbox with topbar + table
         right = QtWidgets.QWidget(self); v = QtWidgets.QVBoxLayout(right); v.setContentsMargins(0,0,0,0); v.setSpacing(0)
@@ -2188,7 +2189,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sidebar.btn_inputs.clicked.connect(self.open_input_dialog)
         self.sidebar.btn_release.clicked.connect(self.open_release_dialog)
         self.sidebar.btn_analytics.clicked.connect(self.open_analytics_dialog)
-        self.sidebar.btn_tops.clicked.connect(self.open_top_dialog)
         self.sidebar.settings_clicked.connect(self.open_settings_dialog)
         self._update_month_label()
 
