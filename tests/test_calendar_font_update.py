@@ -53,6 +53,12 @@ def test_header_font_persists_after_month_change(tmp_path):
     assert lbl.font().family() == "DejaVu Serif"
     assert window.topbar.lbl_month.font().family() == "DejaVu Serif"
 
+    # Verify inner-table header items preserve the chosen font
+    tbl = next(iter(window.table.cell_tables.values()))
+    for i in range(tbl.columnCount()):
+        item = tbl.horizontalHeaderItem(i)
+        assert item.font().family() == "DejaVu Serif"
+
     window.close()
     app.quit()
 

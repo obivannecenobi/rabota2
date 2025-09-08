@@ -1421,6 +1421,11 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         self.horizontalHeader().setFont(header_font)
         for tbl in self.cell_tables.values():
             tbl.horizontalHeader().setFont(header_font)
+            # Ensure individual header items also adopt the selected font
+            for i in range(tbl.columnCount()):
+                item = tbl.horizontalHeaderItem(i)
+                if item:
+                    item.setFont(header_font)
         for lbl in self.day_labels.values():
             lbl.setFont(header_font)
 
