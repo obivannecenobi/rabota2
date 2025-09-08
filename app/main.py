@@ -610,8 +610,15 @@ class StatsDialog(QtWidgets.QDialog):
         self.load_stats(self.year, self.month)
 
     def closeEvent(self, event):
+        if self.current_index is not None or any(
+            self.form_stats.get_record().values()
+        ):
+            self.save_record()
         self._settings.setValue("StatsDialog/geometry", self.saveGeometry())
-        cols = [self.table_stats.columnWidth(i) for i in range(self.table_stats.columnCount())]
+        cols = [
+            self.table_stats.columnWidth(i)
+            for i in range(self.table_stats.columnCount())
+        ]
         self._settings.setValue("StatsDialog/columns", cols)
         self._settings.sync()
         super().closeEvent(event)
