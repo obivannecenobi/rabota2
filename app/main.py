@@ -330,8 +330,17 @@ class ReleaseDialog(QtWidgets.QDialog):
         path = self.file_path()
         data = {}
         if os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            except json.JSONDecodeError as exc:
+                logger.error("Failed to parse release data from '%s': %s", path, exc)
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Ошибка",
+                    "Данные повреждены или нечитаемы.",
+                )
+                data = {}
 
         for day_str, entries in data.get("days", {}).items():
             day = int(day_str)
@@ -557,8 +566,17 @@ class StatsDialog(QtWidgets.QDialog):
         path = os.path.join(stats_dir(year), f"{year}.json")
         data = {}
         if os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            except json.JSONDecodeError as exc:
+                logger.error("Failed to parse stats data from '%s': %s", path, exc)
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Ошибка",
+                    "Данные повреждены или нечитаемы.",
+                )
+                data = {}
         self.records = data.get(str(month), [])
         self.table_stats.setRowCount(len(self.records))
         for r, rec in enumerate(self.records):
