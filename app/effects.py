@@ -169,18 +169,41 @@ class NeonEventFilter(QtCore.QObject):
     def eventFilter(self, obj, event):  # noqa: D401 - Qt event filter signature
         if not neon_enabled():
             return False
-        if event.type() in (
+
+        widget = self._widget()
+        if widget is None or not shiboken6.isValid(widget):
+            return False
+
+        etype = event.type()
+
+        if etype in (
             QtCore.QEvent.HoverEnter,
             QtCore.QEvent.FocusIn,
             QtCore.QEvent.MouseButtonDblClick,
         ):
             self._start()
-        elif event.type() in (
+            if etype == QtCore.QEvent.FocusIn:
+                focus = QtWidgets.QApplication.focusWidget()
+                if (
+                    focus is not None
+                    and focus is not widget
+                    and widget.isAncestorOf(focus)
+                ):
+                    focus.installEventFilter(self)
+
+        elif etype == QtCore.QEvent.FocusOut:
+            focus = QtWidgets.QApplication.focusWidget()
+            if obj is widget and focus is not None and widget.isAncestorOf(focus):
+                focus.installEventFilter(self)
+            else:
+                self._stop()
+
+        elif etype in (
             QtCore.QEvent.HoverLeave,
             QtCore.QEvent.Leave,
-            QtCore.QEvent.FocusOut,
         ):
             self._stop()
+
         return False
 
 
