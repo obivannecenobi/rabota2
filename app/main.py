@@ -765,7 +765,7 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self._loading = False
 
-    def save(self):
+    def save(self, accept=True):
         path = os.path.join(year_dir(self.year), f"{self.year}.json")
         data = {
             "commission": self._commissions,
@@ -774,9 +774,11 @@ class AnalyticsDialog(QtWidgets.QDialog):
         }
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        self.accept()
+        if accept:
+            self.accept()
 
     def closeEvent(self, event):
+        self.save(accept=False)
         self._settings.setValue("AnalyticsDialog/geometry", self.saveGeometry())
         cols = [self.table.columnWidth(i) for i in range(self.table.columnCount())]
         self._settings.setValue("AnalyticsDialog/columns", cols)
