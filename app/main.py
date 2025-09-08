@@ -2123,7 +2123,7 @@ class TopBar(QtWidgets.QWidget):
                 f"QToolButton{{color:{accent.name()}; border:{thickness}px solid {accent.name()}; border-radius:6px; padding:4px 10px;}}"
             )
             self.setStyleSheet(style)
-            apply_neon_effect(self.lbl_month, True)
+            apply_neon_effect(self.lbl_month, True, shadow=False)
             for w in (self.btn_prev, self.btn_next):
                 if hasattr(w, "_neon_anim") and w._neon_anim:
                     w._neon_anim.stop()
@@ -2148,6 +2148,7 @@ class TopBar(QtWidgets.QWidget):
         # Re-apply background color and ensure border is removed for the month label
         bg_color = self.lbl_month.palette().color(QtGui.QPalette.Window).name()
         self.lbl_month.setStyleSheet(f"background-color:{bg_color}; border:none;")
+        self.lbl_month.setGraphicsEffect(None)
         self.apply_fonts()
 
 
