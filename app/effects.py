@@ -58,8 +58,24 @@ def set_neon(
     return eff
 
 
-def apply_neon_effect(widget: QtWidgets.QWidget, on: bool = True) -> None:
-    """Toggle neon highlight effect on *widget*."""
+def apply_neon_effect(
+    widget: QtWidgets.QWidget, on: bool = True, shadow: bool = True
+) -> None:
+    """Toggle neon highlight effect on *widget*.
+
+    Parameters
+    ----------
+    widget: QtWidgets.QWidget
+        Target widget.
+    on: bool
+        Whether to enable the effect.  When ``False`` the previous style and
+        effect (if any) are restored.
+    shadow: bool
+        If ``True`` (default) a :class:`~PySide6.QtWidgets.QGraphicsDropShadowEffect`
+        is applied.  Set to ``False`` to skip the drop shadow, keeping only the
+        color adjustments.  This is useful for widgets like ``QLabel`` where the
+        shadow is visually undesirable.
+    """
 
     if widget is None or not shiboken6.isValid(widget):
         return
@@ -78,14 +94,18 @@ def apply_neon_effect(widget: QtWidgets.QWidget, on: bool = True) -> None:
         prev_style = widget._neon_prev_style or ""
         color = widget.palette().color(QtGui.QPalette.Highlight)
         text_color = widget.palette().buttonText().color()
-        eff = QtWidgets.QGraphicsDropShadowEffect(widget)
-        eff.setOffset(0, 0)
-        eff.setBlurRadius(20)
-        eff.setColor(color)
-        try:
-            widget.setGraphicsEffect(eff)
-        except RuntimeError:
-            return
+        eff = None
+        if shadow:
+            eff = QtWidgets.QGraphicsDropShadowEffect(widget)
+            eff.setOffset(0, 0)
+            eff.setBlurRadius(20)
+            eff.setColor(color)
+            try:
+                widget.setGraphicsEffect(eff)
+            except RuntimeError:
+                return
+        else:
+            widget.setGraphicsEffect(None)
         if isinstance(widget, QtWidgets.QLabel):
             widget.setStyleSheet(
                 prev_style + f" color:{text_color.name()}; border-width:0;"
