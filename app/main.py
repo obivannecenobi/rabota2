@@ -973,7 +973,7 @@ class TopDialog(QtWidgets.QDialog):
         btn_close.setIconSize(QtCore.QSize(20, 20))
         box.addButton(btn_save, QtWidgets.QDialogButtonBox.AcceptRole)
         box.addButton(btn_close, QtWidgets.QDialogButtonBox.RejectRole)
-        box.accepted.connect(self.save)
+        box.accepted.connect(self._save_and_accept)
         box.rejected.connect(self.reject)
         lay.addWidget(box)
         for b in (btn_save, btn_close):
@@ -1185,9 +1185,13 @@ class TopDialog(QtWidgets.QDialog):
         data[key] = {"results": results}
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+
+    def _save_and_accept(self):
+        self.save()
         self.accept()
 
     def closeEvent(self, event):
+        self.save()
         self._settings.setValue("TopDialog/geometry", self.saveGeometry())
         cols = [self.table.columnWidth(i) for i in range(self.table.columnCount())]
         self._settings.setValue("TopDialog/columns", cols)
