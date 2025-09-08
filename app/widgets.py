@@ -32,6 +32,7 @@ class ButtonStyleMixin:
             thickness = 1
         return (
             f"border:{thickness}px solid {self._accent_color()}; "
+            f"color:{self._accent_color()}; "
             "background-color:rgba(255,255,255,0.08);"
         )
 
