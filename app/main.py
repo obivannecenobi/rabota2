@@ -1863,7 +1863,17 @@ class SettingsDialog(QtWidgets.QDialog):
         box.accepted.connect(self.accept)
         box.rejected.connect(self.reject)
         main_lay.addWidget(box)
+
+        self._settings = QtCore.QSettings("rabota2", "rabota2")
+        geom = self._settings.value("SettingsDialog/geometry")
+        if geom is not None:
+            self.restoreGeometry(geom)
+
         apply_neon_to_inputs(self)
+
+    def closeEvent(self, event):
+        self._settings.setValue("SettingsDialog/geometry", self.saveGeometry())
+        super().closeEvent(event)
 
     def browse_path(self):
         path = QtWidgets.QFileDialog.getExistingDirectory(
