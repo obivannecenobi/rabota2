@@ -297,7 +297,7 @@ class ReleaseDialog(QtWidgets.QDialog):
         btn_close.setIconSize(QtCore.QSize(20, 20))
         box.addButton(btn_save, QtWidgets.QDialogButtonBox.AcceptRole)
         box.addButton(btn_close, QtWidgets.QDialogButtonBox.RejectRole)
-        box.accepted.connect(self.save)
+        box.accepted.connect(self.accept)
         box.rejected.connect(self.reject)
         lay.addWidget(box)
 
@@ -316,6 +316,7 @@ class ReleaseDialog(QtWidgets.QDialog):
         self.load()
 
     def closeEvent(self, event):
+        self.save()
         self._settings.setValue("ReleaseDialog/geometry", self.saveGeometry())
         cols = [self.table.columnWidth(i) for i in range(self.table.columnCount())]
         self._settings.setValue("ReleaseDialog/columns", cols)
@@ -346,12 +347,13 @@ class ReleaseDialog(QtWidgets.QDialog):
             work_item = self.table.item(row, 1)
             chapters_item = self.table.item(row, 2)
             time_item = self.table.item(row, 3)
+
             work_name = work_item.text().strip() if work_item else ""
             if not work_name:
                 continue
             chapters_text = chapters_item.text().strip() if chapters_item else ""
             try:
-                chapters = int(chapters_text)
+                chapters = int(chapters_text) if chapters_text else 0
             except (TypeError, ValueError):
                 chapters = 0
             time_text = time_item.text().strip() if time_item else ""
@@ -366,10 +368,12 @@ class ReleaseDialog(QtWidgets.QDialog):
         works = sorted({e["work"] for entries in days.values() for e in entries})
         data = {"works": works, "days": days}
 
-        os.makedirs(os.path.dirname(self.file_path()), exist_ok=True)
-        with open(self.file_path(), "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        self.accept()
+        try:
+            os.makedirs(os.path.dirname(self.file_path()), exist_ok=True)
+            with open(self.file_path(), "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        except OSError as exc:
+            logger.warning("Failed to save release data: %s", exc)
 
 
 class StatsEntryForm(QtWidgets.QWidget):
