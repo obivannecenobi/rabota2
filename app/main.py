@@ -310,7 +310,7 @@ class ReleaseDialog(QtWidgets.QDialog):
             self.restoreGeometry(geom)
         sizes = self._settings.value("ReleaseDialog/columns", type=list)
         if sizes:
-            for i, w in enumerate(sizes):
+            for i, w in enumerate(map(int, sizes)):
                 self.table.setColumnWidth(i, w)
 
         self.load()
@@ -541,7 +541,7 @@ class StatsDialog(QtWidgets.QDialog):
         self.load_stats(year, month)
         sizes = self._settings.value("StatsDialog/columns", type=list)
         if sizes:
-            for i, w in enumerate(sizes):
+            for i, w in enumerate(map(int, sizes)):
                 self.table_stats.setColumnWidth(i, w)
 
     def resizeEvent(self, event):
@@ -730,7 +730,7 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self.load(year)
         sizes = self._settings.value("AnalyticsDialog/columns", type=list)
         if sizes:
-            for i, w in enumerate(sizes):
+            for i, w in enumerate(map(int, sizes)):
                 self.table.setColumnWidth(i, w)
 
     def resizeEvent(self, event):
@@ -1004,7 +1004,7 @@ class TopDialog(QtWidgets.QDialog):
         self.calculate()
         sizes = self._settings.value("TopDialog/columns", type=list)
         if sizes:
-            for i, w in enumerate(sizes):
+            for i, w in enumerate(map(int, sizes)):
                 self.table.setColumnWidth(i, w)
 
     def resizeEvent(self, event):
