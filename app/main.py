@@ -308,10 +308,9 @@ class ReleaseDialog(QtWidgets.QDialog):
         geom = self._settings.value("ReleaseDialog/geometry")
         if geom is not None:
             self.restoreGeometry(geom)
-        sizes = self._settings.value("ReleaseDialog/columns", type=list)
-        if sizes:
-            for i, w in enumerate(map(int, sizes)):
-                self.table.setColumnWidth(i, w)
+        sizes = [int(w) for w in (self._settings.value("ReleaseDialog/columns", type=list) or [])]
+        for i, w in enumerate(sizes):
+            self.table.setColumnWidth(i, w)
 
         self.load()
 
@@ -539,10 +538,9 @@ class StatsDialog(QtWidgets.QDialog):
         if geom is not None:
             self.restoreGeometry(geom)
         self.load_stats(year, month)
-        sizes = self._settings.value("StatsDialog/columns", type=list)
-        if sizes:
-            for i, w in enumerate(map(int, sizes)):
-                self.table_stats.setColumnWidth(i, w)
+        sizes = [int(w) for w in (self._settings.value("StatsDialog/columns", type=list) or [])]
+        for i, w in enumerate(sizes):
+            self.table_stats.setColumnWidth(i, w)
 
     def resizeEvent(self, event):
         self.table_stats.horizontalHeader().setSectionResizeMode(
@@ -728,10 +726,9 @@ class AnalyticsDialog(QtWidgets.QDialog):
         if geom is not None:
             self.restoreGeometry(geom)
         self.load(year)
-        sizes = self._settings.value("AnalyticsDialog/columns", type=list)
-        if sizes:
-            for i, w in enumerate(map(int, sizes)):
-                self.table.setColumnWidth(i, w)
+        sizes = [int(w) for w in (self._settings.value("AnalyticsDialog/columns", type=list) or [])]
+        for i, w in enumerate(sizes):
+            self.table.setColumnWidth(i, w)
 
     def resizeEvent(self, event):
         self.table.horizontalHeader().setSectionResizeMode(
@@ -1002,10 +999,9 @@ class TopDialog(QtWidgets.QDialog):
         if geom is not None:
             self.restoreGeometry(geom)
         self.calculate()
-        sizes = self._settings.value("TopDialog/columns", type=list)
-        if sizes:
-            for i, w in enumerate(map(int, sizes)):
-                self.table.setColumnWidth(i, w)
+        sizes = [int(w) for w in (self._settings.value("TopDialog/columns", type=list) or [])]
+        for i, w in enumerate(sizes):
+            self.table.setColumnWidth(i, w)
 
     def resizeEvent(self, event):
         self.table.horizontalHeader().setSectionResizeMode(
