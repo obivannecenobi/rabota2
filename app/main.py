@@ -133,7 +133,7 @@ def ensure_font_registered(family: str, parent: QtWidgets.QWidget | None = None)
 
     If *family* is missing in :class:`QtGui.QFontDatabase`, the user is prompted to
     locate a font file. If the font cannot be loaded, the safe default
-    ``"Arial"`` is returned.
+    ``"Exo 2"`` is returned.
     """
     if family in QtGui.QFontDatabase.families():
         return family
@@ -142,7 +142,7 @@ def ensure_font_registered(family: str, parent: QtWidgets.QWidget | None = None)
         parent,
         "Выберите файл шрифта",
         "",
-        "Font Files (*.ttf *.otf)"
+        "Font Files (*.ttf *.otf *.fon *.ttc)"
     )
     if file_path:
         fid = QtGui.QFontDatabase.addApplicationFont(file_path)
@@ -154,8 +154,8 @@ def ensure_font_registered(family: str, parent: QtWidgets.QWidget | None = None)
                 return fams[0]
             logger.error("No font families found in '%s'", file_path)
 
-    logger.warning("Unable to load font '%s'; falling back to 'Arial'", family)
-    return "Arial"
+    logger.warning("Unable to load font '%s'; falling back to 'Exo 2'", family)
+    return "Exo 2"
 
 
 def resolve_font_config(parent: QtWidgets.QWidget | None = None) -> tuple[str, str]:

@@ -13,18 +13,18 @@ logger = logging.getLogger(__name__)
 
 ASSETS_DIR = os.path.join(os.path.dirname(__file__), "..", "assets")
 FONTS_DIR = os.path.join(ASSETS_DIR, "fonts")
-EXO2_FONTS_DIR = os.path.join(FONTS_DIR, "Exo2")
 ICONS_DIR = os.path.join(ASSETS_DIR, "icons")
 
 ICONS: Dict[str, QIcon] = {}
 
 
 def register_fonts() -> None:
-    """Register the Exo2 regular font and set a fallback on failure.
+    """Register bundled fonts and ensure the default family is available.
 
-    Only ``Exo2-Regular.ttf`` is attempted. When registration fails the
-    application font is set to ``"Arial"`` and ``CONFIG['font_family']`` is
-    updated accordingly so that subsequent saves persist the fallback.
+    Recursively walks through :data:`FONTS_DIR` and loads every font file with a
+    supported extension.  If the default "Exo 2" family cannot be registered,
+    the application falls back to ``"Arial"`` and updates the global
+    configuration accordingly.
     """
 
     def _set_fallback() -> None:
@@ -37,23 +37,24 @@ def register_fonts() -> None:
         except Exception:  # pragma: no cover - extremely defensive
             pass
 
-    if not os.path.isdir(EXO2_FONTS_DIR):
+    if not os.path.isdir(FONTS_DIR):
         _set_fallback()
         return
 
-    font_path = os.path.join(EXO2_FONTS_DIR, "Exo2-Regular.ttf")
-    if not os.path.isfile(font_path):
-        logger.error("Font file 'Exo2-Regular.ttf' not found at '%s'", font_path)
-        _set_fallback()
-        return
+    extensions = {".ttf", ".otf", ".fon", ".ttc"}
+    families: set[str] = set()
+    for root, _dirs, files in os.walk(FONTS_DIR):
+        for name in files:
+            if os.path.splitext(name)[1].lower() not in extensions:
+                continue
+            path = os.path.join(root, name)
+            fid = QtGui.QFontDatabase.addApplicationFont(path)
+            if fid == -1:
+                logger.error("Failed to load font '%s'", path)
+                continue
+            families.update(QtGui.QFontDatabase.applicationFontFamilies(fid))
 
-    fid = QtGui.QFontDatabase.addApplicationFont(font_path)
-    if fid == -1:
-        logger.error("Failed to load font 'Exo2-Regular.ttf' from '%s'", font_path)
-        _set_fallback()
-        return
-
-    if "Exo 2" not in QtGui.QFontDatabase.families():
+    if "Exo 2" not in families:
         logger.error("Font 'Exo 2' not registered")
         _set_fallback()
         return
