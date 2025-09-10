@@ -32,6 +32,8 @@ def test_neon_persists_during_edit_and_stops_after():
     QtWidgets.QApplication.processEvents()
 
     assert getattr(table, "_neon_effect", None) is not None
+    w_before = table.columnWidth(0)
+    h_before = table.rowHeight(0)
 
     table.editItem(table.item(0, 0))
     QtWidgets.QApplication.processEvents()
@@ -39,6 +41,8 @@ def test_neon_persists_during_edit_and_stops_after():
     editor = table.findChild(QtWidgets.QLineEdit)
     assert editor is not None and editor.hasFocus()
     assert getattr(table, "_neon_effect", None) is not None
+    assert table.columnWidth(0) == w_before
+    assert table.rowHeight(0) == h_before
 
     other = QtWidgets.QLineEdit()
     other.setAttribute(QtCore.Qt.WA_Hover, True)
@@ -47,6 +51,8 @@ def test_neon_persists_during_edit_and_stops_after():
     QtWidgets.QApplication.processEvents()
 
     assert getattr(table, "_neon_effect", None) is None
+    assert table.columnWidth(0) == w_before
+    assert table.rowHeight(0) == h_before
 
     other.close()
     table.close()
