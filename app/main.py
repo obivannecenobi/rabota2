@@ -2546,8 +2546,9 @@ def main():
     base_family = ensure_font_registered(CONFIG.get("font_family", "Exo 2"))
     CONFIG["font_family"] = base_family
 
-    theme_manager.set_header_font(CONFIG.get("header_font", base_family))
-    theme_manager.set_text_font(CONFIG.get("text_font", base_family))
+    header_family, text_family = resolve_font_config()
+    theme_manager.set_header_font(header_family)
+    theme_manager.set_text_font(text_family)
 
     w = MainWindow()
     w.apply_settings()
