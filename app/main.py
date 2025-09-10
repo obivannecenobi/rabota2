@@ -1244,6 +1244,7 @@ class NeonTableWidget(QtWidgets.QTableWidget):
             editor = self.findChild(QtWidgets.QLineEdit)
             if editor and getattr(editor, "_neon_filter", None) is None:
                 editor.setAttribute(QtCore.Qt.WA_Hover, True)
+                editor.setStyleSheet("border:1px solid transparent;")
                 filt = NeonEventFilter(editor)
                 editor.installEventFilter(filt)
                 editor._neon_filter = filt

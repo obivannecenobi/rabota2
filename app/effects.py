@@ -123,8 +123,7 @@ def apply_neon_effect(
         else:
             widget.setStyleSheet(
                 prev_style
-                + f" color:{text_color.name()};"
-                + f" border:{thickness}px solid {color.name()};"
+                + f" color:{text_color.name()}; border-color:{color.name()};"
             )
         widget._neon_effect = eff
     else:
@@ -142,7 +141,10 @@ def apply_neon_effect(
         except RuntimeError:
             pass
         prev_style = getattr(widget, "_neon_prev_style", None)
-        widget.setStyleSheet(prev_style or "")
+        if isinstance(widget, QtWidgets.QLabel):
+            widget.setStyleSheet(prev_style or "")
+        else:
+            widget.setStyleSheet((prev_style or "") + " border-color:transparent;")
         widget._neon_prev_style = None
         widget._neon_effect = None
 
