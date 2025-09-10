@@ -2132,14 +2132,16 @@ class TopBar(QtWidgets.QWidget):
 
     def apply_background(self, color: Union[str, QtGui.QColor]) -> None:
         qcolor = QtGui.QColor(color)
-        for w in (self, self.lbl_month, self.spin_year):
+        for w in (self, self.spin_year):
             pal = w.palette()
             pal.setColor(QtGui.QPalette.Window, qcolor)
             w.setAutoFillBackground(True)
             w.setPalette(pal)
-        self.lbl_month.setStyleSheet(
-            f"background-color:{qcolor.name()}; border:none;"
-        )
+        pal = self.lbl_month.palette()
+        pal.setColor(QtGui.QPalette.Window, qcolor)
+        self.lbl_month.setAutoFillBackground(False)
+        self.lbl_month.setPalette(pal)
+        self.lbl_month.setStyleSheet("background:transparent; border:none;")
         self.spin_year.setStyleSheet(
             f"background-color:{qcolor.name()}; padding:0 6px;"
         )
@@ -2169,7 +2171,8 @@ class TopBar(QtWidgets.QWidget):
                 f"QToolButton{{color:{accent.name()}; border:{thickness}px solid {accent.name()}; border-radius:6px; padding:4px 10px;}}"
             )
             self.setStyleSheet(style)
-            apply_neon_effect(self.lbl_month, True, shadow=False)
+            self.apply_background(self.palette().color(QtGui.QPalette.Window))
+            apply_neon_effect(self.lbl_month, True)
             for w in (self.btn_prev, self.btn_next):
                 if hasattr(w, "_neon_anim") and w._neon_anim:
                     w._neon_anim.stop()
@@ -2184,17 +2187,13 @@ class TopBar(QtWidgets.QWidget):
                     "QToolButton{color:#000; border:1px solid #999; border-radius:6px; padding:4px 10px;}"
                 )
             self.setStyleSheet(style)
+            self.apply_background(self.palette().color(QtGui.QPalette.Window))
             apply_neon_effect(self.lbl_month, False)
             for w in (self.btn_prev, self.btn_next):
                 if hasattr(w, "_neon_anim") and w._neon_anim:
                     w._neon_anim.stop()
                     w._neon_anim = None
                 w.setGraphicsEffect(None)
-
-        # Re-apply background color and ensure border is removed for the month label
-        bg_color = self.lbl_month.palette().color(QtGui.QPalette.Window).name()
-        self.lbl_month.setStyleSheet(f"background-color:{bg_color}; border:none;")
-        self.lbl_month.setGraphicsEffect(None)
         self.apply_fonts()
 
 
