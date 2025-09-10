@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import logging
 from typing import Dict
@@ -52,7 +53,28 @@ def register_fonts() -> None:
             if fid == -1:
                 logger.error("Failed to load font '%s'", path)
                 continue
-            families.update(QtGui.QFontDatabase.applicationFontFamilies(fid))
+            fams = QtGui.QFontDatabase.applicationFontFamilies(fid)
+            families.update(fams)
+            if name == "Cattedrale[RUSbypenka220]-Regular.ttf" and fams:
+                try:  # deferred import to avoid circular dependency
+                    from . import main as _main
+
+                    _main.CONFIG["header_font"] = fams[0]
+                    _main.CONFIG["sidebar_font"] = fams[0]
+                    with open(_main.CONFIG_PATH, "r", encoding="utf-8") as fh:
+                        cfg = json.load(fh)
+                    changed = False
+                    if cfg.get("header_font") != fams[0]:
+                        cfg["header_font"] = fams[0]
+                        changed = True
+                    if cfg.get("sidebar_font") != fams[0]:
+                        cfg["sidebar_font"] = fams[0]
+                        changed = True
+                    if changed:
+                        with open(_main.CONFIG_PATH, "w", encoding="utf-8") as fh:
+                            json.dump(cfg, fh, ensure_ascii=False, indent=2)
+                except Exception:  # pragma: no cover - extremely defensive
+                    pass
 
     if "Exo 2" not in families:
         logger.error("Font 'Exo 2' not registered")
