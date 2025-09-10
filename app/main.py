@@ -1244,7 +1244,7 @@ class NeonTableWidget(QtWidgets.QTableWidget):
             editor = self.findChild(QtWidgets.QLineEdit)
             if editor and getattr(editor, "_neon_filter", None) is None:
                 editor.setAttribute(QtCore.Qt.WA_Hover, True)
-                editor.setStyleSheet("border:1px solid transparent;")
+                editor.setStyleSheet(editor.styleSheet() + "border:1px solid transparent;")
                 filt = NeonEventFilter(editor)
                 editor.installEventFilter(filt)
                 editor._neon_filter = filt
@@ -1396,6 +1396,7 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                 lay = QtWidgets.QVBoxLayout(container)
                 lay.setContentsMargins(0, 0, 0, 0)
                 lay.setSpacing(2)
+                container.setStyleSheet("border:1px solid transparent;")
                 lbl = QtWidgets.QLabel(str(day.day), container)
                 lbl.setFont(
                     QtGui.QFont(
@@ -1416,11 +1417,14 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                     container.setAttribute(QtCore.Qt.WA_Hover, True)
                     filt = NeonEventFilter(container)
                     container.installEventFilter(filt)
-                    lbl.installEventFilter(filt)
                     inner.installEventFilter(filt)
                     inner.viewport().installEventFilter(filt)
                     container._neon_filter = filt
-                    lbl._neon_filter = filt
+
+                    lbl.setAttribute(QtCore.Qt.WA_Hover, True)
+                    lbl_filt = NeonEventFilter(lbl)
+                    lbl.installEventFilter(lbl_filt)
+                    lbl._neon_filter = lbl_filt
                 self.setCellWidget(r, c, container)
                 self.date_map[(r, c)] = day
                 self.cell_tables[(r, c)] = inner
@@ -1428,11 +1432,13 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                 self.cell_filters[(r, c)] = filt
                 if day.month != month:
                     container.setEnabled(False)
-                    container.setStyleSheet("background-color:#2a2a2a; color:#777;")
+                    container.setStyleSheet(
+                        "border:1px solid transparent; background-color:#2a2a2a; color:#777;"
+                    )
                     lbl.setStyleSheet("color:#777;")
                 else:
                     container.setEnabled(True)
-                    container.setStyleSheet("")
+                    container.setStyleSheet("border:1px solid transparent;")
                     lbl.setStyleSheet("")
                     rows = md.days.get(day.day, [])
                     for rr, row in enumerate(rows):
