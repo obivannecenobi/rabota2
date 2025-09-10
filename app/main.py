@@ -308,8 +308,8 @@ class ReleaseDialog(QtWidgets.QDialog):
         geom = self._settings.value("ReleaseDialog/geometry")
         if geom is not None:
             self.restoreGeometry(geom)
-        sizes = [int(w) for w in (self._settings.value("ReleaseDialog/columns", type=list) or [])]
-        for i, w in enumerate(sizes):
+        sizes = self._settings.value("ReleaseDialog/columns", type=list) or []
+        for i, w in enumerate(map(int, sizes)):
             self.table.setColumnWidth(i, w)
 
         self.load()
@@ -317,7 +317,7 @@ class ReleaseDialog(QtWidgets.QDialog):
     def closeEvent(self, event):
         self.save()
         self._settings.setValue("ReleaseDialog/geometry", self.saveGeometry())
-        cols = [self.table.columnWidth(i) for i in range(self.table.columnCount())]
+        cols = [int(self.table.columnWidth(i)) for i in range(self.table.columnCount())]
         self._settings.setValue("ReleaseDialog/columns", cols)
         self._settings.sync()
         super().closeEvent(event)
@@ -538,8 +538,8 @@ class StatsDialog(QtWidgets.QDialog):
         if geom is not None:
             self.restoreGeometry(geom)
         self.load_stats(year, month)
-        sizes = [int(w) for w in (self._settings.value("StatsDialog/columns", type=list) or [])]
-        for i, w in enumerate(sizes):
+        sizes = self._settings.value("StatsDialog/columns", type=list) or []
+        for i, w in enumerate(map(int, sizes)):
             self.table_stats.setColumnWidth(i, w)
 
     def resizeEvent(self, event):
@@ -632,7 +632,7 @@ class StatsDialog(QtWidgets.QDialog):
             self.save_record()
         self._settings.setValue("StatsDialog/geometry", self.saveGeometry())
         cols = [
-            self.table_stats.columnWidth(i)
+            int(self.table_stats.columnWidth(i))
             for i in range(self.table_stats.columnCount())
         ]
         self._settings.setValue("StatsDialog/columns", cols)
@@ -726,8 +726,8 @@ class AnalyticsDialog(QtWidgets.QDialog):
         if geom is not None:
             self.restoreGeometry(geom)
         self.load(year)
-        sizes = [int(w) for w in (self._settings.value("AnalyticsDialog/columns", type=list) or [])]
-        for i, w in enumerate(sizes):
+        sizes = self._settings.value("AnalyticsDialog/columns", type=list) or []
+        for i, w in enumerate(map(int, sizes)):
             self.table.setColumnWidth(i, w)
 
     def resizeEvent(self, event):
@@ -795,7 +795,7 @@ class AnalyticsDialog(QtWidgets.QDialog):
     def closeEvent(self, event):
         self.save(accept=False)
         self._settings.setValue("AnalyticsDialog/geometry", self.saveGeometry())
-        cols = [self.table.columnWidth(i) for i in range(self.table.columnCount())]
+        cols = [int(self.table.columnWidth(i)) for i in range(self.table.columnCount())]
         self._settings.setValue("AnalyticsDialog/columns", cols)
         self._settings.sync()
         super().closeEvent(event)
@@ -999,8 +999,8 @@ class TopDialog(QtWidgets.QDialog):
         if geom is not None:
             self.restoreGeometry(geom)
         self.calculate()
-        sizes = [int(w) for w in (self._settings.value("TopDialog/columns", type=list) or [])]
-        for i, w in enumerate(sizes):
+        sizes = self._settings.value("TopDialog/columns", type=list) or []
+        for i, w in enumerate(map(int, sizes)):
             self.table.setColumnWidth(i, w)
 
     def resizeEvent(self, event):
@@ -1207,7 +1207,7 @@ class TopDialog(QtWidgets.QDialog):
     def closeEvent(self, event):
         self.save()
         self._settings.setValue("TopDialog/geometry", self.saveGeometry())
-        cols = [self.table.columnWidth(i) for i in range(self.table.columnCount())]
+        cols = [int(self.table.columnWidth(i)) for i in range(self.table.columnCount())]
         self._settings.setValue("TopDialog/columns", cols)
         self._settings.sync()
         super().closeEvent(event)
