@@ -2470,7 +2470,7 @@ class MainWindow(QtWidgets.QMainWindow):
             f"background-color:{workspace};" + self.topbar.styleSheet()
         )
         self.topbar.lbl_month.setStyleSheet(
-            f"background-color:{workspace}; border:none;"
+            "background:transparent; border:none;"
         )
         self.topbar.spin_year.setStyleSheet(
             f"background-color:{workspace}; padding:0 6px;"
@@ -2519,6 +2519,7 @@ class MainWindow(QtWidgets.QMainWindow):
             sidebar = theme_manager.apply_monochrome(QtGui.QColor(sidebar)).name()
             accent = theme_manager.apply_monochrome(accent)
         self.sidebar.apply_style(CONFIG.get("neon", False), accent, sidebar)
+        self.topbar.apply_background(workspace)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
