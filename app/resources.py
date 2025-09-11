@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import logging
+import ctypes
 from typing import Dict
 
 from PySide6 import QtGui
@@ -44,37 +45,57 @@ def register_fonts() -> None:
 
     extensions = {".ttf", ".otf", ".fon", ".ttc"}
     families: set[str] = set()
+
+    def _update_custom_font(fam: str) -> None:
+        """Persist custom font selection in global CONFIG."""  # pragma: no cover - defensive
+        try:
+            from . import main as _main
+
+            _main.CONFIG["header_font"] = fam
+            _main.CONFIG["sidebar_font"] = fam
+            with open(_main.CONFIG_PATH, "r", encoding="utf-8") as fh:
+                cfg = json.load(fh)
+            changed = False
+            if cfg.get("header_font") != fam:
+                cfg["header_font"] = fam
+                changed = True
+            if cfg.get("sidebar_font") != fam:
+                cfg["sidebar_font"] = fam
+                changed = True
+            if changed:
+                with open(_main.CONFIG_PATH, "w", encoding="utf-8") as fh:
+                    json.dump(cfg, fh, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
     for root, _dirs, files in os.walk(FONTS_DIR):
         for name in files:
-            if os.path.splitext(name)[1].lower() not in extensions:
+            ext = os.path.splitext(name)[1].lower()
+            if ext not in extensions:
                 continue
             path = os.path.join(root, name)
-            fid = QtGui.QFontDatabase.addApplicationFont(path)
-            if fid == -1:
-                logger.error("Failed to load font '%s'", path)
-                continue
-            fams = QtGui.QFontDatabase.applicationFontFamilies(fid)
-            families.update(fams)
-            if name == "Cattedrale[RUSbypenka220]-Regular.ttf" and fams:
-                try:  # deferred import to avoid circular dependency
-                    from . import main as _main
+            old_fams = set(QtGui.QFontDatabase.families())
+            new_fams: set[str] = set()
+            fid = QtGui.QFontDatabase.addApplicationFont(path) if ext != ".fon" else -1
 
-                    _main.CONFIG["header_font"] = fams[0]
-                    _main.CONFIG["sidebar_font"] = fams[0]
-                    with open(_main.CONFIG_PATH, "r", encoding="utf-8") as fh:
-                        cfg = json.load(fh)
-                    changed = False
-                    if cfg.get("header_font") != fams[0]:
-                        cfg["header_font"] = fams[0]
-                        changed = True
-                    if cfg.get("sidebar_font") != fams[0]:
-                        cfg["sidebar_font"] = fams[0]
-                        changed = True
-                    if changed:
-                        with open(_main.CONFIG_PATH, "w", encoding="utf-8") as fh:
-                            json.dump(cfg, fh, ensure_ascii=False, indent=2)
-                except Exception:  # pragma: no cover - extremely defensive
-                    pass
+            if ext == ".fon" or fid == -1:
+                if os.name == "nt":
+                    try:
+                        ctypes.windll.gdi32.AddFontResourceExW(path, 0x10, 0)
+                        ctypes.windll.user32.SendMessageW(0xFFFF, 0x1D, 0, 0)
+                        new_fams = set(QtGui.QFontDatabase.families()) - old_fams
+                    except Exception:  # pragma: no cover - extremely defensive
+                        logger.error("Failed to load font '%s'", path)
+                        continue
+                else:
+                    logger.error("Failed to load font '%s'", path)
+                    continue
+            else:
+                new_fams = set(QtGui.QFontDatabase.applicationFontFamilies(fid))
+
+            families.update(new_fams)
+            if name.startswith("Cattedrale[RUSbypenka220]-Regular") and new_fams:
+                _update_custom_font(next(iter(new_fams)))
 
     if "Exo 2" not in families:
         logger.error("Font 'Exo 2' not registered")
