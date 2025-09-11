@@ -14,47 +14,28 @@ resources.register_fonts = lambda: None
 import app.main as main
 
 
-class DummyTable:
-    def __init__(self):
-        self.applied = False
-
-    def apply_theme(self):
-        self.applied = True
-
-
-class DummyTopBar(QtWidgets.QWidget):
-    def __init__(self):
-        super().__init__()
-        self.color = None
-
-    def apply_background(self, color):
-        self.color = QtGui.QColor(color)
-
-
-class DummyParent(QtWidgets.QWidget):
-    def __init__(self):
-        super().__init__()
-        self.table = DummyTable()
-        self.topbar = DummyTopBar()
-
-
-def test_workspace_color_updates_immediately(tmp_path, monkeypatch):
+def test_workspace_color_updates_bars_and_persists(tmp_path, monkeypatch):
     main.CONFIG["workspace_color"] = "#111111"
     main.CONFIG_PATH = str(tmp_path / "config.json")
     with open(main.CONFIG_PATH, "w", encoding="utf-8") as f:
         json.dump(main.CONFIG, f)
 
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
-    parent = DummyParent()
-    dlg = main.SettingsDialog(parent)
+    window = main.MainWindow()
+    window.apply_settings()
+    dlg = main.SettingsDialog(window)
 
     new_color = QtGui.QColor("#222222")
     monkeypatch.setattr(QtWidgets.QColorDialog, "getColor", lambda *a, **k: new_color)
 
     dlg.choose_workspace_color()
 
-    assert parent.table.applied
-    assert parent.topbar.color.name() == new_color.name()
+    assert window.topbar.palette().color(QtGui.QPalette.Window).name() == new_color.name()
+    assert f"background-color:{new_color.name()}" in window.statusBar().styleSheet()
 
     dlg.close()
+    assert window.topbar.palette().color(QtGui.QPalette.Window).name() == new_color.name()
+    assert f"background-color:{new_color.name()}" in window.statusBar().styleSheet()
+
+    window.close()
     app.quit()
