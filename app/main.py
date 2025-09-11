@@ -1611,23 +1611,31 @@ class CollapsibleSidebar(QtWidgets.QFrame):
 
     def toggle(self): self.set_collapsed(not self._collapsed)
 
-    def apply_style(self, neon: bool, accent: QtGui.QColor, sidebar_color: Union[str, QtGui.QColor, None] = None):
-        thickness = CONFIG.get("neon_thickness", 1)
+    def apply_style(
+        self,
+        neon: bool,
+        accent: QtGui.QColor,
+        sidebar_color: Union[str, QtGui.QColor, None] = None,
+    ):
         size = CONFIG.get("neon_size", 10)
         intensity = CONFIG.get("neon_intensity", 255)
         if sidebar_color is None:
             sidebar_color = CONFIG.get("sidebar_color", "#1f1f23")
         if isinstance(sidebar_color, QtGui.QColor):
             sidebar_color = sidebar_color.name()
+
+        label_color = accent.name() if neon else "#c7c7c7"
+        style = (
+            f"#Sidebar {{ background-color: {sidebar_color}; }}\n"
+            f"QLabel {{ color: {label_color}; }}\n"
+        )
+        self.setStyleSheet(style)
+
+        widgets = [self.btn_toggle] + self.buttons + [self.btn_settings]
+        for w in widgets:
+            w.apply_base_style()
+
         if neon:
-            style = (
-                f"#Sidebar {{ background-color: {sidebar_color}; }}"
-                f"QToolButton, QPushButton {{ color: {accent.name()}; border:{thickness}px solid {accent.name()}; padding: 10px; border-radius: 8px; }}"
-                "QToolButton:hover, QPushButton:hover { background-color: rgba(255,255,255,0.08); }"
-                f"QLabel {{ color: {accent.name()}; }}"
-            )
-            self.setStyleSheet(style)
-            widgets = [self.btn_toggle] + self.buttons + [self.btn_settings]
             for w in widgets:
                 eff = QtWidgets.QGraphicsDropShadowEffect(self)
                 eff.setOffset(0, 0)
@@ -1637,14 +1645,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
                 eff.setColor(c)
                 w.setGraphicsEffect(eff)
         else:
-            style = (
-                f"#Sidebar {{ background-color: {sidebar_color}; }}\n"
-                "QToolButton, QPushButton { color: white; border: none; padding: 10px; border-radius: 8px; }\n"
-                "QToolButton:hover, QPushButton:hover { background-color: rgba(255,255,255,0.08); }\n"
-                "QLabel { color: #c7c7c7; }\n"
-            )
-            self.setStyleSheet(style)
-            for w in [self.btn_toggle] + self.buttons + [self.btn_settings]:
+            for w in widgets:
                 if hasattr(w, "_neon_anim") and w._neon_anim:
                     w._neon_anim.stop()
                     w._neon_anim = None
