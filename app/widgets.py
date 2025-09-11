@@ -34,7 +34,9 @@ class ButtonStyleMixin:
 
     def apply_base_style(self) -> None:
         """Apply the base style and enable hover tracking."""
-        self.setStyleSheet(self._base_style())
+        style = self._base_style()
+        self.setStyleSheet(style)
+        self._neon_prev_style = style
         self.setCursor(QtCore.Qt.PointingHandCursor)
         self.setAttribute(QtCore.Qt.WA_Hover, True)
 
