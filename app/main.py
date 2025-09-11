@@ -2160,7 +2160,7 @@ class TopBar(QtWidgets.QWidget):
         self.lbl_month.setPalette(pal)
         self.lbl_month.setStyleSheet("background:transparent; border:none;")
         self.spin_year.setStyleSheet(
-            f"background-color:{qcolor.name()}; padding:0 6px; border:1px solid transparent; border-radius:0;"
+            f"background-color:{qcolor.name()}; padding:0 6px; border:1px solid transparent; border-radius:6px;"
         )
         self.apply_fonts()
 
@@ -2500,7 +2500,7 @@ class MainWindow(QtWidgets.QMainWindow):
             "background:transparent; border:none;"
         )
         self.topbar.spin_year.setStyleSheet(
-            f"background-color:{workspace.name()}; padding:0 6px; border:1px solid transparent; border-radius:0;"
+            f"background-color:{workspace.name()}; padding:0 6px; border:1px solid transparent; border-radius:6px;"
         )
         theme = CONFIG.get("theme", "dark")
         self.setStyleSheet(
@@ -2546,6 +2546,7 @@ class MainWindow(QtWidgets.QMainWindow):
             sidebar = theme_manager.apply_monochrome(QtGui.QColor(sidebar)).name()
             accent = theme_manager.apply_monochrome(accent)
         self.sidebar.apply_style(CONFIG.get("neon", False), accent, sidebar)
+        # Reapply topbar background so spin box picks up workspace color
         self.topbar.apply_background(workspace)
 
     def resizeEvent(self, event):
