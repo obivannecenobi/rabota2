@@ -2368,12 +2368,12 @@ class MainWindow(QtWidgets.QMainWindow):
         theme_manager.set_header_font(header_family)
         app = QtWidgets.QApplication.instance()
         for w in app.allWidgets():
-            if w is self.topbar.lbl_month:
-                continue
             if w is self.sidebar or self.sidebar.isAncestorOf(w):
                 continue
             w.setFont(app.font())
+        self.sidebar.apply_fonts()
         header_font = QtGui.QFont(header_family)
+        self.topbar.lbl_month.setFont(header_font)
         self.table.setFont(app.font())
         self.table.horizontalHeader().setFont(header_font)
         for tbl in self.table.cell_tables.values():
@@ -2384,7 +2384,6 @@ class MainWindow(QtWidgets.QMainWindow):
         # Ensure weekday headers and day labels adopt the selected font
         # after direct font assignments above.
         self.table.apply_fonts()
-        self.sidebar.apply_fonts()
         self.table.update_day_rows()
         for dlg in app.topLevelWidgets():
             if isinstance(dlg, QtWidgets.QDialog):
