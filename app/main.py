@@ -1457,6 +1457,11 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
             CONFIG.get("header_font", CONFIG.get("font_family", "Exo 2"))
         )
         self.horizontalHeader().setFont(header_font)
+        # Ensure weekday header items on the main calendar adopt the font
+        for i in range(self.columnCount()):
+            item = self.horizontalHeaderItem(i)
+            if item:
+                item.setFont(header_font)
         for tbl in self.cell_tables.values():
             tbl.horizontalHeader().setFont(header_font)
             # Ensure individual header items also adopt the selected font
@@ -1979,9 +1984,10 @@ class SettingsDialog(QtWidgets.QDialog):
         theme_manager.set_text_font(self.font_text.currentFont().family())
         theme_manager.set_header_font(self.font_header.currentFont().family())
         parent = self.parent()
-        if parent:
+        if parent and hasattr(parent, "table"):
             parent.table.apply_fonts()
-            parent.topbar.update_labels()
+            if hasattr(parent, "topbar"):
+                parent.topbar.update_labels()
         super().accept()
 
     def _on_accent_changed(self, idx):
@@ -2369,6 +2375,9 @@ class MainWindow(QtWidgets.QMainWindow):
             tbl.horizontalHeader().setFont(header_font)
         for lbl in self.table.day_labels.values():
             lbl.setFont(header_font)
+        # Ensure weekday headers and day labels adopt the selected font
+        # after direct font assignments above.
+        self.table.apply_fonts()
         self.sidebar.apply_fonts()
         self.table.update_day_rows()
         for dlg in app.topLevelWidgets():
