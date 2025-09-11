@@ -2071,6 +2071,9 @@ class SettingsDialog(QtWidgets.QDialog):
                 self._grad_color2 = color
             self._update_grad_buttons()
             self._save_config()
+            parent = self.parent()
+            if parent is not None and hasattr(parent, "apply_settings"):
+                parent.apply_settings()
 
 
 class TopBar(QtWidgets.QWidget):
@@ -2354,6 +2357,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def _on_settings_changed(self):
         global CONFIG, BASE_SAVE_PATH
         CONFIG = load_config()
+        if not isinstance(CONFIG.get("gradient_colors"), list):
+            CONFIG["gradient_colors"] = ["#39ff14", "#2d7cdb"]
         BASE_SAVE_PATH = os.path.abspath(CONFIG.get("save_path", DATA_DIR))
         self.apply_settings()
 
@@ -2416,7 +2421,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.topbar.apply_style(CONFIG.get("neon", False))
         self.sidebar.apply_style(CONFIG.get("neon", False), accent, sidebar_color)
         self.sidebar.anim.setDuration(160)
-        self.apply_theme()
         update_neon_filters(self)
         self.topbar.apply_background(workspace)
         self.topbar.update_labels()
@@ -2424,6 +2428,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def apply_settings(self):
         self.apply_fonts()
         self.apply_palette()
+        self.apply_theme()
 
 
 
