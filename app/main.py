@@ -2156,7 +2156,7 @@ class TopBar(QtWidgets.QWidget):
         self.lbl_month.setPalette(pal)
         self.lbl_month.setStyleSheet("background:transparent; border:none;")
         self.spin_year.setStyleSheet(
-            f"background-color:{qcolor.name()}; padding:0 6px;"
+            f"background-color:{qcolor.name()}; padding:0 6px; border:1px solid transparent; border-radius:0;"
         )
         self.apply_fonts()
 
@@ -2495,7 +2495,7 @@ class MainWindow(QtWidgets.QMainWindow):
             "background:transparent; border:none;"
         )
         self.topbar.spin_year.setStyleSheet(
-            f"background-color:{workspace.name()}; padding:0 6px;"
+            f"background-color:{workspace.name()}; padding:0 6px; border:1px solid transparent; border-radius:0;"
         )
         theme = CONFIG.get("theme", "dark")
         self.setStyleSheet(
