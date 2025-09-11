@@ -1648,6 +1648,9 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         widgets = [self.btn_toggle] + self.buttons + [self.btn_settings]
         for w in widgets:
             w.apply_base_style()
+            apply_neon_effect(
+                w, w.property("neon_selected") and neon_enabled()
+            )
 
         if neon:
             for w in widgets:
@@ -2442,6 +2445,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.apply_fonts()
         self.apply_palette()
         self.apply_theme()
+        accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
+        sidebar_color = CONFIG.get("sidebar_color", "#1f1f23")
+        self.sidebar.apply_style(
+            CONFIG.get("neon", False), accent, sidebar_color
+        )
 
 
 
