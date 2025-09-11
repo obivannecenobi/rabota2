@@ -45,7 +45,8 @@ def test_header_font_persists_after_month_change(tmp_path):
     window = main.MainWindow()
     dlg = main.SettingsDialog(window)
     dlg.font_header.setCurrentFont(QtGui.QFont("DejaVu Serif"))
-    dlg.close()
+    # Save changes and close the dialog
+    dlg.accept()
 
     window.next_month()
     lbl = next(iter(window.table.day_labels.values()))
@@ -57,6 +58,13 @@ def test_header_font_persists_after_month_change(tmp_path):
     tbl = next(iter(window.table.cell_tables.values()))
     for i in range(tbl.columnCount()):
         item = tbl.horizontalHeaderItem(i)
+        assert item.font().family() == "DejaVu Serif"
+
+    # Weekday header labels on the main table should also use the chosen font
+    header = window.table.horizontalHeader()
+    assert header.font().family() == "DejaVu Serif"
+    for i in range(header.count()):
+        item = window.table.horizontalHeaderItem(i)
         assert item.font().family() == "DejaVu Serif"
 
     window.close()
