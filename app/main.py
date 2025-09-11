@@ -1221,6 +1221,7 @@ class NeonTableWidget(QtWidgets.QTableWidget):
         self.setAttribute(QtCore.Qt.WA_Hover, True)
         self.viewport().setAttribute(QtCore.Qt.WA_Hover, True)
         self._neon_filter = None
+        self._active_editor: QtWidgets.QLineEdit | None = None
         if use_neon and neon_enabled():
             self._neon_filter = NeonEventFilter(self)
             self.installEventFilter(self._neon_filter)
@@ -1249,7 +1250,19 @@ class NeonTableWidget(QtWidgets.QTableWidget):
                 editor.installEventFilter(filt)
                 editor._neon_filter = filt
                 apply_neon_effect(editor, True)
+                if self._active_editor is not None and self._active_editor is not editor:
+                    self._active_editor.removeEventFilter(self)
+                    apply_neon_effect(self._active_editor, False)
+                self._active_editor = editor
+                editor.installEventFilter(self)
         return res
+
+    def eventFilter(self, obj, event):  # noqa: D401 - Qt event filter signature
+        if obj is self._active_editor and event.type() == QtCore.QEvent.FocusOut:
+            apply_neon_effect(self._active_editor, False)
+            obj.removeEventFilter(self)
+            self._active_editor = None
+        return super().eventFilter(obj, event)
 
 class ExcelCalendarTable(QtWidgets.QTableWidget):
     """Таблица календаря месяца с вложенными таблицами по дням."""
@@ -1396,7 +1409,8 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                 lay = QtWidgets.QVBoxLayout(container)
                 lay.setContentsMargins(0, 0, 0, 0)
                 lay.setSpacing(2)
-                container.setStyleSheet("border:1px solid transparent;")
+                base_style = "border:1px solid transparent;"
+                container.setStyleSheet(base_style)
                 lbl = QtWidgets.QLabel(str(day.day), container)
                 lbl.setFont(
                     QtGui.QFont(
@@ -1433,18 +1447,18 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                 if day.month != month:
                     container.setEnabled(False)
                     container.setStyleSheet(
-                        "border:1px solid transparent; background-color:#2a2a2a; color:#777;"
+                        base_style + "background-color:#2a2a2a; color:#777;"
                     )
                     lbl.setStyleSheet("color:#777;")
                 else:
                     container.setEnabled(True)
-                    container.setStyleSheet("border:1px solid transparent;")
+                    container.setStyleSheet(base_style)
                     lbl.setStyleSheet("")
-                    rows = md.days.get(day.day, [])
-                    for rr, row in enumerate(rows):
-                        if rr >= inner.rowCount():
-                            break
-                        for cc, key in enumerate(["work", "plan", "done"]):
+                rows = md.days.get(day.day, [])
+                for rr, row in enumerate(rows):
+                    if rr >= inner.rowCount():
+                        break
+                    for cc, key in enumerate(["work", "plan", "done"]):
                             item = QtWidgets.QTableWidgetItem(str(row.get(key, "")))
                             inner.setItem(rr, cc, item)
         self._update_row_heights()
