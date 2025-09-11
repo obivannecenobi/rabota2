@@ -2385,6 +2385,9 @@ class MainWindow(QtWidgets.QMainWindow):
         workspace = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21"))
         if CONFIG.get("monochrome", False):
             workspace = theme_manager.apply_monochrome(workspace)
+        self.statusBar().setStyleSheet(
+            f"background-color:{workspace.name()};"
+        )
         self.topbar.apply_background(workspace)
         self.table.horizontalHeader().setStyleSheet(
             f"background-color:{workspace.name()};"
@@ -2405,7 +2408,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sidebar.anim.setDuration(160)
         self.apply_theme()
         update_neon_filters(self)
-        self.topbar.update_background(workspace)
+        self.topbar.apply_background(workspace)
         self.topbar.update_labels()
 
     def apply_settings(self):
@@ -2469,17 +2472,21 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             app.setPalette(app.style().standardPalette())
         base, workspace = theme_manager.apply_gradient(CONFIG)
+        workspace = QtGui.QColor(workspace)
+        self.statusBar().setStyleSheet(
+            f"background-color:{workspace.name()};"
+        )
         flat_cfg = CONFIG.copy()
         flat_cfg.pop("gradient_colors", None)
         flat_base, _ = theme_manager.apply_gradient(flat_cfg)
         self.topbar.setStyleSheet(
-            f"background-color:{workspace};" + self.topbar.styleSheet()
+            f"background-color:{workspace.name()};" + self.topbar.styleSheet()
         )
         self.topbar.lbl_month.setStyleSheet(
             "background:transparent; border:none;"
         )
         self.topbar.spin_year.setStyleSheet(
-            f"background-color:{workspace}; padding:0 6px;"
+            f"background-color:{workspace.name()}; padding:0 6px;"
         )
         theme = CONFIG.get("theme", "dark")
         self.setStyleSheet(
