@@ -305,7 +305,7 @@ class ReleaseDialog(QtWidgets.QDialog):
             b.setFixedSize(b.sizeHint())
 
         self._settings = QtCore.QSettings("rabota2", "rabota2")
-        geom = self._settings.value("ReleaseDialog/geometry")
+        geom = self._settings.value("ReleaseDialog/geometry", type=QtCore.QByteArray)
         if geom is not None:
             self.restoreGeometry(geom)
         sizes = self._settings.value("ReleaseDialog/columns", type=list) or []
@@ -534,7 +534,7 @@ class StatsDialog(QtWidgets.QDialog):
         self.year = year
         self.month = month
         self._settings = QtCore.QSettings("rabota2", "rabota2")
-        geom = self._settings.value("StatsDialog/geometry")
+        geom = self._settings.value("StatsDialog/geometry", type=QtCore.QByteArray)
         if geom is not None:
             self.restoreGeometry(geom)
         self.load_stats(year, month)
@@ -722,7 +722,7 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self._software = {str(m): 0.0 for m in range(1, 13)}
         self._net = {str(m): 0.0 for m in range(1, 13)}
         self._settings = QtCore.QSettings("rabota2", "rabota2")
-        geom = self._settings.value("AnalyticsDialog/geometry")
+        geom = self._settings.value("AnalyticsDialog/geometry", type=QtCore.QByteArray)
         if geom is not None:
             self.restoreGeometry(geom)
         self.load(year)
@@ -995,7 +995,7 @@ class TopDialog(QtWidgets.QDialog):
             b.setFixedSize(b.sizeHint())
 
         self._settings = QtCore.QSettings("rabota2", "rabota2")
-        geom = self._settings.value("TopDialog/geometry")
+        geom = self._settings.value("TopDialog/geometry", type=QtCore.QByteArray)
         if geom is not None:
             self.restoreGeometry(geom)
         self.calculate()
