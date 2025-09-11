@@ -43,20 +43,16 @@ class ButtonStyleMixin:
         return self.palette().color(QtGui.QPalette.Highlight).name()
 
     def _hover_style(self) -> str:
-        try:
-            from . import main  # type: ignore
-
-            thickness = main.CONFIG.get("neon_thickness", 1)
-        except Exception:  # pragma: no cover
-            thickness = 1
         return (
-            "background-color: rgba(255,255,255,0.08); "
-            f"border:{thickness}px solid {self._accent_color()}; "
+            f"border-color:{self._accent_color()}; "
             f"color:{self._accent_color()};"
         )
 
     def _apply_hover(self, on: bool) -> None:
-        self.setStyleSheet(self._base_style() + (self._hover_style() if on else ""))
+        if on:
+            self.setStyleSheet(self._base_style() + self._hover_style())
+        else:
+            self.setStyleSheet(self._base_style())
 
     # --- events ------------------------------------------------------
     def enterEvent(self, event):  # noqa: D401
