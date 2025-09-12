@@ -2211,11 +2211,6 @@ class TopBar(QtWidgets.QWidget):
             self.setStyleSheet(style)
             self.apply_background(self.palette().color(QtGui.QPalette.Window))
             apply_neon_effect(self.lbl_month, True)
-            for w in (self.btn_prev, self.btn_next):
-                if hasattr(w, "_neon_anim") and w._neon_anim:
-                    w._neon_anim.stop()
-                    w._neon_anim = None
-                w.setGraphicsEffect(None)
         else:
             if CONFIG.get("theme", "dark") == "dark":
                 style = self.default_style
@@ -2227,12 +2222,10 @@ class TopBar(QtWidgets.QWidget):
             self.setStyleSheet(style)
             self.apply_background(self.palette().color(QtGui.QPalette.Window))
             apply_neon_effect(self.lbl_month, False)
-            for w in (self.btn_prev, self.btn_next):
-                if hasattr(w, "_neon_anim") and w._neon_anim:
-                    w._neon_anim.stop()
-                    w._neon_anim = None
-                w.setGraphicsEffect(None)
+        apply_neon_effect(self.btn_prev, neon)
+        apply_neon_effect(self.btn_next, neon)
         self.apply_fonts()
+        update_neon_filters(self)
 
 
 class MainWindow(QtWidgets.QMainWindow):
