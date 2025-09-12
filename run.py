@@ -35,13 +35,9 @@ def main() -> int:
 
     result = subprocess.run(
         [str(PYTHON), '-X', 'faulthandler', str(ROOT / 'app' / 'main.py')],
-        stderr=subprocess.PIPE,
-        text=True,
         check=False,
     )
     if result.returncode != 0:
-        if result.stderr:
-            print(result.stderr, file=sys.stderr, end="")
         print(
             f"Application failed with exit code {result.returncode}",
             file=sys.stderr,
