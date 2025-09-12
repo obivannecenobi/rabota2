@@ -6,6 +6,7 @@ import os
 import logging
 import ctypes
 import tkinter as tk
+from tkinter import font as tkfont
 from typing import Dict
 
 import customtkinter as ctk
@@ -28,9 +29,14 @@ def register_cattedrale(font_path: str) -> str:
 
     root = tk.Tk()
     root.withdraw()
-    ctk_font = ctk.CTkFont(file=font_path)
-    family = ctk_font.cget("family")
-    root.destroy()
+    try:
+        before = set(tkfont.families(root))
+        ctk.FontManager.load_font(font_path)
+        after = set(tkfont.families(root))
+        new_fams = after - before
+        family = next(iter(new_fams), os.path.splitext(os.path.basename(font_path))[0])
+    finally:
+        root.destroy()
     return family
 
 
