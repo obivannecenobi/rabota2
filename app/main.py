@@ -1606,7 +1606,9 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         for b in self.buttons:
             selected = b is btn
             b.setProperty("neon_selected", selected)
+            b.apply_base_style()
             b._apply_hover(selected)
+            b._neon_prev_style = b.styleSheet()
             apply_neon_effect(b, selected and neon_enabled())
 
     def set_collapsed(self, collapsed: bool):
@@ -2333,11 +2335,15 @@ class MainWindow(QtWidgets.QMainWindow):
         dlg = StatsDialog(self.table.year, self.table.month, self)
         dlg.exec()
         self.sidebar.activate_button(None)
+        for b in self.sidebar.buttons:
+            apply_neon_effect(b, False)
 
     def open_analytics_dialog(self):
         dlg = AnalyticsDialog(self.table.year, self)
         dlg.exec()
         self.sidebar.activate_button(None)
+        for b in self.sidebar.buttons:
+            apply_neon_effect(b, False)
 
     def _collect_work_names(self) -> List[str]:
         names = set()
@@ -2360,16 +2366,23 @@ class MainWindow(QtWidgets.QMainWindow):
         dlg = ReleaseDialog(self.table.year, self.table.month, works, self)
         dlg.exec()
         self.sidebar.activate_button(None)
+        for b in self.sidebar.buttons:
+            apply_neon_effect(b, False)
 
     def open_top_dialog(self):
         dlg = TopDialog(self.table.year, self)
         dlg.exec()
         self.sidebar.activate_button(None)
+        for b in self.sidebar.buttons:
+            apply_neon_effect(b, False)
 
     def open_settings_dialog(self):
         dlg = SettingsDialog(self)
         dlg.settings_changed.connect(self._on_settings_changed)
         dlg.exec()
+        self.sidebar.activate_button(None)
+        for b in self.sidebar.buttons:
+            apply_neon_effect(b, False)
 
     def _on_settings_changed(self):
         global CONFIG, BASE_SAVE_PATH
