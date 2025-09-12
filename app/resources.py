@@ -39,23 +39,29 @@ def register_cattedrale(font_path: str) -> str:
             "Skipping custom font registration for '%s': tkinter or customtkinter not available",
             font_path,
         )
-        return os.path.splitext(os.path.basename(font_path))[0]
+        return "Exo 2"
 
-    if os.name == "nt":
-        ctypes.windll.gdi32.AddFontResourceExW(font_path, 0x10, 0)
-        ctypes.windll.user32.SendMessageW(0xFFFF, 0x1D, 0, 0)
-
-    root = tk.Tk()
-    root.withdraw()
+    root = None
     try:
+        if os.name == "nt":
+            ctypes.windll.gdi32.AddFontResourceExW(font_path, 0x10, 0)
+            ctypes.windll.user32.SendMessageW(0xFFFF, 0x1D, 0, 0)
+
+        root = tk.Tk()
+        root.withdraw()
+
         before = set(tkfont.families(root))
         ctk.FontManager.load_font(font_path)
         after = set(tkfont.families(root))
         new_fams = after - before
         family = next(iter(new_fams), os.path.splitext(os.path.basename(font_path))[0])
+        return family
+    except Exception:
+        logger.exception("Failed to register font '%s'", font_path)
+        return "Exo 2"
     finally:
-        root.destroy()
-    return family
+        if root is not None:
+            root.destroy()
 
 
 def register_fonts() -> None:

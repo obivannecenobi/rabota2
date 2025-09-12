@@ -2618,8 +2618,8 @@ def main():
 if __name__ == "__main__":
     QtCore.QLocale.setDefault(QtCore.QLocale("ru_RU"))
     app = QtWidgets.QApplication(sys.argv)
-    register_fonts()
     try:
+        register_fonts()
         window = main()
         exit_code = app.exec()
         sys.exit(exit_code)
