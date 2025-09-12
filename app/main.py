@@ -1532,12 +1532,12 @@ class CollapsibleSidebar(QtWidgets.QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("Sidebar")
-        self.setStyleSheet("""
+        self.setStyleSheet(
+            """
             #Sidebar { background-color: #1f1f23; }
-            QToolButton { color: white; border: none; padding: 10px; border-radius: 8px; }
-            QToolButton:hover { background-color: rgba(255,255,255,0.08); }
             QLabel { color: #c7c7c7; }
-        """)
+            """
+        )
         self.expanded_width=260; self.collapsed_width=64
         lay=QtWidgets.QVBoxLayout(self); lay.setContentsMargins(8,8,8,8); lay.setSpacing(6)
 
@@ -2461,8 +2461,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sidebar.apply_style(
             CONFIG.get("neon", False), accent, sidebar_color
         )
-
-
+        app = QtWidgets.QApplication.instance()
+        neon = CONFIG.get("neon", False)
+        for w in app.allWidgets():
+            if isinstance(w, StyledToolButton):
+                w.apply_base_style()
+                selected = w.property("neon_selected")
+                on = neon if selected is None else bool(selected) and neon
+                apply_neon_effect(w, on)
 
 
 
