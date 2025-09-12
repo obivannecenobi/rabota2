@@ -33,7 +33,7 @@ def test_year_spinbox_border_persists(tmp_path):
 
     style = window.topbar.spin_year.styleSheet().replace(" ", "")
     assert "border-radius:6px" in style
-    assert "border:1pxsolidtransparent" in style
+    assert "border:1pxsolidrgba(255,255,255,0.2)" in style
 
     window.close()
     app.quit()

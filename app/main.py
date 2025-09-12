@@ -2178,10 +2178,10 @@ class TopBar(QtWidgets.QWidget):
         self.lbl_month.setAutoFillBackground(False)
         self.lbl_month.setPalette(pal)
         self.lbl_month.setStyleSheet("background:transparent; border:none;")
-        # Ensure rounded spin box with transparent border regardless of palette
+        # Ensure rounded spin box with a semi-transparent border for contrast
         self.spin_year.setStyleSheet(
             f"background-color:{qcolor.name()}; padding:0 6px;"
-            " border-radius:6px; border:1px solid transparent;"
+            " border-radius:6px; border:1px solid rgba(255,255,255,0.2);"
         )
         self.apply_fonts()
 
@@ -2448,12 +2448,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sidebar.apply_style(CONFIG.get("neon", False), accent, sidebar_color)
         self.sidebar.anim.setDuration(160)
         update_neon_filters(self)
+        # Reapply background so the spin box border matches the current theme
         self.topbar.apply_background(workspace)
-        # explicitly reapply style so QSpinBox keeps rounded transparent border
-        self.topbar.spin_year.setStyleSheet(
-            f"background-color:{workspace.name()}; padding:0 6px;"
-            " border-radius:6px; border:1px solid transparent;"
-        )
         self.topbar.update_labels()
 
     def apply_settings(self):
