@@ -41,6 +41,13 @@ def register_cattedrale(font_path: str) -> str:
         )
         return "Exo 2"
 
+    if not os.environ.get("DISPLAY"):
+        logger.warning(
+            "Skipping custom font registration for '%s': DISPLAY environment variable not set",
+            font_path,
+        )
+        return "Exo 2"
+
     root = None
     try:
         if os.name == "nt":
