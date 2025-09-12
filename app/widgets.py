@@ -25,7 +25,8 @@ class ButtonStyleMixin:
         x2 = 0.5 + 0.5 * math.cos(rad)
         y2 = 0.5 + 0.5 * math.sin(rad)
         return (
-            "border-radius:16px; padding:8px 12px; "
+            "border-radius:16px; "
+            "padding-top:8px; padding-bottom:8px; padding-left:12px; padding-right:12px; "
             f"border:{thickness}px solid transparent; min-width:24px; min-height:24px; "
             "color:white; "
             f"background: qlineargradient(x1:0,y1:0,x2:{x2:.2f},y2:{y2:.2f}, "
