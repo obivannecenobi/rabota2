@@ -5,15 +5,26 @@ from __future__ import annotations
 import os
 import logging
 import ctypes
-import tkinter as tk
-from tkinter import font as tkfont
 from typing import Dict
 
-import customtkinter as ctk
+logger = logging.getLogger(__name__)
+
+try:  # pragma: no cover - optional dependency
+    import tkinter as tk
+    from tkinter import font as tkfont
+except Exception as exc:  # pragma: no cover - extremely defensive
+    tk = None  # type: ignore[assignment]
+    tkfont = None  # type: ignore[assignment]
+    logger.error("Failed to import tkinter: %s", exc)
+
+try:  # pragma: no cover - optional dependency
+    import customtkinter as ctk
+except Exception as exc:  # pragma: no cover - extremely defensive
+    ctk = None  # type: ignore[assignment]
+    logger.error("Failed to import customtkinter: %s", exc)
+
 from PySide6 import QtGui
 from PySide6.QtGui import QIcon, QFont, QGuiApplication
-
-logger = logging.getLogger(__name__)
 
 ASSETS_DIR = os.path.join(os.path.dirname(__file__), "..", "assets")
 FONTS_DIR = os.path.join(ASSETS_DIR, "fonts")
@@ -23,6 +34,13 @@ ICONS: Dict[str, QIcon] = {}
 
 
 def register_cattedrale(font_path: str) -> str:
+    if tk is None or ctk is None or tkfont is None:
+        logger.error(
+            "Skipping custom font registration for '%s': tkinter or customtkinter not available",
+            font_path,
+        )
+        return os.path.splitext(os.path.basename(font_path))[0]
+
     if os.name == "nt":
         ctypes.windll.gdi32.AddFontResourceExW(font_path, 0x10, 0)
         ctypes.windll.user32.SendMessageW(0xFFFF, 0x1D, 0, 0)
@@ -67,8 +85,13 @@ def register_fonts() -> None:
     families: set[str] = set()
 
     font_path = os.path.join(FONTS_DIR, "Cattedrale[RUSbypenka220]-Regular.ttf")
-    fam = register_cattedrale(font_path)
-    families.add(fam)
+    if tk is not None and ctk is not None and tkfont is not None:
+        fam = register_cattedrale(font_path)
+        families.add(fam)
+    else:
+        logger.error(
+            "Skipping custom font registration; tkinter or customtkinter not available"
+        )
 
     for root, _dirs, files in os.walk(FONTS_DIR):
         for name in files:
