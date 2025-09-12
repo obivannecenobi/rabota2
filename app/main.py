@@ -1249,7 +1249,7 @@ class NeonTableWidget(QtWidgets.QTableWidget):
                 filt = NeonEventFilter(editor)
                 editor.installEventFilter(filt)
                 editor._neon_filter = filt
-                apply_neon_effect(editor, True)
+                apply_neon_effect(editor, True, shadow=False)
                 if self._active_editor is not None and self._active_editor is not editor:
                     self._active_editor.removeEventFilter(self)
                     apply_neon_effect(self._active_editor, False)
@@ -1259,7 +1259,7 @@ class NeonTableWidget(QtWidgets.QTableWidget):
 
     def eventFilter(self, obj, event):  # noqa: D401 - Qt event filter signature
         if obj is self._active_editor and event.type() == QtCore.QEvent.FocusOut:
-            apply_neon_effect(self._active_editor, False)
+            apply_neon_effect(obj, False)
             obj.removeEventFilter(self)
             self._active_editor = None
         return super().eventFilter(obj, event)
@@ -1403,13 +1403,13 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         self.cell_containers.clear()
         self.cell_filters.clear()
         self.setRowCount(len(weeks))
+        base_style = "border:1px solid transparent;"
         for r, week in enumerate(weeks):
             for c, day in enumerate(week):
                 container = QtWidgets.QWidget()
                 lay = QtWidgets.QVBoxLayout(container)
                 lay.setContentsMargins(0, 0, 0, 0)
                 lay.setSpacing(2)
-                base_style = "border:1px solid transparent;"
                 container.setStyleSheet(base_style)
                 lbl = QtWidgets.QLabel(str(day.day), container)
                 lbl.setFont(

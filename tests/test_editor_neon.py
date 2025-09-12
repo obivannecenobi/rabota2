@@ -5,7 +5,7 @@ from pathlib import Path
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "app"))
 
-from PySide6 import QtWidgets, QtCore, QtTest
+from PySide6 import QtWidgets, QtCore, QtTest, QtGui
 import shiboken6
 
 import resources
@@ -30,13 +30,15 @@ def test_editor_neon_clears():
 
     editor = table.findChild(QtWidgets.QLineEdit)
     assert editor is not None
-    assert editor.graphicsEffect() is not None
+    color = editor.palette().color(QtGui.QPalette.Highlight).name()
+    assert f"border-color:{color}" in editor.styleSheet().replace(" ", "")
 
     table.setFocus()
     QtWidgets.QApplication.processEvents()
 
     assert table._active_editor is None
-    assert not shiboken6.isValid(editor) or editor.graphicsEffect() is None
+    if shiboken6.isValid(editor):
+        assert "border-color:transparent" in editor.styleSheet().replace(" ", "")
 
     table.close()
     app.quit()
