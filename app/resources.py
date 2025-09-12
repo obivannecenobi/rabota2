@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-import json
 import os
 import logging
 import ctypes
+import tkinter as tk
 from typing import Dict
 
+import customtkinter as ctk
 from PySide6 import QtGui
 from PySide6.QtGui import QIcon, QFont, QGuiApplication
 
@@ -18,6 +19,19 @@ FONTS_DIR = os.path.join(ASSETS_DIR, "fonts")
 ICONS_DIR = os.path.join(ASSETS_DIR, "icons")
 
 ICONS: Dict[str, QIcon] = {}
+
+
+def register_cattedrale(font_path: str) -> str:
+    if os.name == "nt":
+        ctypes.windll.gdi32.AddFontResourceExW(font_path, 0x10, 0)
+        ctypes.windll.user32.SendMessageW(0xFFFF, 0x1D, 0, 0)
+
+    root = tk.Tk()
+    root.withdraw()
+    ctk_font = ctk.CTkFont(file=font_path)
+    family = ctk_font.cget("family")
+    root.destroy()
+    return family
 
 
 def register_fonts() -> None:
@@ -46,27 +60,9 @@ def register_fonts() -> None:
     extensions = {".ttf", ".otf", ".fon", ".ttc"}
     families: set[str] = set()
 
-    def _update_custom_font(fam: str) -> None:
-        """Persist custom font selection in global CONFIG."""  # pragma: no cover - defensive
-        try:
-            from . import main as _main
-
-            _main.CONFIG["header_font"] = fam
-            _main.CONFIG["sidebar_font"] = fam
-            with open(_main.CONFIG_PATH, "r", encoding="utf-8") as fh:
-                cfg = json.load(fh)
-            changed = False
-            if cfg.get("header_font") != fam:
-                cfg["header_font"] = fam
-                changed = True
-            if cfg.get("sidebar_font") != fam:
-                cfg["sidebar_font"] = fam
-                changed = True
-            if changed:
-                with open(_main.CONFIG_PATH, "w", encoding="utf-8") as fh:
-                    json.dump(cfg, fh, ensure_ascii=False, indent=2)
-        except Exception:
-            pass
+    font_path = os.path.join(FONTS_DIR, "Cattedrale[RUSbypenka220]-Regular.ttf")
+    fam = register_cattedrale(font_path)
+    families.add(fam)
 
     for root, _dirs, files in os.walk(FONTS_DIR):
         for name in files:
@@ -94,8 +90,6 @@ def register_fonts() -> None:
                 new_fams = set(QtGui.QFontDatabase.applicationFontFamilies(fid))
 
             families.update(new_fams)
-            if name.startswith("Cattedrale[RUSbypenka220]-Regular") and new_fams:
-                _update_custom_font(next(iter(new_fams)))
 
     if "Exo 2" not in families:
         logger.error("Font 'Exo 2' not registered")
