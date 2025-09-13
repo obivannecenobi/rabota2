@@ -34,7 +34,7 @@ def main() -> int:
         return exc.returncode
 
     result = subprocess.run(
-        [str(PYTHON), '-X', 'faulthandler', str(ROOT / 'app' / 'main.py')],
+        [sys.executable, str(ROOT / 'app' / 'main.py')],
         check=False,
     )
     if result.returncode != 0:
