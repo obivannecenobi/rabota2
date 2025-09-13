@@ -112,6 +112,8 @@ def register_fonts() -> None:
 
     font_path = os.path.join(FONTS_DIR, "Cattedrale[RUSbypenka220]-Regular.ttf")
     fam = register_cattedrale(font_path)
+    if fam == "Exo 2":
+        logger.warning("Cattedrale font not found, using fallback")
     qt_family: str | None = None
     if fam != "Exo 2":
         fid = QtGui.QFontDatabase.addApplicationFont(font_path)
@@ -158,6 +160,7 @@ def register_fonts() -> None:
     # Success – ensure CONFIG reflects the available family and update header/sidebar
     try:  # pragma: no cover - defensive
         from . import main as _main
+        from . import theme_manager
 
         _main.CONFIG.setdefault("font_family", "Exo 2")
         target_family = qt_family if qt_family is not None else fam
@@ -178,6 +181,9 @@ def register_fonts() -> None:
                     for w in app.topLevelWidgets():
                         if hasattr(w, "apply_fonts"):
                             w.apply_fonts()
+
+        theme_manager.set_header_font(_main.CONFIG["header_font"])
+        theme_manager.set_text_font(_main.CONFIG["font_family"])
     except Exception:
         pass
 
