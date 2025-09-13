@@ -48,7 +48,7 @@ def register_cattedrale(font_path: str) -> str:
         QtWidgets.QMessageBox.critical(None, "Ошибка", msg)
         return "Exo 2"
 
-    if not os.environ.get("DISPLAY"):
+    if os.name != "nt" and not os.environ.get("DISPLAY"):
         msg = (
             "Переменная окружения DISPLAY не установлена — шрифт Cattedrale не будет применён"
         )
