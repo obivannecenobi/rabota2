@@ -661,7 +661,7 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self.spin_year = QtWidgets.QSpinBox(self)
         self.spin_year.setRange(2000, 2100)
         self.spin_year.setValue(year)
-        self.spin_year.setFixedWidth(self.spin_year.sizeHint().width() + 20)
+        self.spin_year.setFixedWidth(self.spin_year.sizeHint().width())
         self.spin_year.setButtonSymbols(QtWidgets.QAbstractSpinBox.UpDownArrows)
         self.spin_year.valueChanged.connect(self._year_changed)
         self.spin_year.setAttribute(QtCore.Qt.WA_Hover, True)
@@ -899,7 +899,7 @@ class TopDialog(QtWidgets.QDialog):
         self.spin_year = QtWidgets.QSpinBox(self)
         self.spin_year.setRange(2000, 2100)
         self.spin_year.setValue(year)
-        self.spin_year.setStyleSheet("padding:0 6px;")
+        self.spin_year.setStyleSheet("padding:0 4px;")
         self.spin_year.setAttribute(QtCore.Qt.WA_Hover, True)
         if neon_enabled():
             filt = NeonEventFilter(self.spin_year)
@@ -2120,8 +2120,8 @@ class TopBar(QtWidgets.QWidget):
         self.spin_year = QtWidgets.QSpinBox(self)
         self.spin_year.setRange(2000, 2100)
         self.spin_year.setValue(datetime.now().year)
-        self.spin_year.setStyleSheet("padding:0 6px;")
-        self.spin_year.setFixedWidth(self.spin_year.sizeHint().width() + 20)
+        self.spin_year.setStyleSheet("padding:0 4px;")
+        self.spin_year.setFixedWidth(self.spin_year.sizeHint().width())
         self.spin_year.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
         self.spin_year.valueChanged.connect(self.year_changed.emit)
         lay.addWidget(self.spin_year)
@@ -2182,7 +2182,7 @@ class TopBar(QtWidgets.QWidget):
         self.lbl_month.setStyleSheet("background:transparent; border:none;")
         # Ensure rounded spin box with a semi-transparent border for contrast
         self.spin_year.setStyleSheet(
-            f"background-color:{qcolor.name()}; padding:0 6px;"
+            f"background-color:{qcolor.name()}; padding:0 4px;"
             " border-radius:6px; border:1px solid rgba(255,255,255,0.2);"
         )
         self.apply_fonts()
@@ -2541,7 +2541,7 @@ class MainWindow(QtWidgets.QMainWindow):
             "background:transparent; border:none;"
         )
         self.topbar.spin_year.setStyleSheet(
-            f"background-color:{workspace.name()}; padding:0 6px; border:1px solid transparent; border-radius:6px;"
+            f"background-color:{workspace.name()}; padding:0 4px; border:1px solid transparent; border-radius:6px;"
         )
         theme = CONFIG.get("theme", "dark")
         self.setStyleSheet(
