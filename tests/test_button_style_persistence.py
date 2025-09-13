@@ -36,14 +36,26 @@ def test_gradient_and_neon_persist_across_buttons_and_dialog(monkeypatch):
         style = b.styleSheet().lower()
         assert f"stop:0 {grad[0].lower()}" in style
         assert f"stop:1 {grad[1].lower()}" in style
-        assert b.graphicsEffect() is not None
+
+    # only the activated sidebar button should have a neon effect
+    assert window.sidebar.buttons[0].graphicsEffect() is not None
+    assert window.topbar.btn_prev.graphicsEffect() is None
+    assert btn_dialog.graphicsEffect() is None
 
     dlg.close()
+
+    # Reopen a dialog to ensure sidebar retains updated gradient
+    dlg = QtWidgets.QDialog()
+    btn_dialog = StyledToolButton(dlg)
+    btn_dialog.setText("Dlg")
+    QtWidgets.QVBoxLayout(dlg).addWidget(btn_dialog)
+    window.apply_settings()
 
     sidebar_btn = window.sidebar.buttons[0]
     style = sidebar_btn.styleSheet().lower()
     assert f"stop:0 {grad[0].lower()}" in style
     assert sidebar_btn.graphicsEffect() is not None
 
+    dlg.close()
     window.close()
     app.quit()

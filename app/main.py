@@ -2464,13 +2464,13 @@ class MainWindow(QtWidgets.QMainWindow):
             CONFIG.get("neon", False), accent, sidebar_color
         )
         app = QtWidgets.QApplication.instance()
-        neon = CONFIG.get("neon", False)
         for w in app.allWidgets():
             if isinstance(w, StyledToolButton):
                 w.apply_base_style()
-                selected = w.property("neon_selected")
-                on = neon if selected is None else bool(selected) and neon
-                apply_neon_effect(w, on)
+                w._neon_prev_style = w.styleSheet()
+                apply_neon_effect(
+                    w, w.property("neon_selected") and neon_enabled()
+                )
 
 
 
