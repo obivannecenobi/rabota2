@@ -6,8 +6,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-if sys.version_info < (3, 13):
-    sys.exit('Требуется Python 3.13+')
+if sys.version_info < (3, 11):
+    sys.exit('Требуется Python 3.11+')
 
 ROOT = Path(__file__).resolve().parent
 VENV_DIR = ROOT / '.venv'
