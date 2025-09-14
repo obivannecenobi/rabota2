@@ -1,5 +1,5 @@
 {
-  "neon": false,
+  "neon": true,
   "neon_size": 10,
   "neon_thickness": 1,
   "neon_intensity": 255,
