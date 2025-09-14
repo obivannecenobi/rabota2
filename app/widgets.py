@@ -12,8 +12,10 @@ class ButtonStyleMixin:
     def _base_style(self) -> str:
         """Build the base style using current configuration."""
         try:
-            from . import main  # type: ignore
-
+            import importlib, sys
+            main = sys.modules.get("app.main") or sys.modules.get("main")
+            if main is None:  # pragma: no cover - fallback
+                main = importlib.import_module("main")
             thickness = main.CONFIG.get("neon_thickness", 1)
             grad = main.CONFIG.get("gradient_colors", ["#39ff14", "#2d7cdb"])
             angle = main.CONFIG.get("gradient_angle", 0)
