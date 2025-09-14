@@ -17,8 +17,8 @@ def test_lbl_month_border_reset_after_neon_effect():
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     window = main.MainWindow()
     label = window.topbar.lbl_month
-    apply_neon_effect(label, True)
-    apply_neon_effect(label, False)
+    apply_neon_effect(label, True, config=main.CONFIG)
+    apply_neon_effect(label, False, config=main.CONFIG)
     assert "border:none" in label.styleSheet().replace(" ", "")
     window.close()
     app.quit()

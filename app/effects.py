@@ -1,19 +1,11 @@
 from PySide6 import QtWidgets, QtGui, QtCore
-import re
 import shiboken6
 import weakref
 
 
-def neon_enabled() -> bool:
-    """Return ``True`` if neon highlighting is enabled in the configuration."""
-    try:  # local import to avoid circular dependency on ``main`` during startup
-        import importlib, sys
-        main = sys.modules.get("app.main") or sys.modules.get("main")
-        if main is None:  # pragma: no cover - fallback
-            main = importlib.import_module("main")
-        return bool(getattr(main, "CONFIG", {}).get("neon", False))
-    except Exception:
-        return False
+def neon_enabled(config: dict) -> bool:
+    """Return ``True`` if neon highlighting is enabled in *config*."""
+    return bool(config.get("neon", False))
 
 
 def set_neon(
@@ -60,7 +52,11 @@ def set_neon(
 
 
 def apply_neon_effect(
-    widget: QtWidgets.QWidget, on: bool = True, shadow: bool = True
+    widget: QtWidgets.QWidget,
+    on: bool = True,
+    shadow: bool = True,
+    *,
+    config: dict | None = None,
 ) -> None:
     """Toggle neon highlight effect on *widget*.
 
@@ -95,16 +91,7 @@ def apply_neon_effect(
         prev_style = widget._neon_prev_style or ""
         color = widget.palette().color(QtGui.QPalette.Highlight)
         text_color = widget.palette().buttonText().color()
-        try:  # local import to avoid circular dependency on ``main``
-            import importlib, sys
-            main = sys.modules.get("app.main") or sys.modules.get("main")
-            if main is None:  # pragma: no cover - fallback
-                main = importlib.import_module("main")
-            thickness = int(
-                getattr(main, "CONFIG", {}).get("neon_thickness", 1)
-            )
-        except Exception:
-            thickness = 1
+        thickness = int(config.get("neon_thickness", 1)) if config else 1
         eff = None
         if shadow:
             eff = QtWidgets.QGraphicsDropShadowEffect(widget)
@@ -155,9 +142,10 @@ def apply_neon_effect(
 class NeonEventFilter(QtCore.QObject):
     """Event filter toggling neon effect on hover and focus events."""
 
-    def __init__(self, widget: QtWidgets.QWidget):
+    def __init__(self, widget: QtWidgets.QWidget, config: dict):
         super().__init__(widget)
         self._widget = weakref.ref(widget)
+        self._config = config
         widget.destroyed.connect(self._on_widget_destroyed)
 
     def _on_widget_destroyed(self, obj=None) -> None:
@@ -166,21 +154,21 @@ class NeonEventFilter(QtCore.QObject):
             widget.removeEventFilter(self)
 
     def _start(self) -> None:
-        if not neon_enabled():
+        if not neon_enabled(self._config):
             return
         widget = self._widget()
-        apply_neon_effect(widget, True)
+        apply_neon_effect(widget, True, config=self._config)
 
     def _stop(self) -> None:
-        if not neon_enabled():
+        if not neon_enabled(self._config):
             return
         widget = self._widget()
         if widget is None or not shiboken6.isValid(widget):
             return
-        apply_neon_effect(widget, False)
+        apply_neon_effect(widget, False, config=self._config)
 
     def eventFilter(self, obj, event):  # noqa: D401 - Qt event filter signature
-        if not neon_enabled():
+        if not neon_enabled(self._config):
             return False
 
         widget = self._widget()
@@ -220,13 +208,13 @@ class NeonEventFilter(QtCore.QObject):
         return False
 
 
-def update_neon_filters(root: QtWidgets.QWidget) -> None:
+def update_neon_filters(root: QtWidgets.QWidget, config: dict) -> None:
     """Recursively update neon event filters according to configuration."""
 
     if root is None or not shiboken6.isValid(root):
         return
 
-    enabled = neon_enabled()
+    enabled = neon_enabled(config)
 
     def _process(widget: QtWidgets.QWidget) -> None:
         if widget is None or not shiboken6.isValid(widget):
@@ -235,7 +223,7 @@ def update_neon_filters(root: QtWidgets.QWidget) -> None:
             return
         filt = getattr(widget, "_neon_filter", None)
         if enabled and filt is None:
-            filt = NeonEventFilter(widget)
+            filt = NeonEventFilter(widget, config)
             widget.installEventFilter(filt)
             if hasattr(widget, "viewport"):
                 widget.viewport().installEventFilter(filt)
@@ -247,7 +235,7 @@ def update_neon_filters(root: QtWidgets.QWidget) -> None:
                     widget.viewport().removeEventFilter(filt)
             except RuntimeError:
                 pass
-            apply_neon_effect(widget, False)
+            apply_neon_effect(widget, False, config=config)
             widget._neon_filter = None
 
     widgets = [root] + root.findChildren(QtWidgets.QWidget)

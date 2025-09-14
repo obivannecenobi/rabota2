@@ -12,8 +12,6 @@ import resources
 resources.register_fonts = lambda: None
 
 import app.main as main
-from app import effects
-main.neon_enabled = effects.neon_enabled
 
 
 def test_editor_neon_clears():

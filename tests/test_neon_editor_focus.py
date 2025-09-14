@@ -23,7 +23,7 @@ def test_neon_persists_during_edit_and_stops_after():
     table.setAttribute(QtCore.Qt.WA_Hover, True)
     table.viewport().setAttribute(QtCore.Qt.WA_Hover, True)
 
-    filt = NeonEventFilter(table)
+    filt = NeonEventFilter(table, main.CONFIG)
     table.installEventFilter(filt)
     table.viewport().installEventFilter(filt)
 
