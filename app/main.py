@@ -128,44 +128,56 @@ VERSION_FILE = os.path.join(os.path.dirname(__file__), "..", "VERSION")
 RU_MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"]
 
 
-def ensure_font_registered(family: str, parent: QtWidgets.QWidget | None = None) -> str:
-    """Ensure *family* is available and return its name.
+def ensure_font_registered(
+    family: str, parent: QtWidgets.QWidget | None = None
+) -> str:
+    """Ensure *family* is available and return a usable family name.
 
-    If *family* is missing in :class:`QtGui.QFontDatabase`, the user is prompted to
-    locate a font file. If the font cannot be loaded, the safe default
-    ``"Exo 2"`` is returned.
+    A missing font previously triggered a file-selection dialog which blocks in
+    headless environments.  The function now silently falls back to a bundled
+    alternative, preferring ``"Exo 2"`` then ``"Arial"``.  If neither is
+    installed, the application's default font is used.  If Qt can resolve the
+    requested *family* to an available font internally, the original family name
+    is preserved so configuration values remain consistent.
     """
     if family in QtGui.QFontDatabase.families():
         return family
-
-    file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
-        parent,
-        "Выберите файл шрифта",
-        "",
-        "Font Files (*.ttf *.otf *.fon *.ttc)"
+    app = QtWidgets.QApplication.instance()
+    if app is not None:
+        resolved = QtGui.QFontInfo(QtGui.QFont(family)).family()
+        if resolved and resolved != app.font().family():
+            logger.warning(
+                "Using fallback font '%s' for missing '%s'", resolved, family
+            )
+            return family
+    for fallback in ("Exo 2", "Arial"):
+        if fallback in QtGui.QFontDatabase.families():
+            logger.warning(
+                "Unable to load font '%s'; falling back to '%s'", family, fallback
+            )
+            return fallback
+    fallback = app.font().family() if app is not None else "Arial"
+    logger.warning(
+        "Unable to load font '%s'; using application font '%s'", family, fallback
     )
-    if file_path:
-        fid = QtGui.QFontDatabase.addApplicationFont(file_path)
-        if fid == -1:
-            logger.error("Failed to load font from '%s'", file_path)
-        else:
-            fams = QtGui.QFontDatabase.applicationFontFamilies(fid)
-            if fams:
-                return fams[0]
-            logger.error("No font families found in '%s'", file_path)
-
-    logger.warning("Unable to load font '%s'; falling back to 'Exo 2'", family)
-    return "Exo 2"
-
+    return fallback
 
 def resolve_font_config(parent: QtWidgets.QWidget | None = None) -> tuple[str, str]:
     """Resolve configured font families and persist any changes.
 
-    Returns the resolved ``(header_family, text_family)`` tuple."""
+    Separate fonts are stored for headers, general text and the sidebar.  Each
+    entry is validated via :func:`ensure_font_registered` so that missing font
+    files gracefully fall back to bundled defaults.  Any adjustments are written
+    back to the configuration file.  Only the header and text families are
+    returned for backwards compatibility with existing call sites.
+    """
 
     default = CONFIG.get("font_family", "Exo 2")
     header = ensure_font_registered(CONFIG.get("header_font", default), parent)
     text = ensure_font_registered(CONFIG.get("text_font", default), parent)
+    sidebar = ensure_font_registered(
+        CONFIG.get("sidebar_font", CONFIG.get("header_font", default)), parent
+    )
 
     changed = False
     if header != CONFIG.get("header_font"):
@@ -173,6 +185,9 @@ def resolve_font_config(parent: QtWidgets.QWidget | None = None) -> tuple[str, s
         changed = True
     if text != CONFIG.get("text_font"):
         CONFIG["text_font"] = text
+        changed = True
+    if sidebar != CONFIG.get("sidebar_font"):
+        CONFIG["sidebar_font"] = sidebar
         changed = True
 
     if changed:
