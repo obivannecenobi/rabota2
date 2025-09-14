@@ -1664,6 +1664,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         widgets = [self.btn_toggle] + self.buttons + [self.btn_settings]
         for w in widgets:
             w.apply_base_style()
+            w._apply_hover(w.property("neon_selected"))
             apply_neon_effect(
                 w, w.property("neon_selected") and neon_enabled()
             )
