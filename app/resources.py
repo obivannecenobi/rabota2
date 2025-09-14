@@ -15,13 +15,13 @@ try:  # pragma: no cover - optional dependency
 except Exception as exc:  # pragma: no cover - extremely defensive
     tk = None  # type: ignore[assignment]
     tkfont = None  # type: ignore[assignment]
-    logger.error("Failed to import tkinter: %s", exc)
+    logger.warning("Failed to import tkinter: %s", exc)
 
 try:  # pragma: no cover - optional dependency
     import customtkinter as ctk
 except Exception as exc:  # pragma: no cover - extremely defensive
     ctk = None  # type: ignore[assignment]
-    logger.error("Failed to import customtkinter: %s", exc)
+    logger.warning("Failed to import customtkinter: %s", exc)
 
 from PySide6 import QtGui, QtWidgets
 from PySide6.QtGui import QIcon, QFont, QGuiApplication
@@ -33,19 +33,30 @@ ICONS_DIR = os.path.join(ASSETS_DIR, "icons")
 ICONS: Dict[str, QIcon] = {}
 
 
+def _show_error_dialog(message: str) -> None:
+    """Display a critical Qt dialog if a window is visible."""
+    if os.name != "nt" and not os.environ.get("DISPLAY"):
+        return
+    app = QtWidgets.QApplication.instance()
+    if not app:
+        return
+    for w in app.topLevelWidgets():
+        if w.isVisible():
+            QtWidgets.QMessageBox.critical(w, "Ошибка", message)
+            break
+
+
 def register_cattedrale(font_path: str) -> str:
     """Register the Cattedrale font for Tk-based widgets.
 
     Returns the detected family name or ``"Exo 2"`` if registration fails. Any
-    failure surfaces an error dialog to make the problem visible to the user.
-    """
+    failure surfaces an error dialog to make the problem visible to the user."""
 
     if tk is None or ctk is None or tkfont is None:
         msg = (
             "Не удалось загрузить tkinter/customtkinter — шрифт Cattedrale не будет применён"
         )
-        logger.error(msg)
-        QtWidgets.QMessageBox.critical(None, "Ошибка", msg)
+        logger.warning(msg)
         return "Exo 2"
 
     if os.name != "nt" and not os.environ.get("DISPLAY"):
@@ -53,7 +64,7 @@ def register_cattedrale(font_path: str) -> str:
             "Переменная окружения DISPLAY не установлена — шрифт Cattedrale не будет применён"
         )
         logger.warning(msg)
-        QtWidgets.QMessageBox.critical(None, "Ошибка", msg)
+        _show_error_dialog(msg)
         return "Exo 2"
 
     root = None
@@ -75,9 +86,7 @@ def register_cattedrale(font_path: str) -> str:
         return family
     except Exception:
         logger.exception("Failed to register font '%s'", font_path)
-        QtWidgets.QMessageBox.critical(
-            None, "Ошибка", f"Не удалось зарегистрировать шрифт: {font_path}"
-        )
+        _show_error_dialog(f"Не удалось зарегистрировать шрифт: {font_path}")
         return "Exo 2"
     finally:
         if root is not None:
@@ -111,7 +120,13 @@ def register_fonts() -> None:
     families: set[str] = set()
 
     font_path = os.path.join(FONTS_DIR, "Cattedrale[RUSbypenka220]-Regular.ttf")
-    fam = register_cattedrale(font_path)
+    if tk and ctk and tkfont and (os.name == "nt" or os.environ.get("DISPLAY")):
+        fam = register_cattedrale(font_path)
+    else:
+        logger.warning(
+            "Tkinter unavailable or running headless; skipping Cattedrale registration"
+        )
+        fam = "Exo 2"
     if fam == "Exo 2":
         logger.warning("Cattedrale font not found, using fallback")
     qt_family: str | None = None
