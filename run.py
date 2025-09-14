@@ -16,13 +16,7 @@ PYTHON = VENV_DIR / ('Scripts' if os.name == 'nt' else 'bin') / 'python'
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="print application stdout/stderr even on success",
-    )
-    args = parser.parse_args()
+    parser.parse_args()
 
     if not VENV_DIR.exists():
         subprocess.check_call([sys.executable, "-m", "venv", str(VENV_DIR)])
@@ -43,24 +37,20 @@ def main() -> int:
         print(f"Не удалось установить зависимости: {exc}", file=sys.stderr)
         return exc.returncode
 
-    result = subprocess.run(
+    proc = subprocess.Popen(
         [str(PYTHON), str(ROOT / "app" / "main.py")],
-        check=False,
-        capture_output=True,
+        stdout=sys.stdout,
+        stderr=sys.stderr,
         text=True,
     )
-    if result.returncode != 0 or args.verbose:
-        if result.stdout:
-            print(result.stdout)
-        if result.stderr:
-            print(result.stderr, file=sys.stderr)
+    proc.wait()
 
-    if result.returncode != 0:
+    if proc.returncode != 0:
         print(
-            f"Application failed with exit code {result.returncode}",
+            f"Application failed with exit code {proc.returncode}",
             file=sys.stderr,
         )
-        return result.returncode
+        return proc.returncode
 
     return 0
 
