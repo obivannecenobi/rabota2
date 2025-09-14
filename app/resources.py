@@ -57,6 +57,7 @@ def register_cattedrale(font_path: str) -> str:
             "Не удалось загрузить tkinter/customtkinter — шрифт Cattedrale не будет применён"
         )
         logger.warning(msg)
+        _show_error_dialog(msg)
         return "Exo 2"
 
     if os.name != "nt" and not os.environ.get("DISPLAY"):

@@ -73,6 +73,14 @@ def load_config():
 CONFIG = load_config()
 BASE_SAVE_PATH = os.path.abspath(CONFIG.get("save_path", DATA_DIR))
 
+
+def button_config():
+    return {
+        "gradient_colors": CONFIG.get("gradient_colors", ["#39ff14", "#2d7cdb"]),
+        "gradient_angle": CONFIG.get("gradient_angle", 0),
+        "neon_thickness": CONFIG.get("neon_thickness", 1),
+    }
+
 def ensure_year_dirs(year):
     base = os.path.join(BASE_SAVE_PATH, str(year))
     for sub in ("stats", "release", "top", "year"):
@@ -305,10 +313,10 @@ class ReleaseDialog(QtWidgets.QDialog):
         lay.addWidget(self.table)
 
         box = QtWidgets.QDialogButtonBox(self)
-        btn_save = StyledPushButton("Сохранить", self)
+        btn_save = StyledPushButton("Сохранить", self, **button_config())
         btn_save.setIcon(icon("save"))
         btn_save.setIconSize(QtCore.QSize(20, 20))
-        btn_close = StyledPushButton("Закрыть", self)
+        btn_close = StyledPushButton("Закрыть", self, **button_config())
         btn_close.setIcon(icon("x"))
         btn_close.setIconSize(QtCore.QSize(20, 20))
         box.addButton(btn_save, QtWidgets.QDialogButtonBox.AcceptRole)
@@ -531,10 +539,10 @@ class StatsDialog(QtWidgets.QDialog):
         lay.addWidget(self.form_stats)
 
         self.btn_box = QtWidgets.QDialogButtonBox(self)
-        btn_save = StyledPushButton("Сохранить", self)
+        btn_save = StyledPushButton("Сохранить", self, **button_config())
         btn_save.setIcon(icon("save"))
         btn_save.setIconSize(QtCore.QSize(20, 20))
-        btn_close = StyledPushButton("Закрыть", self)
+        btn_close = StyledPushButton("Закрыть", self, **button_config())
         btn_close.setIcon(icon("x"))
         btn_close.setIconSize(QtCore.QSize(20, 20))
         for btn in (btn_save, btn_close):
@@ -713,10 +721,10 @@ class AnalyticsDialog(QtWidgets.QDialog):
         lay.addWidget(self.table, 1)
 
         box = QtWidgets.QDialogButtonBox(self)
-        btn_save = StyledPushButton("Сохранить", self)
+        btn_save = StyledPushButton("Сохранить", self, **button_config())
         btn_save.setIcon(icon("save"))
         btn_save.setIconSize(QtCore.QSize(20, 20))
-        btn_close = StyledPushButton("Закрыть", self)
+        btn_close = StyledPushButton("Закрыть", self, **button_config())
         btn_close.setIcon(icon("x"))
         btn_close.setIconSize(QtCore.QSize(20, 20))
         for btn in (btn_save, btn_close):
@@ -951,7 +959,7 @@ class TopDialog(QtWidgets.QDialog):
             self.combo_period._neon_filter = filt
         self._mode_changed()  # fill periods
 
-        self.btn_calc = StyledPushButton("Сформировать", self)
+        self.btn_calc = StyledPushButton("Сформировать", self, **button_config())
         self.btn_calc.clicked.connect(self.calculate)
 
         row = QtWidgets.QHBoxLayout()
@@ -1005,10 +1013,10 @@ class TopDialog(QtWidgets.QDialog):
         lay.addWidget(self.table, 1)
 
         box = QtWidgets.QDialogButtonBox(self)
-        btn_save = StyledPushButton("Сохранить", self)
+        btn_save = StyledPushButton("Сохранить", self, **button_config())
         btn_save.setIcon(icon("save"))
         btn_save.setIconSize(QtCore.QSize(20, 20))
-        btn_close = StyledPushButton("Закрыть", self)
+        btn_close = StyledPushButton("Закрыть", self, **button_config())
         btn_close.setIcon(icon("x"))
         btn_close.setIconSize(QtCore.QSize(20, 20))
         box.addButton(btn_save, QtWidgets.QDialogButtonBox.AcceptRole)
@@ -1570,7 +1578,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         lay=QtWidgets.QVBoxLayout(self); lay.setContentsMargins(8,8,8,8); lay.setSpacing(6)
 
         # Toggle button — только иконка
-        self.btn_toggle = StyledToolButton(self)
+        self.btn_toggle = StyledToolButton(self, **button_config())
         self.btn_toggle.setIcon(QtGui.QIcon(CONFIG.get("sidebar_icon", ICON_TOGGLE)))
         self.btn_toggle.setIconSize(QtCore.QSize(28,28))
         self.btn_toggle.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
@@ -1593,7 +1601,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         self.btn_analytics = None
         self.btn_tops = None
         for label, icon_path in items:
-            b = StyledToolButton(self)
+            b = StyledToolButton(self, **button_config())
             b.setIcon(QtGui.QIcon(icon_path))
             b.setIconSize(QtCore.QSize(22, 22))
             b.setText(" " + label)
@@ -1613,7 +1621,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             elif label == "Топы":
                 self.btn_tops = b
         # Settings button at the bottom
-        self.btn_settings = StyledToolButton(self)
+        self.btn_settings = StyledToolButton(self, **button_config())
         self.btn_settings.setIcon(icon("settings"))
         self.btn_settings.setIconSize(QtCore.QSize(22, 22))
         self.btn_settings.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
@@ -1859,7 +1867,7 @@ class SettingsDialog(QtWidgets.QDialog):
         path_lay = QtWidgets.QHBoxLayout()
         self.edit_path = QtWidgets.QLineEdit(CONFIG.get("save_path", DATA_DIR), self)
         self.edit_path.editingFinished.connect(self._save_config)
-        btn_browse = StyledPushButton("...", self)
+        btn_browse = StyledPushButton("...", self, **button_config())
         btn_browse.clicked.connect(self.browse_path)
         path_lay.addWidget(self.edit_path, 1)
         path_lay.addWidget(btn_browse)
@@ -1887,7 +1895,7 @@ class SettingsDialog(QtWidgets.QDialog):
         if idx >= 0:
             self.combo_sidebar_icon.setCurrentIndex(idx)
         self.combo_sidebar_icon.currentIndexChanged.connect(lambda _: self._save_config())
-        btn_sidebar_browse = StyledPushButton("Обзор…", self)
+        btn_sidebar_browse = StyledPushButton("Обзор…", self, **button_config())
         btn_sidebar_browse.clicked.connect(
             lambda: self.browse_icon(self.combo_sidebar_icon)
         )
@@ -1911,7 +1919,7 @@ class SettingsDialog(QtWidgets.QDialog):
         if idx >= 0:
             self.combo_app_icon.setCurrentIndex(idx)
         self.combo_app_icon.currentIndexChanged.connect(lambda _: self._save_config())
-        btn_app_browse = StyledPushButton("Обзор…", self)
+        btn_app_browse = StyledPushButton("Обзор…", self, **button_config())
         btn_app_browse.clicked.connect(
             lambda: self.browse_icon(self.combo_app_icon)
         )
@@ -1937,11 +1945,11 @@ class SettingsDialog(QtWidgets.QDialog):
         form_gen.addRow("Строк на день", self.spin_day_rows)
 
         box = QtWidgets.QDialogButtonBox(self)
-        btn_save = StyledPushButton("Сохранить", self)
+        btn_save = StyledPushButton("Сохранить", self, **button_config())
         btn_save.setIcon(icon("save"))
         btn_save.setIconSize(QtCore.QSize(20, 20))
         btn_save.setFixedSize(btn_save.sizeHint())
-        btn_cancel = StyledPushButton("Отмена", self)
+        btn_cancel = StyledPushButton("Отмена", self, **button_config())
         btn_cancel.setIcon(icon("x"))
         btn_cancel.setIconSize(QtCore.QSize(20, 20))
         btn_cancel.setFixedSize(btn_cancel.sizeHint())
@@ -2151,7 +2159,7 @@ class TopBar(QtWidgets.QWidget):
         lay = QtWidgets.QHBoxLayout(self)
         lay.setContentsMargins(8, 8, 8, 8)
         lay.setSpacing(8)
-        self.btn_prev = StyledToolButton(self)
+        self.btn_prev = StyledToolButton(self, **button_config())
         self.btn_prev.setCursor(QtCore.Qt.PointingHandCursor)
         self.btn_prev.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
         self.btn_prev.setProperty("neon_selected", False)
@@ -2176,7 +2184,7 @@ class TopBar(QtWidgets.QWidget):
             self.spin_year.installEventFilter(filt)
             self.spin_year._neon_filter = filt
         lay.addStretch(1)
-        self.btn_next = StyledToolButton(self)
+        self.btn_next = StyledToolButton(self, **button_config())
         self.btn_next.setCursor(QtCore.Qt.PointingHandCursor)
         self.btn_next.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
         self.btn_next.setProperty("neon_selected", False)
@@ -2504,6 +2512,7 @@ class MainWindow(QtWidgets.QMainWindow):
         app = QtWidgets.QApplication.instance()
         for w in app.allWidgets():
             if isinstance(w, (StyledToolButton, StyledPushButton)):
+                w.update_gradient(**button_config())
                 w.apply_base_style()
                 w._neon_prev_style = w.styleSheet()
                 apply_neon_effect(
