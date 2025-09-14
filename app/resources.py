@@ -6,6 +6,7 @@ import os
 import logging
 import ctypes
 from typing import Dict
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
 logger = logging.getLogger(__name__)
 
@@ -49,49 +50,49 @@ def _show_error_dialog(message: str) -> None:
 def register_cattedrale(font_path: str) -> str:
     """Register the Cattedrale font for Tk-based widgets.
 
-    Returns the detected family name or ``"Exo 2"`` if registration fails. Any
-    failure surfaces an error dialog to make the problem visible to the user."""
+    Returns the detected family name or ``"Exo 2"`` if registration fails."""
 
     if tk is None or ctk is None or tkfont is None:
-        msg = (
+        logger.warning(
             "Не удалось загрузить tkinter/customtkinter — шрифт Cattedrale не будет применён"
         )
-        logger.warning(msg)
-        _show_error_dialog(msg)
         return "Exo 2"
 
     if os.name != "nt" and not os.environ.get("DISPLAY"):
-        msg = (
+        logger.warning(
             "Переменная окружения DISPLAY не установлена — шрифт Cattedrale не будет применён"
         )
-        logger.warning(msg)
-        _show_error_dialog(msg)
         return "Exo 2"
 
-    root = None
+    def _worker() -> str:
+        root = None
+        try:
+            if os.name == "nt":
+                ctypes.windll.gdi32.AddFontResourceExW(font_path, 0x10, 0)
+                ctypes.windll.user32.SendMessageW(0xFFFF, 0x1D, 0, 0)
+
+            root = tk.Tk()
+            root.withdraw()
+
+            before = set(tkfont.families(root))
+            ctk.FontManager.load_font(font_path)
+            after = set(tkfont.families(root))
+            new_fams = after - before
+            family = next(
+                iter(new_fams), os.path.splitext(os.path.basename(font_path))[0]
+            )
+            return family
+        finally:
+            if root is not None:
+                root.destroy()
+
     try:
-        if os.name == "nt":
-            ctypes.windll.gdi32.AddFontResourceExW(font_path, 0x10, 0)
-            ctypes.windll.user32.SendMessageW(0xFFFF, 0x1D, 0, 0)
-
-        root = tk.Tk()
-        root.withdraw()
-
-        before = set(tkfont.families(root))
-        ctk.FontManager.load_font(font_path)
-        after = set(tkfont.families(root))
-        new_fams = after - before
-        family = next(
-            iter(new_fams), os.path.splitext(os.path.basename(font_path))[0]
-        )
-        return family
-    except Exception:
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_worker)
+            return future.result(timeout=5)
+    except (Exception, TimeoutError):
         logger.exception("Failed to register font '%s'", font_path)
-        _show_error_dialog(f"Не удалось зарегистрировать шрифт: {font_path}")
         return "Exo 2"
-    finally:
-        if root is not None:
-            root.destroy()
 
 
 def register_fonts() -> None:
