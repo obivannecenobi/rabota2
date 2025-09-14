@@ -2154,6 +2154,7 @@ class TopBar(QtWidgets.QWidget):
         self.btn_prev = StyledToolButton(self)
         self.btn_prev.setCursor(QtCore.Qt.PointingHandCursor)
         self.btn_prev.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
+        self.btn_prev.setProperty("neon_selected", False)
         self.btn_prev.clicked.connect(self.prev_clicked)
         lay.addWidget(self.btn_prev)
         lay.addStretch(1)
@@ -2178,15 +2179,13 @@ class TopBar(QtWidgets.QWidget):
         self.btn_next = StyledToolButton(self)
         self.btn_next.setCursor(QtCore.Qt.PointingHandCursor)
         self.btn_next.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
+        self.btn_next.setProperty("neon_selected", False)
         self.btn_next.clicked.connect(self.next_clicked)
         lay.addWidget(self.btn_next)
         self.update_icons()
         # Base stylesheet used when neon is disabled in dark theme
         # Explicitly remove borders for QLabel to avoid unwanted frames
-        self.default_style = (
-            "QLabel{color:#e5e5e5; border:none;} "
-            "QToolButton{color:#e5e5e5; border:1px solid #555; border-radius:6px; padding:4px 10px;}"
-        )
+        self.default_style = "QLabel{color:#e5e5e5; border:none;}"
         self.setAutoFillBackground(True)
         color = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21"))
         if CONFIG.get("monochrome", False):
@@ -2239,21 +2238,8 @@ class TopBar(QtWidgets.QWidget):
         self.apply_fonts()
 
     def apply_style(self, neon):
-        accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
-        if CONFIG.get("monochrome", False):
-            h, s, v, _ = accent.getHsv()
-            s = int(CONFIG.get("mono_saturation", 100))
-            accent.setHsv(h, s, v)
-        thickness = CONFIG.get("neon_thickness", 1)
-        # ``neon_size`` and ``neon_intensity`` are no longer used directly but kept
-        # for compatibility with existing configuration files.
-        CONFIG.get("neon_size", 10)
-        CONFIG.get("neon_intensity", 255)
         if neon:
-            style = (
-                "QLabel{color:#e5e5e5; border:none;} "
-                f"QToolButton{{color:{accent.name()}; border:{thickness}px solid {accent.name()}; border-radius:6px; padding:4px 10px;}}"
-            )
+            style = "QLabel{color:#e5e5e5; border:none;}"
             self.setStyleSheet(style)
             self.apply_background(self.palette().color(QtGui.QPalette.Window))
             apply_neon_effect(self.lbl_month, True)
@@ -2261,15 +2247,16 @@ class TopBar(QtWidgets.QWidget):
             if CONFIG.get("theme", "dark") == "dark":
                 style = self.default_style
             else:
-                style = (
-                    "QLabel{color:#000; border:none;} "
-                    "QToolButton{color:#000; border:1px solid #999; border-radius:6px; padding:4px 10px;}"
-                )
+                style = "QLabel{color:#000; border:none;}"
             self.setStyleSheet(style)
             self.apply_background(self.palette().color(QtGui.QPalette.Window))
             apply_neon_effect(self.lbl_month, False)
-        apply_neon_effect(self.btn_prev, neon)
-        apply_neon_effect(self.btn_next, neon)
+
+        for btn in (self.btn_prev, self.btn_next):
+            btn.apply_base_style()
+            btn._apply_hover(bool(btn.property("neon_selected")))
+            apply_neon_effect(btn, neon)
+
         self.apply_fonts()
         update_neon_filters(self)
 
