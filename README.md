@@ -104,6 +104,12 @@ xvfb-run -a python app/main.py
 - Каталог `data/` должен быть доступен для записи.
 - Запуск приложения: `python run.py` (Windows, Linux и macOS). Проект проверен и поддерживается на Python 3.13.
   В Windows также можно использовать `RUN.bat`, который запускает тот же скрипт.
+  Для вывода журналов работы приложения запустите лаунчер с флагом `--verbose`:
+
+  ```sh
+  python run.py --verbose
+  ```
+  При неудачном завершении лог выводится автоматически.
 
 ## Установка шрифтов и иконок
 - Скачайте шрифты [Exo 2](https://fonts.google.com/specimen/Exo+2) и [Inter](https://fonts.google.com/specimen/Inter), установите их в систему и добавьте файлы в `assets/fonts/`.
