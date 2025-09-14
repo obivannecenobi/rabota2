@@ -4,6 +4,7 @@ from PySide6 import QtWidgets, QtGui, QtCore
 
 from effects import apply_neon_effect, neon_enabled
 from resources import icon
+from config import CONFIG
 
 
 class ButtonStyleMixin:
@@ -82,14 +83,14 @@ class ButtonStyleMixin:
     # --- events ------------------------------------------------------
     def enterEvent(self, event):  # noqa: D401
         self._apply_hover(True)
-        if neon_enabled():
-            apply_neon_effect(self, True)
+        if neon_enabled(CONFIG):
+            apply_neon_effect(self, True, config=CONFIG)
         super().enterEvent(event)
 
     def leaveEvent(self, event):  # noqa: D401
         selected = bool(self.property("neon_selected"))
-        if neon_enabled():
-            apply_neon_effect(self, selected)
+        if neon_enabled(CONFIG):
+            apply_neon_effect(self, selected, config=CONFIG)
         self._apply_hover(selected)
         super().leaveEvent(event)
 
