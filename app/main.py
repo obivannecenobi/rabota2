@@ -42,6 +42,7 @@ def load_config():
         "sidebar_color": "#1f1f23",
         "sidebar_icon": os.path.join(ASSETS, "gpt_icon.png"),
         "app_icon": os.path.join(ASSETS, "gpt_icon.png"),
+        "sidebar_collapsed": False,
     }
     if os.path.exists(CONFIG_PATH):
         try:
@@ -1621,13 +1622,17 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         lay.addStretch(1)
         lay.addWidget(self.btn_settings)
 
-        self._collapsed = False
+        self._collapsed = CONFIG.get("sidebar_collapsed", False)
         self.anim = QtCore.QPropertyAnimation(self, b"maximumWidth", self)
         self.anim.setDuration(160)
         self.setMinimumWidth(self.collapsed_width)
         self.setMaximumWidth(self.expanded_width)
         self.update_icons()
         self.apply_fonts()
+        if self._collapsed:
+            self.anim.setDuration(0)
+            self.set_collapsed(True)
+            self.anim.setDuration(160)
 
     def activate_button(self, btn: QtWidgets.QToolButton) -> None:
         for b in self.buttons:
@@ -1652,6 +1657,12 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             b.setToolButtonStyle(
                 QtCore.Qt.ToolButtonIconOnly if collapsed else QtCore.Qt.ToolButtonTextBesideIcon
             )
+        CONFIG["sidebar_collapsed"] = collapsed
+        try:
+            with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+                json.dump(CONFIG, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
         self.toggled.emit(not collapsed)
 
     def toggle(self): self.set_collapsed(not self._collapsed)
