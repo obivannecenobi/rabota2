@@ -2503,11 +2503,12 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         app = QtWidgets.QApplication.instance()
         for w in app.allWidgets():
-            if isinstance(w, StyledToolButton):
+            if isinstance(w, (StyledToolButton, StyledPushButton)):
                 w.apply_base_style()
                 w._neon_prev_style = w.styleSheet()
                 apply_neon_effect(
-                    w, w.property("neon_selected") and neon_enabled()
+                    w,
+                    bool(w.property("neon_selected")) and neon_enabled(),
                 )
 
 
