@@ -1949,6 +1949,7 @@ class SettingsDialog(QtWidgets.QDialog):
 
     def closeEvent(self, event):
         self._settings.setValue("SettingsDialog/geometry", self.saveGeometry())
+        self._settings.sync()
         super().closeEvent(event)
 
     def browse_path(self):
@@ -2081,6 +2082,10 @@ class SettingsDialog(QtWidgets.QDialog):
                     parent.table.apply_theme()
                 if hasattr(parent, "topbar"):
                     parent.topbar.apply_background(self._workspace_color)
+                if hasattr(parent, "statusBar"):
+                    parent.statusBar().setStyleSheet(
+                        f"background-color:{self._workspace_color.name()};"
+                    )
 
     def _update_sidebar_button(self):
         color = self._sidebar_color.name()
@@ -2448,6 +2453,13 @@ class MainWindow(QtWidgets.QMainWindow):
                     tbl.setFont(app.font())
                     tbl.horizontalHeader().setFont(header_font)
 
+    def _apply_sidebar_style(self, neon: bool, accent: QtGui.QColor, sidebar):
+        func = getattr(self.sidebar, "apply_style")
+        try:
+            func(neon, accent, sidebar)
+        except TypeError:
+            func(self.sidebar, neon, accent, sidebar)
+
     def apply_palette(self):
         load_icons(CONFIG.get("theme", "dark"))
         self.topbar.update_icons()
@@ -2475,7 +2487,7 @@ class MainWindow(QtWidgets.QMainWindow):
         app.setPalette(pal)
         sidebar_color = CONFIG.get("sidebar_color", "#1f1f23")
         self.topbar.apply_style(CONFIG.get("neon", False))
-        self.sidebar.apply_style(CONFIG.get("neon", False), accent, sidebar_color)
+        self._apply_sidebar_style(CONFIG.get("neon", False), accent, sidebar_color)
         self.sidebar.anim.setDuration(160)
         update_neon_filters(self)
         # Reapply background so the spin box border matches the current theme
@@ -2488,7 +2500,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.apply_theme()
         accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
         sidebar_color = CONFIG.get("sidebar_color", "#1f1f23")
-        self.sidebar.apply_style(
+        self._apply_sidebar_style(
             CONFIG.get("neon", False), accent, sidebar_color
         )
         app = QtWidgets.QApplication.instance()
@@ -2528,7 +2540,7 @@ class MainWindow(QtWidgets.QMainWindow):
         pal.setColor(QtGui.QPalette.Highlight, accent)
         app.setPalette(pal)
         self.topbar.apply_style(neon)
-        self.sidebar.apply_style(neon, accent, sidebar)
+        self._apply_sidebar_style(neon, accent, sidebar)
         update_neon_filters(self)
 
     def apply_theme(self):
@@ -2614,7 +2626,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if CONFIG.get("monochrome", False):
             sidebar = theme_manager.apply_monochrome(QtGui.QColor(sidebar)).name()
             accent = theme_manager.apply_monochrome(accent)
-        self.sidebar.apply_style(CONFIG.get("neon", False), accent, sidebar)
+        self._apply_sidebar_style(CONFIG.get("neon", False), accent, sidebar)
         # Reapply topbar background so spin box picks up workspace color
         self.topbar.apply_background(workspace)
 

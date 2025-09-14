@@ -6,10 +6,11 @@ import weakref
 
 def neon_enabled() -> bool:
     """Return ``True`` if neon highlighting is enabled in the configuration."""
-
     try:  # local import to avoid circular dependency on ``main`` during startup
-        from . import main
-
+        import importlib, sys
+        main = sys.modules.get("app.main") or sys.modules.get("main")
+        if main is None:  # pragma: no cover - fallback
+            main = importlib.import_module("main")
         return bool(getattr(main, "CONFIG", {}).get("neon", False))
     except Exception:
         return False
@@ -95,8 +96,10 @@ def apply_neon_effect(
         color = widget.palette().color(QtGui.QPalette.Highlight)
         text_color = widget.palette().buttonText().color()
         try:  # local import to avoid circular dependency on ``main``
-            from . import main
-
+            import importlib, sys
+            main = sys.modules.get("app.main") or sys.modules.get("main")
+            if main is None:  # pragma: no cover - fallback
+                main = importlib.import_module("main")
             thickness = int(
                 getattr(main, "CONFIG", {}).get("neon_thickness", 1)
             )
