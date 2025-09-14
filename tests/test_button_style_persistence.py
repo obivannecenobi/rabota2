@@ -20,7 +20,7 @@ def test_gradient_and_neon_persist_across_buttons_and_dialog(monkeypatch):
     window.sidebar.activate_button(window.sidebar.buttons[0])
 
     dlg = QtWidgets.QDialog()
-    btn_dialog = StyledToolButton(dlg)
+    btn_dialog = StyledToolButton(dlg, **main.button_config())
     btn_dialog.setText("Dlg")
     QtWidgets.QVBoxLayout(dlg).addWidget(btn_dialog)
 
@@ -46,7 +46,7 @@ def test_gradient_and_neon_persist_across_buttons_and_dialog(monkeypatch):
 
     # Reopen a dialog to ensure sidebar retains updated gradient
     dlg = QtWidgets.QDialog()
-    btn_dialog = StyledToolButton(dlg)
+    btn_dialog = StyledToolButton(dlg, **main.button_config())
     btn_dialog.setText("Dlg")
     QtWidgets.QVBoxLayout(dlg).addWidget(btn_dialog)
     window.apply_settings()

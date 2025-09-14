@@ -9,20 +9,38 @@ from resources import icon
 class ButtonStyleMixin:
     """Mixin providing sidebar-style appearance and hover behaviour."""
 
+    def __init__(
+        self,
+        *args,
+        gradient_colors=None,
+        gradient_angle=0,
+        neon_thickness=1,
+        **kwargs,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self._gradient_colors = gradient_colors or ["#39ff14", "#2d7cdb"]
+        self._gradient_angle = gradient_angle
+        self._neon_thickness = neon_thickness
+
+    def update_gradient(
+        self,
+        gradient_colors=None,
+        gradient_angle=None,
+        neon_thickness=None,
+    ) -> None:
+        """Update stored gradient configuration."""
+        if gradient_colors is not None:
+            self._gradient_colors = gradient_colors
+        if gradient_angle is not None:
+            self._gradient_angle = gradient_angle
+        if neon_thickness is not None:
+            self._neon_thickness = neon_thickness
+
     def _base_style(self) -> str:
         """Build the base style using current configuration."""
-        try:
-            import importlib, sys
-            main = sys.modules.get("app.main") or sys.modules.get("main")
-            if main is None:  # pragma: no cover - fallback
-                main = importlib.import_module("main")
-            thickness = main.CONFIG.get("neon_thickness", 1)
-            grad = main.CONFIG.get("gradient_colors", ["#39ff14", "#2d7cdb"])
-            angle = main.CONFIG.get("gradient_angle", 0)
-        except Exception:  # pragma: no cover
-            thickness = 1
-            grad = ["#39ff14", "#2d7cdb"]
-            angle = 0
+        thickness = self._neon_thickness
+        grad = self._gradient_colors
+        angle = self._gradient_angle
         rad = math.radians(angle)
         x2 = 0.5 + 0.5 * math.cos(rad)
         y2 = 0.5 + 0.5 * math.sin(rad)
@@ -79,14 +97,40 @@ class ButtonStyleMixin:
 class StyledPushButton(ButtonStyleMixin, QtWidgets.QPushButton):
     """QPushButton with shared styling mixin."""
 
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self,
+        *args,
+        gradient_colors=None,
+        gradient_angle=0,
+        neon_thickness=1,
+        **kwargs,
+    ) -> None:
+        super().__init__(
+            *args,
+            gradient_colors=gradient_colors,
+            gradient_angle=gradient_angle,
+            neon_thickness=neon_thickness,
+            **kwargs,
+        )
         self.apply_base_style()
 
 
 class StyledToolButton(ButtonStyleMixin, QtWidgets.QToolButton):
     """QToolButton with shared styling mixin."""
 
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self,
+        *args,
+        gradient_colors=None,
+        gradient_angle=0,
+        neon_thickness=1,
+        **kwargs,
+    ) -> None:
+        super().__init__(
+            *args,
+            gradient_colors=gradient_colors,
+            gradient_angle=gradient_angle,
+            neon_thickness=neon_thickness,
+            **kwargs,
+        )
         self.apply_base_style()

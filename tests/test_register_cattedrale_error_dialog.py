@@ -10,7 +10,11 @@ import resources
 
 
 def test_register_cattedrale_error_dialog(monkeypatch):
+    os.environ["DISPLAY"] = ":0"
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    w = QtWidgets.QWidget()
+    w.show()
+    QtWidgets.QApplication.processEvents()
     called = {}
     monkeypatch.setattr(resources, "tk", None)
     monkeypatch.setattr(resources, "ctk", None)
@@ -20,4 +24,5 @@ def test_register_cattedrale_error_dialog(monkeypatch):
     fam = resources.register_cattedrale("dummy.ttf")
     assert fam == "Exo 2"
     assert called.get("called")
+    w.close()
     app.quit()
