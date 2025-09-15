@@ -18,26 +18,34 @@ LOG_PATH = LOG_DIR / 'startup.log'
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.parse_args()
+    parser.add_argument(
+        "--install",
+        action="store_true",
+        help="переустановить зависимости в виртуальном окружении",
+    )
+    args = parser.parse_args()
 
+    created = False
     if not VENV_DIR.exists():
         subprocess.check_call([sys.executable, "-m", "venv", str(VENV_DIR)])
+        created = True
 
-    try:
-        subprocess.check_call(
-            [
-                str(PYTHON),
-                "-m",
-                "pip",
-                "install",
-                "--upgrade",
-                "-r",
-                str(ROOT / "requirements.txt"),
-            ]
-        )
-    except subprocess.CalledProcessError as exc:
-        print(f"Не удалось установить зависимости: {exc}", file=sys.stderr)
-        return exc.returncode
+    if created or args.install:
+        try:
+            subprocess.check_call(
+                [
+                    str(PYTHON),
+                    "-m",
+                    "pip",
+                    "install",
+                    "--upgrade",
+                    "-r",
+                    str(ROOT / "requirements.txt"),
+                ]
+            )
+        except subprocess.CalledProcessError as exc:
+            print(f"Не удалось установить зависимости: {exc}", file=sys.stderr)
+            return exc.returncode
 
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     with LOG_PATH.open("w", encoding="utf-8") as log_file:
