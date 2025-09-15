@@ -298,6 +298,8 @@ class ReleaseDialog(QtWidgets.QDialog):
             item.setTextAlignment(QtCore.Qt.AlignCenter)
             self.table.setItem(row, 0, item)
 
+        self._loading = False
+
         app = QtWidgets.QApplication.instance()
         self.setFont(app.font())
         self.table.setFont(app.font())
@@ -342,6 +344,7 @@ class ReleaseDialog(QtWidgets.QDialog):
             except (TypeError, ValueError):
                 pass  # пропустить некорректное значение
 
+        self.table.itemChanged.connect(self._on_item_changed)
         self.load()
 
     def closeEvent(self, event):
@@ -356,28 +359,56 @@ class ReleaseDialog(QtWidgets.QDialog):
         return os.path.join(release_dir(self.year), f"{self.month:02d}.json")
 
     def load(self):
-        path = self.file_path()
-        data = {}
-        if os.path.exists(path):
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-            except json.JSONDecodeError as exc:
-                logger.error("Failed to parse release data from '%s': %s", path, exc)
-                QtWidgets.QMessageBox.warning(
-                    self,
-                    "Ошибка",
-                    "Данные повреждены или нечитаемы.",
-                )
-                data = {}
+        self._loading = True
+        blocker = QtCore.QSignalBlocker(self.table)
+        try:
+            path = self.file_path()
+            data = {}
+            if os.path.exists(path):
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                except json.JSONDecodeError as exc:
+                    logger.error("Failed to parse release data from '%s': %s", path, exc)
+                    QtWidgets.QMessageBox.warning(
+                        self,
+                        "Ошибка",
+                        "Данные повреждены или нечитаемы.",
+                    )
+                    data = {}
 
-        for day_str, entries in data.get("days", {}).items():
-            day = int(day_str)
-            if 1 <= day <= self.days_in_month and entries:
-                entry = entries[0]
-                self.table.setItem(day - 1, 1, QtWidgets.QTableWidgetItem(entry.get("work", "")))
-                self.table.setItem(day - 1, 2, QtWidgets.QTableWidgetItem(str(entry.get("chapters", ""))))
-                self.table.setItem(day - 1, 3, QtWidgets.QTableWidgetItem(entry.get("time", "")))
+            # clear previous user-editable columns before reloading
+            for row in range(self.table.rowCount()):
+                for col in range(1, self.table.columnCount()):
+                    self.table.takeItem(row, col)
+
+            for day_str, entries in data.get("days", {}).items():
+                day = int(day_str)
+                if 1 <= day <= self.days_in_month and entries:
+                    entry = entries[0]
+                    self.table.setItem(
+                        day - 1,
+                        1,
+                        QtWidgets.QTableWidgetItem(entry.get("work", "")),
+                    )
+                    self.table.setItem(
+                        day - 1,
+                        2,
+                        QtWidgets.QTableWidgetItem(str(entry.get("chapters", ""))),
+                    )
+                    self.table.setItem(
+                        day - 1,
+                        3,
+                        QtWidgets.QTableWidgetItem(entry.get("time", "")),
+                    )
+        finally:
+            del blocker
+            self._loading = False
+
+    def _on_item_changed(self, item: QtWidgets.QTableWidgetItem | None):
+        if self._loading or item is None or item.column() == 0:
+            return
+        self.save()
 
     def save(self):
         days: Dict[str, List[Dict[str, str | int]]] = {}
@@ -880,6 +911,7 @@ class AnalyticsDialog(QtWidgets.QDialog):
             except ValueError:
                 self._software[str(col + 1)] = 0.0
         self._recalculate()
+        self.save(accept=False)
 
     def _recalculate(self):
         cols = len(RU_MONTHS)
@@ -1347,6 +1379,8 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
 
         self._col_widths: List[int] | None = None
 
+        self._loading_cells = False
+
         self._updating_rows = False
 
         # Timer for deferred row height updates
@@ -1432,6 +1466,16 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
             self._updating_rows = False
 
     # ---------- Persistence ----------
+    def _on_inner_item_changed(
+        self, coords: tuple[int, int], item: QtWidgets.QTableWidgetItem | None
+    ) -> None:
+        if self._loading_cells or item is None:
+            return
+        day = self.date_map.get(coords)
+        if day is None or day.month != self.month:
+            return
+        self.save_current_month()
+
     def save_current_month(self):
         md = MonthData(year=self.year, month=self.month)
         for (r, c), day in self.date_map.items():
@@ -1467,49 +1511,64 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         self.cell_filters.clear()
         self.setRowCount(len(weeks))
         base_style = "border:1px solid transparent; border-radius:8px;"
-        for r, week in enumerate(weeks):
-            for c, day in enumerate(week):
-                container = QtWidgets.QWidget()
-                lay = QtWidgets.QVBoxLayout(container)
-                lay.setContentsMargins(0, 0, 0, 0)
-                lay.setSpacing(2)
-                container.setStyleSheet(base_style)
-                lbl = QtWidgets.QLabel(str(day.day), container)
-                lbl.setFont(
-                    QtGui.QFont(
-                        CONFIG.get(
-                            "header_font", CONFIG.get("font_family", "Exo 2")
+        self._loading_cells = True
+        try:
+            for r, week in enumerate(weeks):
+                for c, day in enumerate(week):
+                    container = QtWidgets.QWidget()
+                    lay = QtWidgets.QVBoxLayout(container)
+                    lay.setContentsMargins(0, 0, 0, 0)
+                    lay.setSpacing(2)
+                    container.setStyleSheet(base_style)
+                    lbl = QtWidgets.QLabel(str(day.day), container)
+                    lbl.setFont(
+                        QtGui.QFont(
+                            CONFIG.get(
+                                "header_font", CONFIG.get("font_family", "Exo 2")
+                            )
                         )
                     )
-                )
-                lbl.setAlignment(QtCore.Qt.AlignCenter)
-                # keep reference for later font updates
-                self.day_labels[(r, c)] = lbl
-                lay.addWidget(lbl, alignment=QtCore.Qt.AlignHCenter)
-                inner = self._create_inner_table()
-                lay.addWidget(inner)
-                self.setCellWidget(r, c, container)
-                self.date_map[(r, c)] = day
-                self.cell_tables[(r, c)] = inner
-                self.cell_containers[(r, c)] = container
-                self.cell_filters[(r, c)] = None
-                if day.month != month:
-                    container.setEnabled(False)
-                    container.setStyleSheet(
-                        base_style + "background-color:#2a2a2a; color:#777;"
+                    lbl.setAlignment(QtCore.Qt.AlignCenter)
+                    # keep reference for later font updates
+                    self.day_labels[(r, c)] = lbl
+                    lay.addWidget(lbl, alignment=QtCore.Qt.AlignHCenter)
+                    inner = self._create_inner_table()
+                    lay.addWidget(inner)
+                    self.setCellWidget(r, c, container)
+                    self.date_map[(r, c)] = day
+                    self.cell_tables[(r, c)] = inner
+                    self.cell_containers[(r, c)] = container
+                    self.cell_filters[(r, c)] = None
+                    if day.month != month:
+                        container.setEnabled(False)
+                        container.setStyleSheet(
+                            base_style + "background-color:#2a2a2a; color:#777;"
+                        )
+                        lbl.setStyleSheet("color:#777;")
+                    else:
+                        container.setEnabled(True)
+                        container.setStyleSheet(base_style)
+                        lbl.setStyleSheet("")
+                    blocker = QtCore.QSignalBlocker(inner)
+                    try:
+                        rows = md.days.get(day.day, [])
+                        for rr, row in enumerate(rows):
+                            if rr >= inner.rowCount():
+                                break
+                            for cc, key in enumerate(["work", "plan", "done"]):
+                                item = QtWidgets.QTableWidgetItem(
+                                    str(row.get(key, ""))
+                                )
+                                inner.setItem(rr, cc, item)
+                    finally:
+                        del blocker
+                    handler = lambda changed_item, coord=(r, c): self._on_inner_item_changed(
+                        coord, changed_item
                     )
-                    lbl.setStyleSheet("color:#777;")
-                else:
-                    container.setEnabled(True)
-                    container.setStyleSheet(base_style)
-                    lbl.setStyleSheet("")
-                rows = md.days.get(day.day, [])
-                for rr, row in enumerate(rows):
-                    if rr >= inner.rowCount():
-                        break
-                    for cc, key in enumerate(["work", "plan", "done"]):
-                            item = QtWidgets.QTableWidgetItem(str(row.get(key, "")))
-                            inner.setItem(rr, cc, item)
+                    inner.itemChanged.connect(handler)
+                    inner._autosave_handler = handler  # type: ignore[attr-defined]
+        finally:
+            self._loading_cells = False
         self._update_row_heights()
         self.apply_fonts()
         return True
@@ -1975,7 +2034,7 @@ class SettingsDialog(QtWidgets.QDialog):
         main_lay.addWidget(box)
 
         self._settings = QtCore.QSettings("rabota2", "rabota2")
-        geom = self._settings.value("SettingsDialog/geometry")
+        geom = self._settings.value("SettingsDialog/geometry", type=QtCore.QByteArray)
         if geom is not None:
             self.restoreGeometry(geom)
 
@@ -2341,7 +2400,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setCentralWidget(central)
 
         self._settings = QtCore.QSettings("rabota2", "rabota2")
-        cols = self._settings.value("MainWindow/columns")
+        cols = self._settings.value("MainWindow/columns", type=list)
         if cols:
             self.table.set_day_column_widths([int(w) for w in cols])
 
@@ -2699,6 +2758,7 @@ class MainWindow(QtWidgets.QMainWindow):
             json.dump(CONFIG, f, ensure_ascii=False, indent=2)
         cols = self.table.get_day_column_widths()
         self._settings.setValue("MainWindow/columns", cols)
+        self._settings.sync()
         super().closeEvent(event)
 
 
