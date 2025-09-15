@@ -123,7 +123,17 @@ def register_fonts() -> None:
 
     font_path = os.path.join(FONTS_DIR, "Cattedrale[RUSbypenka220]-Regular.ttf")
     if tk and ctk and tkfont and (os.name == "nt" or os.environ.get("DISPLAY")):
-        fam = register_cattedrale(font_path)
+        executor = ThreadPoolExecutor(max_workers=1)
+        future = executor.submit(register_cattedrale, font_path)
+        try:
+            fam = future.result(timeout=2)
+        except Exception:
+            logger.exception(
+                "Cattedrale registration failed or timed out; skipping"
+            )
+            fam = "Exo 2"
+        finally:
+            executor.shutdown(wait=False)
     else:
         logger.warning(
             "Tkinter unavailable or running headless; skipping Cattedrale registration"

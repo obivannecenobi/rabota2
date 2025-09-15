@@ -4,6 +4,7 @@ import os
 import json
 import calendar
 import logging
+import argparse
 from datetime import datetime, date
 from typing import Dict, List, Union, Iterable
 
@@ -2675,9 +2676,17 @@ def main():
 
 if __name__ == "__main__":
     QtCore.QLocale.setDefault(QtCore.QLocale("ru_RU"))
-    app = QtWidgets.QApplication(sys.argv)
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--skip-fonts",
+        action="store_true",
+        help="Skip registering bundled fonts",
+    )
+    args, qt_args = parser.parse_known_args()
+    app = QtWidgets.QApplication([sys.argv[0]] + qt_args)
     try:
-        register_fonts()
+        if not args.skip_fonts:
+            register_fonts()
         window = main()
         exit_code = app.exec()
         sys.exit(exit_code)
