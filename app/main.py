@@ -1257,13 +1257,11 @@ class NeonTableWidget(QtWidgets.QTableWidget):
     def __init__(self, rows, cols, parent=None, use_neon=True):
         super().__init__(rows, cols, parent)
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
-        self.setAttribute(QtCore.Qt.WA_Hover, True)
         self.viewport().setAttribute(QtCore.Qt.WA_Hover, True)
         self._neon_filter = None
         self._active_editor: QtWidgets.QLineEdit | None = None
         if use_neon and neon_enabled(CONFIG):
             self._neon_filter = NeonEventFilter(self, CONFIG)
-            self.installEventFilter(self._neon_filter)
             self.viewport().installEventFilter(self._neon_filter)
         self.setStyleSheet(
             "QTableWidget, QTableWidget::viewport{border:1px solid transparent;}\n"
