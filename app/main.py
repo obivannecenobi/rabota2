@@ -1327,7 +1327,7 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         self.cell_tables: Dict[tuple[int, int], QtWidgets.QTableWidget] = {}
         self.day_labels: Dict[tuple[int, int], QtWidgets.QLabel] = {}
         self.cell_containers: Dict[tuple[int, int], QtWidgets.QWidget] = {}
-        self.cell_filters: Dict[tuple[int, int], NeonEventFilter] = {}
+        self.cell_filters: Dict[tuple[int, int], NeonEventFilter | None] = {}
 
         self._col_widths: List[int] | None = None
 
@@ -1459,30 +1459,16 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                     )
                 )
                 lbl.setAlignment(QtCore.Qt.AlignCenter)
-                lbl.setAttribute(QtCore.Qt.WA_Hover, True)
                 # keep reference for later font updates
                 self.day_labels[(r, c)] = lbl
                 lay.addWidget(lbl, alignment=QtCore.Qt.AlignHCenter)
                 inner = self._create_inner_table()
                 lay.addWidget(inner)
-                filt = None
-                if neon_enabled(CONFIG):
-                    container.setAttribute(QtCore.Qt.WA_Hover, True)
-                    filt = NeonEventFilter(container, CONFIG)
-                    container.installEventFilter(filt)
-                    inner.installEventFilter(filt)
-                    inner.viewport().installEventFilter(filt)
-                    container._neon_filter = filt
-
-                    lbl.setAttribute(QtCore.Qt.WA_Hover, True)
-                    lbl_filt = NeonEventFilter(lbl, CONFIG)
-                    lbl.installEventFilter(lbl_filt)
-                    lbl._neon_filter = lbl_filt
                 self.setCellWidget(r, c, container)
                 self.date_map[(r, c)] = day
                 self.cell_tables[(r, c)] = inner
                 self.cell_containers[(r, c)] = container
-                self.cell_filters[(r, c)] = filt
+                self.cell_filters[(r, c)] = None
                 if day.month != month:
                     container.setEnabled(False)
                     container.setStyleSheet(
