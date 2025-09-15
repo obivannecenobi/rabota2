@@ -1321,7 +1321,17 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         day_names = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "ВС"]
         self.setColumnCount(len(day_names))
         self.setHorizontalHeaderLabels(day_names)
-        self.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        header = self.horizontalHeader()
+        header.setAttribute(QtCore.Qt.WA_Hover, False)
+        if getattr(header, "_neon_filter", None):
+            header.removeEventFilter(header._neon_filter)
+            header._neon_filter = None
+        base = CONFIG.get("workspace_color", "#1e1e21")
+        header.setStyleSheet(
+            f"QHeaderView::section{{background:{base}; padding:0 6px;}}"
+            f"QHeaderView::section:hover{{background:{base};}}"
+        )
+        header.setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
         self.setFocusPolicy(QtCore.Qt.NoFocus)
