@@ -2632,8 +2632,6 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         theme = CONFIG.get("theme", "dark")
         self.setStyleSheet(
-            "QPushButton,QToolButton{" + base + "}"
-            "QPushButton:hover,QToolButton:hover{" + flat_base + "}"
             "QSpinBox,QDoubleSpinBox,QTimeEdit,QComboBox,QLineEdit{" + flat_base + "}"
             f"""
             QSpinBox::up-button,QDoubleSpinBox::up-button{{
