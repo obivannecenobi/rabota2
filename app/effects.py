@@ -157,6 +157,8 @@ class NeonEventFilter(QtCore.QObject):
         if not neon_enabled(self._config):
             return
         widget = self._widget()
+        if getattr(widget, "_neon_effect", None):
+            return
         apply_neon_effect(widget, True, config=self._config)
 
     def _stop(self) -> None:
@@ -178,7 +180,6 @@ class NeonEventFilter(QtCore.QObject):
         etype = event.type()
 
         if etype in (
-            QtCore.QEvent.HoverEnter,
             QtCore.QEvent.FocusIn,
             QtCore.QEvent.MouseButtonDblClick,
         ):
