@@ -230,6 +230,8 @@ def update_neon_filters(root: QtWidgets.QWidget, config: dict) -> None:
             if hasattr(widget, "viewport"):
                 widget.viewport().installEventFilter(filt)
             widget._neon_filter = filt
+        elif enabled and filt is not None:
+            filt._config = config
         elif not enabled and filt is not None:
             try:
                 widget.removeEventFilter(filt)
