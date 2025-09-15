@@ -203,7 +203,8 @@ class NeonEventFilter(QtCore.QObject):
             QtCore.QEvent.HoverLeave,
             QtCore.QEvent.Leave,
         ):
-            self._stop()
+            if not widget.hasFocus():
+                self._stop()
 
         return False
 
