@@ -1257,12 +1257,8 @@ class NeonTableWidget(QtWidgets.QTableWidget):
     def __init__(self, rows, cols, parent=None, use_neon=True):
         super().__init__(rows, cols, parent)
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
-        self.viewport().setAttribute(QtCore.Qt.WA_Hover, True)
-        self._neon_filter = None
         self._active_editor: QtWidgets.QLineEdit | None = None
-        if use_neon and neon_enabled(CONFIG):
-            self._neon_filter = NeonEventFilter(self, CONFIG)
-            self.viewport().installEventFilter(self._neon_filter)
+        self._neon_enabled = use_neon and neon_enabled(CONFIG)
         self.setStyleSheet(
             "QTableWidget, QTableWidget::viewport{border:1px solid transparent;}\n"
             "QTableWidget::item:selected{background:transparent;}"
@@ -1278,25 +1274,37 @@ class NeonTableWidget(QtWidgets.QTableWidget):
 
     def edit(self, index, trigger, event):
         res = super().edit(index, trigger, event)
-        if res and self._neon_filter is not None:
+        if res and self._neon_enabled:
             editor = self.findChild(QtWidgets.QLineEdit)
-            if editor and getattr(editor, "_neon_filter", None) is None:
-                editor.setAttribute(QtCore.Qt.WA_Hover, True)
-                editor.setStyleSheet(editor.styleSheet() + "border:1px solid transparent;")
-                filt = NeonEventFilter(editor, CONFIG)
-                editor.installEventFilter(filt)
-                editor._neon_filter = filt
-                apply_neon_effect(editor, True, shadow=False, config=CONFIG)
+            if editor is not None:
                 if self._active_editor is not None and self._active_editor is not editor:
+                    old_filter = getattr(self._active_editor, "_neon_filter", None)
+                    if old_filter is not None:
+                        self._active_editor.removeEventFilter(old_filter)
+                        self._active_editor._neon_filter = None
                     self._active_editor.removeEventFilter(self)
                     apply_neon_effect(self._active_editor, False, config=CONFIG)
+                if getattr(editor, "_neon_filter", None) is None:
+                    editor.setAttribute(QtCore.Qt.WA_Hover, True)
+                    editor.setStyleSheet(
+                        editor.styleSheet() + "border:1px solid transparent;"
+                    )
+                    filt = NeonEventFilter(editor, CONFIG)
+                    editor.installEventFilter(filt)
+                    editor._neon_filter = filt
+                apply_neon_effect(editor, True, shadow=False, config=CONFIG)
+                if self._active_editor is not editor:
+                    editor.installEventFilter(self)
                 self._active_editor = editor
-                editor.installEventFilter(self)
         return res
 
     def eventFilter(self, obj, event):  # noqa: D401 - Qt event filter signature
         if obj is self._active_editor and event.type() == QtCore.QEvent.FocusOut:
             apply_neon_effect(obj, False, config=CONFIG)
+            filt = getattr(obj, "_neon_filter", None)
+            if filt is not None:
+                obj.removeEventFilter(filt)
+                obj._neon_filter = None
             obj.removeEventFilter(self)
             self._active_editor = None
         return super().eventFilter(obj, event)
