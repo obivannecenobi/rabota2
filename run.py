@@ -12,6 +12,8 @@ if sys.version_info < (3, 11):
 ROOT = Path(__file__).resolve().parent
 VENV_DIR = ROOT / '.venv'
 PYTHON = VENV_DIR / ('Scripts' if os.name == 'nt' else 'bin') / 'python'
+LOG_DIR = ROOT / 'logs'
+LOG_PATH = LOG_DIR / 'startup.log'
 
 
 def main() -> int:
@@ -37,17 +39,19 @@ def main() -> int:
         print(f"Не удалось установить зависимости: {exc}", file=sys.stderr)
         return exc.returncode
 
-    proc = subprocess.Popen(
-        [str(PYTHON), str(ROOT / "app" / "main.py")],
-        stdout=sys.stdout,
-        stderr=sys.stderr,
-        text=True,
-    )
-    proc.wait()
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    with LOG_PATH.open("w", encoding="utf-8") as log_file:
+        proc = subprocess.Popen(
+            [str(PYTHON), str(ROOT / "app" / "main.py")],
+            stdout=log_file,
+            stderr=log_file,
+            text=True,
+        )
+        proc.wait()
 
     if proc.returncode != 0:
         print(
-            f"Application failed with exit code {proc.returncode}",
+            f"Application failed with exit code {proc.returncode}. See {LOG_PATH} for details",
             file=sys.stderr,
         )
         return proc.returncode
