@@ -2173,11 +2173,7 @@ class TopBar(QtWidgets.QWidget):
         self.spin_year.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
         self.spin_year.valueChanged.connect(self.year_changed.emit)
         lay.addWidget(self.spin_year)
-        self.spin_year.setAttribute(QtCore.Qt.WA_Hover, True)
-        if neon_enabled(CONFIG):
-            filt = NeonEventFilter(self.spin_year, CONFIG)
-            self.spin_year.installEventFilter(filt)
-            self.spin_year._neon_filter = filt
+        self._update_spin_year_neon(neon_enabled(CONFIG))
         lay.addStretch(1)
         self.btn_next = StyledToolButton(self, **button_config())
         self.btn_next.setCursor(QtCore.Qt.PointingHandCursor)
@@ -2261,7 +2257,35 @@ class TopBar(QtWidgets.QWidget):
             apply_neon_effect(btn, neon, config=CONFIG)
 
         self.apply_fonts()
+        self._update_spin_year_neon(neon)
         update_neon_filters(self, CONFIG)
+
+    def _update_spin_year_neon(self, neon: bool) -> None:
+        """Install or remove the neon event filter for the year spin box."""
+
+        filt = getattr(self.spin_year, "_neon_filter", None)
+        editor = self.spin_year.lineEdit()
+        editor_valid = editor is not None and shiboken6.isValid(editor)
+
+        if neon:
+            if filt is None:
+                filt = NeonEventFilter(self.spin_year, CONFIG)
+                self.spin_year.installEventFilter(filt)
+                if editor_valid:
+                    editor.installEventFilter(filt)
+                self.spin_year._neon_filter = filt
+        elif filt is not None:
+            try:
+                self.spin_year.removeEventFilter(filt)
+            except RuntimeError:
+                pass
+            if editor_valid:
+                try:
+                    editor.removeEventFilter(filt)
+                except RuntimeError:
+                    pass
+            apply_neon_effect(self.spin_year, False, config=CONFIG)
+            self.spin_year._neon_filter = None
 
 
 class MainWindow(QtWidgets.QMainWindow):
