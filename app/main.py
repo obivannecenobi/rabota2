@@ -1347,7 +1347,13 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         tbl = NeonTableWidget(CONFIG.get("day_rows", 6), 3, self, use_neon=True)
         tbl.setHorizontalHeaderLabels(["Работа", "План", "Готово"])
         tbl.verticalHeader().setVisible(False)
-        tbl.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
+        header = tbl.horizontalHeader()
+        header.setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
+        base = CONFIG.get("workspace_color", "#1e1e21")
+        header.setStyleSheet(
+            f"QHeaderView::section{{background:{base}; padding:0 6px;}}"
+            f"QHeaderView::section:hover{{background:{base};}}"
+        )
         tbl.setEditTriggers(QtWidgets.QAbstractItemView.DoubleClicked)
         tbl.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         tbl.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
