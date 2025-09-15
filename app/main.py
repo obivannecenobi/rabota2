@@ -2470,8 +2470,9 @@ class MainWindow(QtWidgets.QMainWindow):
             apply_neon_effect(b, False, config=CONFIG)
 
     def _on_settings_changed(self):
-        global CONFIG, BASE_SAVE_PATH
-        CONFIG = load_config()
+        global BASE_SAVE_PATH
+        CONFIG.clear()
+        CONFIG.update(load_config())
         config.CONFIG = CONFIG
         if not isinstance(CONFIG.get("gradient_colors"), list):
             CONFIG["gradient_colors"] = ["#39ff14", "#2d7cdb"]
