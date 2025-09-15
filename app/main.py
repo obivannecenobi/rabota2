@@ -1461,10 +1461,12 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         self.date_map.clear()
         self.cell_tables.clear()
         self.day_labels.clear()
+        for container in list(self.cell_containers.values()):
+            apply_neon_effect(container, False, config=CONFIG)
         self.cell_containers.clear()
         self.cell_filters.clear()
         self.setRowCount(len(weeks))
-        base_style = "border:1px solid transparent;"
+        base_style = "border:1px solid transparent; border-radius:8px;"
         for r, week in enumerate(weeks):
             for c, day in enumerate(week):
                 container = QtWidgets.QWidget()
