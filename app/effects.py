@@ -3,6 +3,17 @@ import shiboken6
 import weakref
 
 
+class FixedDropShadowEffect(QtWidgets.QGraphicsDropShadowEffect):
+    """Drop shadow effect that preserves the original bounding rectangle."""
+
+    def boundingRectFor(  # noqa: D401 - Qt override signature
+        self, rect: QtCore.QRectF
+    ) -> QtCore.QRectF:
+        """Return the original ``rect`` without expanding it."""
+
+        return rect
+
+
 def neon_enabled(config: dict) -> bool:
     """Return ``True`` if neon highlighting is enabled in *config*."""
     return bool(config.get("neon", False))
@@ -30,7 +41,7 @@ def set_neon(
         widget.setGraphicsEffect(eff)
         return eff
 
-    eff = QtWidgets.QGraphicsDropShadowEffect(widget)
+    eff = FixedDropShadowEffect(widget)
     eff.setOffset(0, 0)
     eff.setBlurRadius(20)
     c = QtGui.QColor(color)
@@ -94,7 +105,7 @@ def apply_neon_effect(
         thickness = int(config.get("neon_thickness", 1)) if config else 1
         eff = None
         if shadow:
-            eff = QtWidgets.QGraphicsDropShadowEffect(widget)
+            eff = FixedDropShadowEffect(widget)
             eff.setOffset(0, 0)
             eff.setBlurRadius(20)
             eff.setColor(color)
