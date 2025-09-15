@@ -2272,7 +2272,11 @@ class TopBar(QtWidgets.QWidget):
         for btn in (self.btn_prev, self.btn_next):
             btn.apply_base_style()
             btn._apply_hover(bool(btn.property("neon_selected")))
-            apply_neon_effect(btn, neon, config=CONFIG)
+            apply_neon_effect(
+                btn,
+                btn.property("neon_selected") and neon,
+                config=CONFIG,
+            )
 
         self.apply_fonts()
         self._update_spin_year_neon(neon)
