@@ -1522,6 +1522,8 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
             for r, week in enumerate(weeks):
                 for c, day in enumerate(week):
                     container = QtWidgets.QWidget()
+                    container.setAttribute(QtCore.Qt.WA_Hover, True)
+                    container.setFocusPolicy(QtCore.Qt.NoFocus)
                     lay = QtWidgets.QVBoxLayout(container)
                     lay.setContentsMargins(0, 0, 0, 0)
                     lay.setSpacing(2)
@@ -1573,6 +1575,7 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                     )
                     inner.itemChanged.connect(handler)
                     inner._autosave_handler = handler  # type: ignore[attr-defined]
+            update_neon_filters(self, CONFIG)
         finally:
             self._loading_cells = False
         self._update_row_heights()
@@ -1611,6 +1614,7 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
             f"QTableWidget{{background-color:{ws};color:{text_color};}}"
             f"QTableWidget::item{{background-color:{ws};color:{text_color};}}"
             f"QTableWidget::item:selected{{background-color:{ws};color:{text_color};}}"
+            "QTableWidget::item:hover{border:1px solid transparent;}"
         )
         self.setStyleSheet(style)
         self.horizontalHeader().setStyleSheet(f"background-color:{ws};")
