@@ -16,7 +16,13 @@ import config
 from widgets import StyledPushButton, StyledToolButton
 from resources import register_fonts, load_icons, icon
 import theme_manager
-from effects import NeonEventFilter, neon_enabled, update_neon_filters, apply_neon_effect
+from effects import (
+    FixedDropShadowEffect,
+    NeonEventFilter,
+    apply_neon_effect,
+    neon_enabled,
+    update_neon_filters,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1753,8 +1759,16 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         accent: QtGui.QColor,
         sidebar_color: Union[str, QtGui.QColor, None] = None,
     ):
-        size = CONFIG.get("neon_size", 10)
-        intensity = CONFIG.get("neon_intensity", 255)
+        try:
+            size = int(CONFIG.get("neon_size", 10))
+        except (TypeError, ValueError):
+            size = 10
+        try:
+            intensity = int(CONFIG.get("neon_intensity", 255))
+        except (TypeError, ValueError):
+            intensity = 255
+        size = max(0, size)
+        intensity = max(0, min(255, intensity))
         if sidebar_color is None:
             sidebar_color = CONFIG.get("sidebar_color", "#1f1f23")
         if isinstance(sidebar_color, QtGui.QColor):
@@ -1770,28 +1784,35 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         widgets = [self.btn_toggle] + self.buttons + [self.btn_settings]
         for w in widgets:
             w.apply_base_style()
-            w._apply_hover(w.property("neon_selected"))
+            selected = bool(w.property("neon_selected"))
+            w._apply_hover(selected)
             apply_neon_effect(
                 w,
-                w.property("neon_selected") and neon_enabled(CONFIG),
+                selected and neon,
                 config=CONFIG,
             )
-
-        if neon:
-            for w in widgets:
-                eff = QtWidgets.QGraphicsDropShadowEffect(self)
-                eff.setOffset(0, 0)
-                eff.setBlurRadius(size)
-                c = QtGui.QColor(accent)
-                c.setAlpha(intensity)
-                eff.setColor(c)
-                w.setGraphicsEffect(eff)
-        else:
-            for w in widgets:
-                if hasattr(w, "_neon_anim") and w._neon_anim:
-                    w._neon_anim.stop()
-                    w._neon_anim = None
-                w.setGraphicsEffect(None)
+            if neon and selected:
+                effect = getattr(w, "_neon_effect", None)
+                if (
+                    effect is None
+                    or not shiboken6.isValid(effect)
+                    or not isinstance(effect, FixedDropShadowEffect)
+                ):
+                    effect = FixedDropShadowEffect(self)
+                    effect.setOffset(0, 0)
+                    try:
+                        w.setGraphicsEffect(effect)
+                    except RuntimeError:
+                        continue
+                    w._neon_effect = effect
+                if isinstance(effect, FixedDropShadowEffect):
+                    effect.setBlurRadius(size)
+                    c = QtGui.QColor(accent)
+                    c.setAlpha(intensity)
+                    effect.setColor(c)
+            elif not neon and hasattr(w, "_neon_anim") and w._neon_anim:
+                w._neon_anim.stop()
+                w._neon_anim = None
 
     def update_icons(self) -> None:
         """Update sidebar icon from configuration."""
