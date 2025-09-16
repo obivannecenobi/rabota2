@@ -2211,9 +2211,9 @@ class SettingsDialog(QtWidgets.QDialog):
     def _update_workspace_button(self):
         color = self._workspace_color.name()
         self.btn_workspace.setStyleSheet(
-            f"QPushButton{{background:{color}; border:1px solid #555;}} "
-            f"QPushButton:hover{{background:{color};}} "
-            f"QPushButton:focus{{background:{color};}}"
+            f"QPushButton{{background:{color}; border:1px solid #555; border-radius:8px;}} "
+            f"QPushButton:hover{{background:{color}; border-radius:8px;}} "
+            f"QPushButton:focus{{background:{color}; border-radius:8px;}}"
         )
 
     def choose_workspace_color(self):
@@ -2238,9 +2238,9 @@ class SettingsDialog(QtWidgets.QDialog):
     def _update_sidebar_button(self):
         color = self._sidebar_color.name()
         self.btn_sidebar.setStyleSheet(
-            f"QPushButton{{background:{color}; border:1px solid #555;}} "
-            f"QPushButton:hover{{background:{color};}} "
-            f"QPushButton:focus{{background:{color};}}"
+            f"QPushButton{{background:{color}; border:1px solid #555; border-radius:8px;}} "
+            f"QPushButton:hover{{background:{color}; border-radius:8px;}} "
+            f"QPushButton:focus{{background:{color}; border-radius:8px;}}"
         )
 
     def choose_sidebar_color(self):
@@ -2256,14 +2256,14 @@ class SettingsDialog(QtWidgets.QDialog):
         c1 = self._grad_color1.name()
         c2 = self._grad_color2.name()
         self.btn_grad1.setStyleSheet(
-            f"QPushButton{{background:{c1}; border:1px solid #555;}} "
-            f"QPushButton:hover{{background:{c1};}} "
-            f"QPushButton:focus{{background:{c1};}}"
+            f"QPushButton{{background:{c1}; border:1px solid #555; border-radius:8px;}} "
+            f"QPushButton:hover{{background:{c1}; border-radius:8px;}} "
+            f"QPushButton:focus{{background:{c1}; border-radius:8px;}}"
         )
         self.btn_grad2.setStyleSheet(
-            f"QPushButton{{background:{c2}; border:1px solid #555;}} "
-            f"QPushButton:hover{{background:{c2};}} "
-            f"QPushButton:focus{{background:{c2};}}"
+            f"QPushButton{{background:{c2}; border:1px solid #555; border-radius:8px;}} "
+            f"QPushButton:hover{{background:{c2}; border-radius:8px;}} "
+            f"QPushButton:focus{{background:{c2}; border-radius:8px;}}"
         )
 
     def choose_grad_color(self, idx):
