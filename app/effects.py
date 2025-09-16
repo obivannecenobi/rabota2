@@ -88,6 +88,12 @@ def apply_neon_effect(
     if widget is None or not shiboken6.isValid(widget):
         return
 
+    try:
+        thickness = int(config.get("neon_thickness", 1)) if config else 1
+    except (TypeError, ValueError):
+        thickness = 1
+    thickness = max(0, thickness)
+
     if on:
         if getattr(widget, "_neon_prev_effect", None) is None:
             prev = widget.graphicsEffect()
@@ -101,8 +107,6 @@ def apply_neon_effect(
             widget._neon_prev_style = widget.styleSheet()
         prev_style = widget._neon_prev_style or ""
         color = widget.palette().color(QtGui.QPalette.Highlight)
-        text_color = widget.palette().buttonText().color()
-        thickness = int(config.get("neon_thickness", 1)) if config else 1
         eff = None
         blur_radius = 20
         intensity = 255
@@ -131,17 +135,9 @@ def apply_neon_effect(
                 return
         else:
             widget.setGraphicsEffect(None)
-        if isinstance(widget, QtWidgets.QLabel):
-            widget.setStyleSheet(
-                prev_style
-                + f" color:{text_color.name()}; border-color:{color.name()};"
-                + f" border-width:{thickness}px;"
-            )
-        else:
-            widget.setStyleSheet(
-                prev_style
-                + f" color:{text_color.name()}; border-color:{color.name()};"
-            )
+        border_style = f" border:{thickness}px solid {color.name()};"
+        text_style = f" color:{color.name()};"
+        widget.setStyleSheet(prev_style + text_style + border_style)
         widget._neon_effect = eff
     else:
         prev = getattr(widget, "_neon_prev_effect", None)
@@ -158,10 +154,12 @@ def apply_neon_effect(
         except RuntimeError:
             pass
         prev_style = getattr(widget, "_neon_prev_style", None)
-        if isinstance(widget, QtWidgets.QLabel):
-            widget.setStyleSheet(prev_style or "")
+        if prev_style:
+            widget.setStyleSheet(prev_style)
+        elif isinstance(widget, QtWidgets.QLabel):
+            widget.setStyleSheet("")
         else:
-            widget.setStyleSheet((prev_style or "") + " border-color:transparent;")
+            widget.setStyleSheet("border:0px solid transparent;")
         widget._neon_prev_style = None
         widget._neon_effect = None
 
