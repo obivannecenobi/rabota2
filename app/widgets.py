@@ -69,9 +69,12 @@ class ButtonStyleMixin:
         return self.palette().color(QtGui.QPalette.Highlight).name()
 
     def _hover_style(self) -> str:
+        accent = self._accent_color()
         return (
-            f"border-color:{self._accent_color()}; "
-            f"color:{self._accent_color()};"
+            "border-radius:16px;"
+            "background:#2d2d2d;"
+            f"border-color:{accent}; "
+            f"color:{accent};"
         )
 
     def _apply_hover(self, on: bool) -> None:
@@ -83,15 +86,17 @@ class ButtonStyleMixin:
     # --- events ------------------------------------------------------
     def enterEvent(self, event):  # noqa: D401
         self._apply_hover(True)
+        self._neon_prev_style = self.styleSheet()
         if neon_enabled(CONFIG):
             apply_neon_effect(self, True, config=CONFIG)
         super().enterEvent(event)
 
     def leaveEvent(self, event):  # noqa: D401
         selected = bool(self.property("neon_selected"))
+        self._apply_hover(selected)
+        self._neon_prev_style = self.styleSheet()
         if neon_enabled(CONFIG):
             apply_neon_effect(self, selected, config=CONFIG)
-        self._apply_hover(selected)
         super().leaveEvent(event)
 
 
