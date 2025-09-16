@@ -2336,8 +2336,13 @@ class TopBar(QtWidgets.QWidget):
         self.lbl_month.setStyleSheet("background:transparent; border:none;")
         # Ensure rounded spin box with a semi-transparent border for contrast
         self.spin_year.setStyleSheet(
-            f"background-color:{qcolor.name()}; padding:0 4px;"
-            " border-radius:6px; border:1px solid rgba(255,255,255,0.2);"
+            (
+                "QSpinBox{"
+                f"background-color:{qcolor.name()}; padding:0 4px;"
+                " border-radius:6px; border:1px solid rgba(255,255,255,0.2);"
+                "}"
+                " QSpinBox::lineEdit{border-radius:6px;}"
+            )
         )
         self.apply_fonts()
 
