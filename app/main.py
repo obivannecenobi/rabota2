@@ -2353,7 +2353,9 @@ class TopBar(QtWidgets.QWidget):
             style = "QLabel{color:#e5e5e5; border:none;}"
             self.setStyleSheet(style)
             self.apply_background(self.palette().color(QtGui.QPalette.Window))
-            apply_neon_effect(self.lbl_month, True, config=CONFIG)
+            apply_neon_effect(
+                self.lbl_month, True, shadow=False, border=False, config=CONFIG
+            )
         else:
             if CONFIG.get("theme", "dark") == "dark":
                 style = self.default_style

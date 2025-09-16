@@ -66,6 +66,7 @@ def apply_neon_effect(
     widget: QtWidgets.QWidget,
     on: bool = True,
     shadow: bool = True,
+    border: bool = True,
     *,
     config: dict | None = None,
 ) -> None:
@@ -83,6 +84,10 @@ def apply_neon_effect(
         is applied.  Set to ``False`` to skip the drop shadow, keeping only the
         color adjustments.  This is useful for widgets like ``QLabel`` where the
         shadow is visually undesirable.
+    border: bool
+        When ``True`` (default) a colored border matching the highlight color is
+        added to the widget.  Set to ``False`` to leave the widget border
+        unchanged.
     """
 
     if widget is None or not shiboken6.isValid(widget):
@@ -135,7 +140,10 @@ def apply_neon_effect(
                 return
         else:
             widget.setGraphicsEffect(None)
-        border_style = f" border:{thickness}px solid {color.name()};"
+        if border:
+            border_style = f" border:{thickness}px solid {color.name()};"
+        else:
+            border_style = ""
         text_style = f" color:{color.name()};"
         widget.setStyleSheet(prev_style + text_style + border_style)
         widget._neon_effect = eff
