@@ -1,3 +1,5 @@
+import re
+
 from PySide6 import QtWidgets, QtGui, QtCore
 import shiboken6
 import weakref
@@ -111,6 +113,12 @@ def apply_neon_effect(
         if getattr(widget, "_neon_prev_style", None) is None:
             widget._neon_prev_style = widget.styleSheet()
         prev_style = widget._neon_prev_style or ""
+        border_radius_style = ""
+        if prev_style:
+            matches = re.findall(r"border-radius\s*:\s*[^;]+", prev_style, re.IGNORECASE)
+            if matches:
+                border_radius_value = matches[-1].strip()
+                border_radius_style = f" {border_radius_value.rstrip(';')};"
         color = widget.palette().color(QtGui.QPalette.Highlight)
         eff = None
         blur_radius = 20
@@ -145,7 +153,7 @@ def apply_neon_effect(
         else:
             border_style = ""
         text_style = f" color:{color.name()};"
-        widget.setStyleSheet(prev_style + text_style + border_style)
+        widget.setStyleSheet(prev_style + text_style + border_style + border_radius_style)
         widget._neon_effect = eff
     else:
         prev = getattr(widget, "_neon_prev_effect", None)
