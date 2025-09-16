@@ -1926,22 +1926,35 @@ class SettingsDialog(QtWidgets.QDialog):
         self.chk_neon.setChecked(CONFIG.get("neon", False))
         self.chk_neon.toggled.connect(self._on_neon_changed)
         lay_neon.addRow("Включен", self.chk_neon)
+        spin_style = (
+            "QSpinBox{border-radius:8px; padding:2px; background:#2d2d2d; "
+            "border:1px solid #555;}"
+            "QSpinBox:hover, QSpinBox:focus{background:#2d2d2d;}"
+        )
         self.spin_neon_size = QtWidgets.QSpinBox(self)
         self.spin_neon_size.setRange(0, 200)
         self.spin_neon_size.setValue(CONFIG.get("neon_size", 10))
+        self.spin_neon_size.setStyleSheet(spin_style)
         self.spin_neon_size.valueChanged.connect(self._on_neon_changed)
         lay_neon.addRow("Размер", self.spin_neon_size)
         self.spin_neon_thickness = QtWidgets.QSpinBox(self)
         self.spin_neon_thickness.setRange(0, 10)
         self.spin_neon_thickness.setValue(CONFIG.get("neon_thickness", 1))
+        self.spin_neon_thickness.setStyleSheet(spin_style)
         self.spin_neon_thickness.valueChanged.connect(self._on_neon_changed)
         lay_neon.addRow("Толщина", self.spin_neon_thickness)
         self.spin_neon_intensity = QtWidgets.QSpinBox(self)
         self.spin_neon_intensity.setRange(0, 255)
         self.spin_neon_intensity.setValue(CONFIG.get("neon_intensity", 255))
+        self.spin_neon_intensity.setStyleSheet(spin_style)
         self.spin_neon_intensity.valueChanged.connect(self._on_neon_changed)
         lay_neon.addRow("Интенсивность", self.spin_neon_intensity)
         form_interface.addRow(grp_neon)
+        self._neon_spinboxes = (
+            self.spin_neon_size,
+            self.spin_neon_thickness,
+            self.spin_neon_intensity,
+        )
 
 
         self.font_header = QtWidgets.QFontComboBox(self)
@@ -2038,6 +2051,7 @@ class SettingsDialog(QtWidgets.QDialog):
         self.spin_day_rows = QtWidgets.QSpinBox(self)
         self.spin_day_rows.setRange(1, 20)
         self.spin_day_rows.setValue(CONFIG.get("day_rows", 6))
+        self.spin_day_rows.setStyleSheet(spin_style)
         self.spin_day_rows.setFixedWidth(self.spin_day_rows.sizeHint().width() + 20)
         self.spin_day_rows.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
         self.spin_day_rows.valueChanged.connect(lambda _: self._save_config())
@@ -2064,6 +2078,7 @@ class SettingsDialog(QtWidgets.QDialog):
             self.restoreGeometry(geom)
 
         apply_neon_to_inputs(self)
+        self._update_neon_spin_effects()
 
     def closeEvent(self, event):
         self._settings.setValue("SettingsDialog/geometry", self.saveGeometry())
@@ -2125,13 +2140,26 @@ class SettingsDialog(QtWidgets.QDialog):
         if parent is not None and hasattr(parent, "apply_style"):
             parent.apply_style(self.chk_neon.isChecked())
             update_neon_filters(parent, CONFIG)
-        update_neon_filters(self, CONFIG)
+
+    def _update_neon_spin_effects(self) -> None:
+        on = neon_enabled(CONFIG)
+        for spin in getattr(self, "_neon_spinboxes", ()):
+            if spin is None or not shiboken6.isValid(spin):
+                continue
+            if on:
+                apply_neon_effect(spin, True, border=True, config=CONFIG)
+            elif getattr(spin, "_neon_effect", None) is not None or getattr(
+                spin, "_neon_prev_style", None
+            ):
+                apply_neon_effect(spin, False, border=True, config=CONFIG)
 
     def _save_config(self):
         config = self._collect_config()
         CONFIG.update(config)
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(CONFIG, f, ensure_ascii=False, indent=2)
+        update_neon_filters(self, CONFIG)
+        self._update_neon_spin_effects()
         self.settings_changed.emit()
 
     def save(self) -> None:
