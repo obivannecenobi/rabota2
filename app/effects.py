@@ -104,11 +104,27 @@ def apply_neon_effect(
         text_color = widget.palette().buttonText().color()
         thickness = int(config.get("neon_thickness", 1)) if config else 1
         eff = None
+        blur_radius = 20
+        intensity = 255
+        if config:
+            try:
+                blur_radius = int(config.get("neon_size", blur_radius))
+            except (TypeError, ValueError):
+                blur_radius = 20
+            try:
+                intensity = int(config.get("neon_intensity", intensity))
+            except (TypeError, ValueError):
+                intensity = 255
+        blur_radius = max(0, blur_radius)
+        intensity = max(0, min(255, intensity))
+
         if shadow:
             eff = FixedDropShadowEffect(widget)
             eff.setOffset(0, 0)
-            eff.setBlurRadius(20)
-            eff.setColor(color)
+            eff.setBlurRadius(blur_radius)
+            effect_color = QtGui.QColor(color)
+            effect_color.setAlpha(intensity)
+            eff.setColor(effect_color)
             try:
                 widget.setGraphicsEffect(eff)
             except RuntimeError:
