@@ -1017,14 +1017,14 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self.table = NeonTableWidget(len(self.INDICATORS), cols, self)
         self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectItems)
         self.table.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
-        self.table.setStyleSheet(
-            "QTableWidget{border:1px solid #555; border-radius:8px;} "
-            "QTableWidget::item{border:0;} "
-            "QHeaderView::section{padding:0 6px;}"
-        )
+        self.table.setAttribute(QtCore.Qt.WA_Hover, True)
+        filt = NeonEventFilter(self.table, CONFIG)
+        self.table.installEventFilter(filt)
+        self.table._neon_filter = filt
         self.table.setHorizontalHeaderLabels(RU_MONTHS + ["Итого за год"])
         self.table.setVerticalHeaderLabels(self.INDICATORS)
-        self.table.horizontalHeader().setSectionResizeMode(
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(
             QtWidgets.QHeaderView.Interactive
         )
         self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
@@ -1065,13 +1065,17 @@ class AnalyticsDialog(QtWidgets.QDialog):
         geom = self._settings.value("AnalyticsDialog/geometry", type=QtCore.QByteArray)
         if geom is not None:
             self.restoreGeometry(geom)
-        self.load(year)
-        sizes = self._settings.value("AnalyticsDialog/columns", type=list)
-        for i, w in enumerate(sizes or []):
+
+        raw_sizes = self._settings.value("AnalyticsDialog/columns", type=list)
+        self._saved_column_sizes = []
+        for value in raw_sizes or []:
             try:
-                self.table.setColumnWidth(i, int(w))
+                self._saved_column_sizes.append(int(value))
             except (TypeError, ValueError):
-                pass  # пропустить некорректное значение
+                continue
+
+        self.load(year)
+        self.refresh_theme()
 
     def resizeEvent(self, event):
         self.table.horizontalHeader().setSectionResizeMode(
@@ -1079,6 +1083,65 @@ class AnalyticsDialog(QtWidgets.QDialog):
         )
         self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         super().resizeEvent(event)
+
+    def refresh_theme(self) -> None:
+        """Обновить стиль таблицы в соответствии с текущей темой."""
+
+        workspace = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21")).name()
+        accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14")).name()
+
+        header = self.table.horizontalHeader()
+
+        if getattr(self.table, "_neon_effect", None):
+            apply_neon_effect(self.table, False, config=CONFIG)
+        if getattr(header, "_neon_effect", None):
+            apply_neon_effect(header, False, config=CONFIG)
+
+        highlight = QtGui.QColor(accent)
+        palette = self.table.palette()
+        palette.setColor(QtGui.QPalette.Highlight, highlight)
+        self.table.setPalette(palette)
+
+        header_palette = header.palette()
+        header_palette.setColor(QtGui.QPalette.Highlight, highlight)
+        header.setPalette(header_palette)
+
+        table_style = (
+            "QTableWidget{"
+            f"background-color:{workspace};"
+            f"border:1px solid {accent};"
+            "border-radius:8px;"
+            "selection-background-color:rgba(0,0,0,0);"
+            f"selection-color:{accent};"
+            "gridline-color:rgba(255,255,255,40);"
+            "}"
+            "QTableWidget::item{border:0;}"
+        )
+        header_style = (
+            "QHeaderView::section{"
+            f"background-color:{workspace};"
+            f"color:{accent};"
+            "padding:0 6px;"
+            "border:0;"
+            f"border-bottom:1px solid {accent};"
+            "}"
+        )
+
+        self.table.setStyleSheet(table_style)
+        header.setStyleSheet(header_style)
+
+        apply_neon_effect(self.table, True, config=CONFIG)
+        apply_neon_effect(header, True, shadow=False, border=False, config=CONFIG)
+        update_neon_filters(self.table, CONFIG)
+
+    def _apply_saved_column_sizes(self) -> None:
+        sizes = getattr(self, "_saved_column_sizes", None) or []
+        for i, width in enumerate(sizes):
+            if i < self.table.columnCount():
+                self.table.setColumnWidth(i, width)
+        self._saved_column_sizes = [
+            int(self.table.columnWidth(i)) for i in range(self.table.columnCount())
+        ]
 
     def _year_changed(self, val):
         self.load(val)
@@ -1121,6 +1184,7 @@ class AnalyticsDialog(QtWidgets.QDialog):
             QtWidgets.QHeaderView.Interactive
         )
         self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        self._apply_saved_column_sizes()
         self._loading = False
 
     def save(self, accept=True):
