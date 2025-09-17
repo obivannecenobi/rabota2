@@ -2973,8 +2973,8 @@ class TopBar(QtWidgets.QWidget):
         lay.setContentsMargins(8, 8, 8, 8)
         lay.setSpacing(8)
         self.setObjectName("TopBar")
-        self._default_spinbox_border = "1px solid rgba(255,255,255,0.2)"
-        self._spinbox_border = self._default_spinbox_border
+        self._accent_color = self._resolve_accent_color()
+        self._spinbox_border = f"1px solid {self._accent_color.name()}"
         self._base_style_template = ""
         self._background_color = QtGui.QColor(
             CONFIG.get("workspace_color", "#1e1e21")
@@ -3057,16 +3057,82 @@ class TopBar(QtWidgets.QWidget):
         self.lbl_month.setPalette(pal)
         self.lbl_month.setStyleSheet("background:transparent; border:none;")
 
+    def _resolve_accent_color(
+        self, color: Union[str, QtGui.QColor, None] = None
+    ) -> QtGui.QColor:
+        accent = QtGui.QColor(color) if color is not None else QtGui.QColor(
+            CONFIG.get("accent_color", "#39ff14")
+        )
+        if not accent.isValid():
+            accent = QtGui.QColor("#39ff14")
+        if CONFIG.get("monochrome", False):
+            h, s, v, _ = accent.getHsv()
+            s = int(CONFIG.get("mono_saturation", 100))
+            accent.setHsv(h, s, v)
+        return accent
+
+    @staticmethod
+    def _color_from_border(border: str | None) -> QtGui.QColor | None:
+        if not border:
+            return None
+        for token in border.replace(";", " ").split():
+            candidate = QtGui.QColor(token)
+            if candidate.isValid():
+                return candidate
+        return None
+
+    def _accent_tone(self, factor: int) -> str:
+        accent = QtGui.QColor(self._accent_color)
+        if not accent.isValid():
+            accent = QtGui.QColor("#39ff14")
+        if accent.lightness() < 128:
+            return accent.lighter(factor).name()
+        return accent.darker(factor).name()
+
+    def _background_tone(self, factor: int) -> str:
+        background = QtGui.QColor(self._background_color)
+        if background.lightness() < 128:
+            return background.lighter(factor).name()
+        return background.darker(factor).name()
+
+    @staticmethod
+    def _compose_border(template: str, color: str) -> str:
+        normalized = template.strip()
+        if not normalized or normalized.lower() in {"0", "none", "0px"}:
+            return normalized or "0"
+        parts: list[str] = []
+        replaced = False
+        for token in normalized.replace(";", " ").split():
+            qcolor = QtGui.QColor(token)
+            if qcolor.isValid() and not replaced:
+                parts.append(color)
+                replaced = True
+            else:
+                parts.append(token)
+        if not replaced:
+            parts.append(color)
+        return " ".join(parts)
+
     def _apply_spinbox_style(self) -> None:
-        border = self._spinbox_border or "0"
+        base_border = self._spinbox_border or f"1px solid {self._accent_color.name()}"
+        hover_border = base_border
+        focus_border = base_border
+        if base_border.strip().lower() not in {"", "0", "none", "0px"}:
+            hover_border = self._compose_border(base_border, self._accent_tone(115))
+            focus_border = self._compose_border(base_border, self._accent_tone(130))
+        bg = self._background_color.name()
+        hover_bg = self._background_tone(108)
+        focus_bg = self._background_tone(116)
         self.spin_year.setStyleSheet(
             (
                 "QSpinBox{"
-                f"background-color:{self._background_color.name()}; padding:0 4px;"
+                f"background-color:{bg}; padding:0 4px;"
                 " border-radius:6px;"
-                f" border:{border};"
+                f" border:{base_border};"
                 "}"
-                " QSpinBox::lineEdit{border-radius:6px;}"
+                f" QSpinBox:hover{{background-color:{hover_bg}; border:{hover_border};}}"
+                f" QSpinBox:focus{{background-color:{focus_bg}; border:{focus_border};}}"
+                " QSpinBox::lineEdit{border-radius:6px; background:transparent;}"
             )
         )
 
@@ -3075,12 +3141,20 @@ class TopBar(QtWidgets.QWidget):
         color: Union[str, QtGui.QColor],
         *,
         border: str | None = None,
+        accent: Union[str, QtGui.QColor, None] = None,
     ) -> None:
         qcolor = QtGui.QColor(color)
         if not qcolor.isValid():
             return
         self._background_color = qcolor
-        self._spinbox_border = border if border is not None else self._default_spinbox_border
+        self._accent_color = self._resolve_accent_color(accent)
+        if border is not None:
+            self._spinbox_border = border
+            parsed = self._color_from_border(border)
+            if parsed is not None and parsed.isValid():
+                self._accent_color = self._resolve_accent_color(parsed)
+        else:
+            self._spinbox_border = f"1px solid {self._accent_color.name()}"
         self._apply_background_palette()
         self._apply_spinbox_style()
         self._rebuild_stylesheet()
@@ -3091,13 +3165,20 @@ class TopBar(QtWidgets.QWidget):
         color: Union[str, QtGui.QColor],
         *,
         border: str | None = None,
+        accent: Union[str, QtGui.QColor, None] = None,
     ) -> None:
         qcolor = QtGui.QColor(color)
         if not qcolor.isValid():
             return
         self._background_color = qcolor
+        self._accent_color = self._resolve_accent_color(accent)
         if border is not None:
             self._spinbox_border = border
+            parsed = self._color_from_border(border)
+            if parsed is not None and parsed.isValid():
+                self._accent_color = self._resolve_accent_color(parsed)
+        else:
+            self._spinbox_border = f"1px solid {self._accent_color.name()}"
         self._apply_background_palette()
         self._apply_spinbox_style()
         self._rebuild_stylesheet()
@@ -3138,9 +3219,26 @@ class TopBar(QtWidgets.QWidget):
                 editor.installEventFilter(filt)
             self.spin_year._neon_filter = filt
         else:
-            filt._config = CONFIG
-            if editor_valid and getattr(editor, "_neon_filter", None) is not filt:
-                editor.installEventFilter(filt)
+            if hasattr(filt, "update_config"):
+                filt.update_config(CONFIG)
+            else:
+                filt._config = CONFIG
+            if editor_valid:
+                existing = getattr(editor, "_neon_filter", None)
+                if existing is not filt:
+                    editor.installEventFilter(filt)
+                    editor._neon_filter = filt
+                else:
+                    if hasattr(existing, "update_config"):
+                        existing.update_config(CONFIG)
+                    else:
+                        existing._config = CONFIG
+            for target in (self.spin_year, editor if editor_valid else None):
+                if target is None or not shiboken6.isValid(target):
+                    continue
+                effect = getattr(target, "_neon_effect", None)
+                if effect is not None and shiboken6.isValid(effect):
+                    apply_neon_effect(target, True, config=CONFIG)
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -3303,8 +3401,9 @@ class MainWindow(QtWidgets.QMainWindow):
             CONFIG["gradient_colors"] = ["#39ff14", "#2d7cdb"]
         BASE_SAVE_PATH = os.path.abspath(CONFIG.get("save_path", DATA_DIR))
         self.apply_settings()
-        workspace = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21"))
-        self.topbar.apply_background(workspace)
+        workspace = self._current_workspace_color()
+        accent = self._current_accent_color()
+        self.topbar.apply_background(workspace, accent=accent)
         app = QtWidgets.QApplication.instance()
         if app is not None:
             for dlg in app.topLevelWidgets():
@@ -3342,6 +3441,20 @@ class MainWindow(QtWidgets.QMainWindow):
                     tbl.setFont(app.font())
                     tbl.horizontalHeader().setFont(header_font)
 
+    def _current_workspace_color(self) -> QtGui.QColor:
+        workspace = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21"))
+        if CONFIG.get("monochrome", False):
+            workspace = theme_manager.apply_monochrome(workspace)
+        return workspace
+
+    def _current_accent_color(self) -> QtGui.QColor:
+        accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
+        if CONFIG.get("monochrome", False):
+            h, s, v, _ = accent.getHsv()
+            s = int(CONFIG.get("mono_saturation", 100))
+            accent.setHsv(h, s, v)
+        return accent
+
     def _apply_sidebar_style(self, accent: QtGui.QColor, sidebar):
         func = getattr(self.sidebar, "apply_style")
         try:
@@ -3354,21 +3467,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.topbar.update_icons()
         self.sidebar.update_icons()
         self.setWindowIcon(QtGui.QIcon(CONFIG.get("app_icon", ICON_TOGGLE)))
-        workspace = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21"))
-        if CONFIG.get("monochrome", False):
-            workspace = theme_manager.apply_monochrome(workspace)
+        workspace = self._current_workspace_color()
         self.statusBar().setStyleSheet(
             f"background-color:{workspace.name()};"
         )
-        self.topbar.apply_background(workspace)
+        accent = self._current_accent_color()
+        self.topbar.apply_background(workspace, accent=accent)
         self.table.horizontalHeader().setStyleSheet(
             f"background-color:{workspace.name()};"
         )
-        accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
-        if CONFIG.get("monochrome", False):
-            h, s, v, _ = accent.getHsv()
-            s = int(CONFIG.get("mono_saturation", 100))
-            accent.setHsv(h, s, v)
         # ensure widgets use the latest accent color for borders and neon effects
         app = QtWidgets.QApplication.instance()
         pal = app.palette()
@@ -3380,14 +3487,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sidebar.anim.setDuration(160)
         update_neon_filters(self, CONFIG)
         # Reapply background so the spin box border matches the current theme
-        self.topbar.apply_background(workspace)
+        self.topbar.apply_background(workspace, accent=accent)
         self.topbar.update_labels()
 
     def apply_settings(self):
         self.apply_fonts()
         self.apply_palette()
         self.apply_theme()
-        accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
+        accent = self._current_accent_color()
         sidebar_color = CONFIG.get("sidebar_color", "#1f1f23")
         self._apply_sidebar_style(
             accent, sidebar_color
@@ -3515,7 +3622,7 @@ class MainWindow(QtWidgets.QMainWindow):
         flat_base, _ = theme_manager.apply_gradient(flat_cfg)
         self.topbar.update_background(
             workspace_for_styles,
-            border="1px solid transparent",
+            accent=accent,
         )
         theme = CONFIG.get("theme", "dark")
         self.setStyleSheet(
@@ -3559,7 +3666,7 @@ class MainWindow(QtWidgets.QMainWindow):
             sidebar_style_color = theme_manager.apply_monochrome(sidebar_style_color)
         self._apply_sidebar_style(accent, sidebar_style_color)
         # Reapply topbar background so spin box picks up workspace color
-        self.topbar.apply_background(workspace_for_styles)
+        self.topbar.apply_background(workspace_for_styles, accent=accent)
 
         self.statusBar().update()
         self.topbar.update()

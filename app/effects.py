@@ -194,6 +194,9 @@ class NeonEventFilter(QtCore.QObject):
         if widget is not None and shiboken6.isValid(widget):
             widget.removeEventFilter(self)
 
+    def update_config(self, config: dict) -> None:
+        self._config = config
+
     def _start(self) -> None:
         widget = self._widget()
         if getattr(widget, "_neon_effect", None):

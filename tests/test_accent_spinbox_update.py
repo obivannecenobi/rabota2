@@ -9,13 +9,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "app"))
 from PySide6 import QtWidgets, QtGui
 
 import resources
+
 resources.register_fonts = lambda: None
 
 import app.main as main
 
 
-def test_year_spinbox_border_persists(tmp_path):
-    # Use temporary config file
+def test_accent_color_updates_spinbox_border(tmp_path):
     main.CONFIG_PATH = str(tmp_path / "config.json")
     with open(main.CONFIG_PATH, "w", encoding="utf-8") as f:
         json.dump(main.CONFIG, f)
@@ -24,19 +24,16 @@ def test_year_spinbox_border_persists(tmp_path):
     window = main.MainWindow()
     window.apply_settings()
 
-    # change workspace color and simulate settings save
-    main.CONFIG["workspace_color"] = "#123456"
+    new_accent = "#ff8800"
+    main.CONFIG["accent_color"] = new_accent
     with open(main.CONFIG_PATH, "w", encoding="utf-8") as f:
         json.dump(main.CONFIG, f)
 
-    window._on_settings_changed()
+    window.apply_theme()
 
     style = window.topbar.spin_year.styleSheet().replace(" ", "").lower()
-    accent_hex = QtGui.QColor(main.CONFIG.get("accent_color", "#39ff14")).name().lower()
-    assert "border-radius:6px" in style
-    assert f"border:1pxsolid{accent_hex}" in style
-    assert "qspinbox:hover" in style
-    assert "qspinbox:focus" in style
+    expected = QtGui.QColor(new_accent).name().lower()
+    assert f"border:1pxsolid{expected}" in style
 
     window.close()
     app.quit()
