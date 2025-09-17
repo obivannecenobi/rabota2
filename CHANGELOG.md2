@@ -2,6 +2,9 @@
 
 All notable changes to this project will be documented in this file. Each merge to the main branch must add a new section with the updated version number and a concise list of changes.
 
+## [3.1.2] - 2025-09-17
+- Bump application version to 3.1.2 and sync configuration defaults.
+
 ## [1.2.4] - 2025-09-08
 - Patch release.
 
