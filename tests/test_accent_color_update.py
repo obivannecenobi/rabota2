@@ -21,7 +21,7 @@ def test_sidebar_updates_on_accent_change(monkeypatch):
 
     calls = []
 
-    def fake_apply_style(self, neon, accent, sidebar_color):
+    def fake_apply_style(self, accent, sidebar_color):
         # record the accent and palette highlight at call time
         highlight = QtWidgets.QApplication.instance().palette().color(
             QtGui.QPalette.Highlight

@@ -20,7 +20,6 @@ from effects import (
     FixedDropShadowEffect,
     NeonEventFilter,
     apply_neon_effect,
-    neon_enabled,
     update_neon_filters,
 )
 
@@ -66,6 +65,7 @@ def load_config():
             default.update({k: v for k, v in data.items() if v is not None})
             for key in ("monochrome", "mono_saturation", "theme"):
                 default.pop(key, None)
+            default["neon"] = True
         except Exception:
             pass
     else:
@@ -100,7 +100,7 @@ def ensure_year_dirs(year):
 def apply_neon_to_inputs(root: QtWidgets.QWidget) -> None:
     """Install neon event filters on editable input widgets under ``root``."""
 
-    if not neon_enabled(CONFIG) or root is None or not shiboken6.isValid(root):
+    if root is None or not shiboken6.isValid(root):
         return
 
     targets = (
@@ -314,12 +314,10 @@ class ReleaseDialog(QtWidgets.QDialog):
 
         self.table.setAttribute(QtCore.Qt.WA_Hover, True)
         self.table.viewport().setAttribute(QtCore.Qt.WA_Hover, True)
-        self._tbl_filter = None
-        if neon_enabled(CONFIG):
-            self._tbl_filter = NeonEventFilter(self.table, CONFIG)
-            self.table.installEventFilter(self._tbl_filter)
-            self.table.viewport().installEventFilter(self._tbl_filter)
-            self.table._neon_filter = self._tbl_filter
+        self._tbl_filter = NeonEventFilter(self.table, CONFIG)
+        self.table.installEventFilter(self._tbl_filter)
+        self.table.viewport().installEventFilter(self._tbl_filter)
+        self.table._neon_filter = self._tbl_filter
 
         lay.addWidget(self.table)
 
@@ -504,10 +502,9 @@ class StatsEntryForm(QtWidgets.QWidget):
             self.widgets[key] = w
             w.setAttribute(QtCore.Qt.WA_Hover, True)
             if key != "adult":  # avoid framing the entire row for checkbox
-                if neon_enabled(CONFIG):
-                    filt = NeonEventFilter(w, CONFIG)
-                    w.installEventFilter(filt)
-                    w._neon_filter = filt
+                filt = NeonEventFilter(w, CONFIG)
+                w.installEventFilter(filt)
+                w._neon_filter = filt
 
     def get_record(self) -> Dict[str, int | float | str | bool]:
         record: Dict[str, int | float | str | bool] = {}
@@ -736,10 +733,9 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self.spin_year.valueChanged.connect(self._year_changed)
         self.spin_year.setAttribute(QtCore.Qt.WA_Hover, True)
         top.addWidget(self.spin_year)
-        if neon_enabled(CONFIG):
-            filt = NeonEventFilter(self.spin_year, CONFIG)
-            self.spin_year.installEventFilter(filt)
-            self.spin_year._neon_filter = filt
+        filt = NeonEventFilter(self.spin_year, CONFIG)
+        self.spin_year.installEventFilter(filt)
+        self.spin_year._neon_filter = filt
         top.addStretch(1)
         lay.addLayout(top)
 
@@ -975,10 +971,9 @@ class TopDialog(QtWidgets.QDialog):
         self.spin_year.setValue(year)
         self.spin_year.setStyleSheet("padding:0 4px;")
         self.spin_year.setAttribute(QtCore.Qt.WA_Hover, True)
-        if neon_enabled(CONFIG):
-            filt = NeonEventFilter(self.spin_year, CONFIG)
-            self.spin_year.installEventFilter(filt)
-            self.spin_year._neon_filter = filt
+        filt = NeonEventFilter(self.spin_year, CONFIG)
+        self.spin_year.installEventFilter(filt)
+        self.spin_year._neon_filter = filt
 
         self.combo_mode = QtWidgets.QComboBox(self)
         self.combo_mode.addItem("Месяц", "month")
@@ -987,17 +982,15 @@ class TopDialog(QtWidgets.QDialog):
         self.combo_mode.addItem("Год", "year")
         self.combo_mode.currentIndexChanged.connect(self._mode_changed)
         self.combo_mode.setAttribute(QtCore.Qt.WA_Hover, True)
-        if neon_enabled(CONFIG):
-            filt = NeonEventFilter(self.combo_mode, CONFIG)
-            self.combo_mode.installEventFilter(filt)
-            self.combo_mode._neon_filter = filt
+        filt = NeonEventFilter(self.combo_mode, CONFIG)
+        self.combo_mode.installEventFilter(filt)
+        self.combo_mode._neon_filter = filt
 
         self.combo_period = QtWidgets.QComboBox(self)
         self.combo_period.setAttribute(QtCore.Qt.WA_Hover, True)
-        if neon_enabled(CONFIG):
-            filt = NeonEventFilter(self.combo_period, CONFIG)
-            self.combo_period.installEventFilter(filt)
-            self.combo_period._neon_filter = filt
+        filt = NeonEventFilter(self.combo_period, CONFIG)
+        self.combo_period.installEventFilter(filt)
+        self.combo_period._neon_filter = filt
         self._mode_changed()  # fill periods
 
         self.btn_calc = StyledPushButton("Сформировать", self, **button_config())
@@ -1296,7 +1289,7 @@ class NeonTableWidget(QtWidgets.QTableWidget):
         super().__init__(rows, cols, parent)
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
         self._active_editor: QtWidgets.QLineEdit | None = None
-        self._neon_enabled = use_neon and neon_enabled(CONFIG)
+        self._neon_enabled = use_neon
         self.setStyleSheet(
             "QTableWidget, QTableWidget::viewport{border:1px solid transparent;}\n"
             "QTableWidget::item:selected{background:transparent;}"
@@ -1730,7 +1723,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             b.setProperty("neon_selected", selected)
             b.apply_base_style()
             b._apply_hover(selected)
-            apply_neon_effect(b, selected and neon_enabled(CONFIG), config=CONFIG)
+            apply_neon_effect(b, selected, config=CONFIG)
 
         for b in self.buttons:
             b._neon_prev_style = b.styleSheet()
@@ -1759,7 +1752,6 @@ class CollapsibleSidebar(QtWidgets.QFrame):
 
     def apply_style(
         self,
-        neon: bool,
         accent: QtGui.QColor,
         sidebar_color: Union[str, QtGui.QColor, None] = None,
     ):
@@ -1778,7 +1770,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         if isinstance(sidebar_color, QtGui.QColor):
             sidebar_color = sidebar_color.name()
 
-        label_color = accent.name() if neon else "#c7c7c7"
+        label_color = accent.name()
         style = (
             f"#Sidebar {{ background-color: {sidebar_color}; }}\n"
             f"QLabel {{ color: {label_color}; }}\n"
@@ -1792,10 +1784,10 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             w._apply_hover(selected)
             apply_neon_effect(
                 w,
-                selected and neon,
+                selected,
                 config=CONFIG,
             )
-            if neon and selected:
+            if selected:
                 effect = getattr(w, "_neon_effect", None)
                 if (
                     effect is None
@@ -1814,7 +1806,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
                     c = QtGui.QColor(accent)
                     c.setAlpha(intensity)
                     effect.setColor(c)
-            elif not neon and hasattr(w, "_neon_anim") and w._neon_anim:
+            elif hasattr(w, "_neon_anim") and w._neon_anim:
                 w._neon_anim.stop()
                 w._neon_anim = None
 
@@ -1922,10 +1914,9 @@ class SettingsDialog(QtWidgets.QDialog):
         # neon controls
         grp_neon = QtWidgets.QGroupBox("Неон", self)
         lay_neon = QtWidgets.QFormLayout(grp_neon)
-        self.chk_neon = QtWidgets.QCheckBox(self)
-        self.chk_neon.setChecked(CONFIG.get("neon", False))
-        self.chk_neon.toggled.connect(self._on_neon_changed)
-        lay_neon.addRow("Включен", self.chk_neon)
+        info_neon = QtWidgets.QLabel("Подсветка всегда включена", self)
+        info_neon.setWordWrap(True)
+        lay_neon.addRow(info_neon)
         spin_style = (
             "QSpinBox{border-radius:8px; padding:2px; background:#2d2d2d; "
             "border:1px solid #555;}"
@@ -2110,7 +2101,7 @@ class SettingsDialog(QtWidgets.QDialog):
 
     def _collect_config(self):
         return {
-            "neon": self.chk_neon.isChecked(),
+            "neon": True,
             "neon_size": self.spin_neon_size.value(),
             "neon_thickness": self.spin_neon_thickness.value(),
             "neon_intensity": self.spin_neon_intensity.value(),
@@ -2138,20 +2129,14 @@ class SettingsDialog(QtWidgets.QDialog):
         self._save_config()
         parent = self.parent()
         if parent is not None and hasattr(parent, "apply_style"):
-            parent.apply_style(self.chk_neon.isChecked())
+            parent.apply_style()
             update_neon_filters(parent, CONFIG)
 
     def _update_neon_spin_effects(self) -> None:
-        on = neon_enabled(CONFIG)
         for spin in getattr(self, "_neon_spinboxes", ()):
             if spin is None or not shiboken6.isValid(spin):
                 continue
-            if on:
-                apply_neon_effect(spin, True, border=True, config=CONFIG)
-            elif getattr(spin, "_neon_effect", None) is not None or getattr(
-                spin, "_neon_prev_style", None
-            ):
-                apply_neon_effect(spin, False, border=True, config=CONFIG)
+            apply_neon_effect(spin, True, border=True, config=CONFIG)
 
     def _save_config(self):
         config = self._collect_config()
@@ -2313,7 +2298,7 @@ class TopBar(QtWidgets.QWidget):
         self.spin_year.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
         self.spin_year.valueChanged.connect(self.year_changed.emit)
         lay.addWidget(self.spin_year)
-        self._update_spin_year_neon(neon_enabled(CONFIG))
+        self._update_spin_year_neon()
         lay.addStretch(1)
         self.btn_next = StyledToolButton(self, **button_config())
         self.btn_next.setCursor(QtCore.Qt.PointingHandCursor)
@@ -2324,13 +2309,12 @@ class TopBar(QtWidgets.QWidget):
         self.update_icons()
         # Base stylesheet used when neon is disabled in dark theme
         # Explicitly remove borders for QLabel to avoid unwanted frames
-        self.default_style = "QLabel{color:#e5e5e5; border:none;}"
         self.setAutoFillBackground(True)
         color = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21"))
         if CONFIG.get("monochrome", False):
             color = theme_manager.apply_monochrome(color)
         self.apply_background(color)
-        self.apply_style(CONFIG.get("neon", False))
+        self.apply_style()
         self.apply_fonts()
 
     def apply_fonts(self):
@@ -2381,62 +2365,45 @@ class TopBar(QtWidgets.QWidget):
         )
         self.apply_fonts()
 
-    def apply_style(self, neon):
-        if neon:
-            style = "QLabel{color:#e5e5e5; border:none;}"
-            self.setStyleSheet(style)
-            self.apply_background(self.palette().color(QtGui.QPalette.Window))
-            apply_neon_effect(
-                self.lbl_month, True, shadow=False, border=False, config=CONFIG
-            )
-        else:
-            if CONFIG.get("theme", "dark") == "dark":
-                style = self.default_style
-            else:
-                style = "QLabel{color:#000; border:none;}"
-            self.setStyleSheet(style)
-            self.apply_background(self.palette().color(QtGui.QPalette.Window))
-            apply_neon_effect(self.lbl_month, False, config=CONFIG)
+    def apply_style(self) -> None:
+        style = "QLabel{color:#e5e5e5; border:none;}"
+        self.setStyleSheet(style)
+        self.apply_background(self.palette().color(QtGui.QPalette.Window))
+        apply_neon_effect(
+            self.lbl_month, True, shadow=False, border=False, config=CONFIG
+        )
 
         for btn in (self.btn_prev, self.btn_next):
             btn.apply_base_style()
-            btn._apply_hover(bool(btn.property("neon_selected")))
+            selected = bool(btn.property("neon_selected"))
+            btn._apply_hover(selected)
             apply_neon_effect(
                 btn,
-                btn.property("neon_selected") and neon,
+                selected,
                 config=CONFIG,
             )
 
         self.apply_fonts()
-        self._update_spin_year_neon(neon)
+        self._update_spin_year_neon()
         update_neon_filters(self, CONFIG)
 
-    def _update_spin_year_neon(self, neon: bool) -> None:
-        """Install or remove the neon event filter for the year spin box."""
+    def _update_spin_year_neon(self) -> None:
+        """Ensure the year spin box has a neon event filter installed."""
 
         filt = getattr(self.spin_year, "_neon_filter", None)
         editor = self.spin_year.lineEdit()
         editor_valid = editor is not None and shiboken6.isValid(editor)
 
-        if neon:
-            if filt is None:
-                filt = NeonEventFilter(self.spin_year, CONFIG)
-                self.spin_year.installEventFilter(filt)
-                if editor_valid:
-                    editor.installEventFilter(filt)
-                self.spin_year._neon_filter = filt
-        elif filt is not None:
-            try:
-                self.spin_year.removeEventFilter(filt)
-            except RuntimeError:
-                pass
+        if filt is None:
+            filt = NeonEventFilter(self.spin_year, CONFIG)
+            self.spin_year.installEventFilter(filt)
             if editor_valid:
-                try:
-                    editor.removeEventFilter(filt)
-                except RuntimeError:
-                    pass
-            apply_neon_effect(self.spin_year, False, config=CONFIG)
-            self.spin_year._neon_filter = None
+                editor.installEventFilter(filt)
+            self.spin_year._neon_filter = filt
+        else:
+            filt._config = CONFIG
+            if editor_valid and getattr(editor, "_neon_filter", None) is not filt:
+                editor.installEventFilter(filt)
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -2631,12 +2598,12 @@ class MainWindow(QtWidgets.QMainWindow):
                     tbl.setFont(app.font())
                     tbl.horizontalHeader().setFont(header_font)
 
-    def _apply_sidebar_style(self, neon: bool, accent: QtGui.QColor, sidebar):
+    def _apply_sidebar_style(self, accent: QtGui.QColor, sidebar):
         func = getattr(self.sidebar, "apply_style")
         try:
-            func(neon, accent, sidebar)
+            func(accent, sidebar)
         except TypeError:
-            func(self.sidebar, neon, accent, sidebar)
+            func(self.sidebar, accent, sidebar)
 
     def apply_palette(self):
         load_icons(CONFIG.get("theme", "dark"))
@@ -2664,8 +2631,8 @@ class MainWindow(QtWidgets.QMainWindow):
         pal.setColor(QtGui.QPalette.Highlight, accent)
         app.setPalette(pal)
         sidebar_color = CONFIG.get("sidebar_color", "#1f1f23")
-        self.topbar.apply_style(CONFIG.get("neon", False))
-        self._apply_sidebar_style(CONFIG.get("neon", False), accent, sidebar_color)
+        self.topbar.apply_style()
+        self._apply_sidebar_style(accent, sidebar_color)
         self.sidebar.anim.setDuration(160)
         update_neon_filters(self, CONFIG)
         # Reapply background so the spin box border matches the current theme
@@ -2679,7 +2646,7 @@ class MainWindow(QtWidgets.QMainWindow):
         accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
         sidebar_color = CONFIG.get("sidebar_color", "#1f1f23")
         self._apply_sidebar_style(
-            CONFIG.get("neon", False), accent, sidebar_color
+            accent, sidebar_color
         )
         app = QtWidgets.QApplication.instance()
         for w in app.allWidgets():
@@ -2689,13 +2656,13 @@ class MainWindow(QtWidgets.QMainWindow):
                 w._neon_prev_style = w.styleSheet()
                 apply_neon_effect(
                     w,
-                    bool(w.property("neon_selected")) and neon_enabled(CONFIG),
+                    bool(w.property("neon_selected")),
                     config=CONFIG,
                 )
 
 
 
-    def apply_style(self, neon: bool):
+    def apply_style(self) -> None:
         accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
         workspace = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21"))
         if CONFIG.get("monochrome", False):
@@ -2704,9 +2671,8 @@ class MainWindow(QtWidgets.QMainWindow):
             accent.setHsv(h, s, v)
             workspace = theme_manager.apply_monochrome(workspace)
         sidebar = CONFIG.get("sidebar_color", "#1f1f23")
-        border = accent.name() if neon else "#555"
         style = (
-            f"background:{workspace.name()};" f"border:1px solid {border};" f"border-radius:8px;"
+            f"background:{workspace.name()};" f"border:1px solid {accent.name()};" f"border-radius:8px;"
         )
         for cls in (
             QtWidgets.QLineEdit,
@@ -2720,8 +2686,8 @@ class MainWindow(QtWidgets.QMainWindow):
         pal = app.palette()
         pal.setColor(QtGui.QPalette.Highlight, accent)
         app.setPalette(pal)
-        self.topbar.apply_style(neon)
-        self._apply_sidebar_style(neon, accent, sidebar)
+        self.topbar.apply_style()
+        self._apply_sidebar_style(accent, sidebar)
         update_neon_filters(self, CONFIG)
 
     def apply_theme(self):
@@ -2805,7 +2771,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if CONFIG.get("monochrome", False):
             sidebar = theme_manager.apply_monochrome(QtGui.QColor(sidebar)).name()
             accent = theme_manager.apply_monochrome(accent)
-        self._apply_sidebar_style(CONFIG.get("neon", False), accent, sidebar)
+        self._apply_sidebar_style(accent, sidebar)
         # Reapply topbar background so spin box picks up workspace color
         self.topbar.apply_background(workspace)
 
