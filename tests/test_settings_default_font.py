@@ -10,6 +10,14 @@ from PySide6 import QtWidgets
 import app.main as main
 
 
+def test_load_config_creates_neon_enabled_config(tmp_path):
+    main.CONFIG_PATH = str(tmp_path / "config.json")
+    main.CONFIG = main.load_config()
+    main.config.CONFIG = main.CONFIG
+
+    assert main.CONFIG["neon"] is True
+
+
 def test_settings_dialog_uses_exo2_by_default(tmp_path):
     main.CONFIG_PATH = str(tmp_path / "config.json")
     main.CONFIG = main.load_config()

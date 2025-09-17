@@ -35,7 +35,7 @@ _OLD_DAY_ROWS_DEFAULT = 6
 
 def load_config():
     default = {
-        "neon": False,
+        "neon": True,
         "neon_size": 10,
         "neon_thickness": 1,
         "neon_intensity": 255,
@@ -70,6 +70,11 @@ def load_config():
             if day_rows is None or day_rows == _OLD_DAY_ROWS_DEFAULT:
                 data["day_rows"] = DAY_ROWS_DEFAULT
                 migrated = True
+
+            neon_enabled = data.get("neon")
+            if not neon_enabled:
+                data["neon"] = True
+                migrated = True
             default.update({k: v for k, v in data.items() if v is not None})
             for key in ("monochrome", "mono_saturation", "theme"):
                 default.pop(key, None)
@@ -85,6 +90,7 @@ def load_config():
     else:
         try:
             os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
+            default["neon"] = True
             with open(CONFIG_PATH, "w", encoding="utf-8") as f:
                 json.dump(default, f, ensure_ascii=False, indent=2)
         except Exception:
