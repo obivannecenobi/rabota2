@@ -571,7 +571,7 @@ class StatsDialog(QtWidgets.QDialog):
 
         lay = QtWidgets.QVBoxLayout(self)
         self.table_stats = NeonTableWidget(0, len(StatsEntryForm.TABLE_COLUMNS), self)
-        self.table_stats.setSelectionBehavior(QtWidgets.QTableView.SelectColumns)
+        self.table_stats.setSelectionBehavior(QtWidgets.QTableView.SelectRows)
         self.table_stats.setSelectionMode(QtWidgets.QTableView.SingleSelection)
         self.table_stats.setStyleSheet(
             "QTableWidget{border:1px solid #555; border-radius:8px;} "
@@ -636,14 +636,28 @@ class StatsDialog(QtWidgets.QDialog):
         super().resizeEvent(event)
 
     def on_table_selection(self):
-        sel = self.table_stats.selectionModel().selectedRows()
-        if sel:
-            row = sel[0].row()
-            self.current_index = row
-            self.form_stats.set_record(self.records[row])
-        else:
-            self.current_index = None
-            self.form_stats.clear()
+        selection_model = self.table_stats.selectionModel()
+        if selection_model is None:
+            return
+
+        indexes = selection_model.selectedRows()
+        if indexes:
+            row = indexes[0].row()
+            first_item = self.table_stats.item(row, 0)
+            record_index = (
+                first_item.data(QtCore.Qt.UserRole)
+                if first_item is not None
+                else None
+            )
+            if record_index is None:
+                record_index = row
+            self.current_index = int(record_index)
+            if 0 <= self.current_index < len(self.records):
+                self.form_stats.set_record(self.records[self.current_index])
+                return
+        # Nothing selected or out of range
+        self.current_index = None
+        self.form_stats.clear()
 
     def load_stats(self, year: int, month: int):
         self.year = year
@@ -677,6 +691,8 @@ class StatsDialog(QtWidgets.QDialog):
                     item.setTextAlignment(QtCore.Qt.AlignCenter)
                 else:
                     item = QtWidgets.QTableWidgetItem(str(val))
+                if c == 0:
+                    item.setData(QtCore.Qt.UserRole, r)
                 self.table_stats.setItem(r, c, item)
         self.table_stats.resizeColumnsToContents()
         header = self.table_stats.horizontalHeader()
