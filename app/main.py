@@ -2189,6 +2189,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("Sidebar")
+        self.setAttribute(QtCore.Qt.WA_StyledBackground, True)
         self.setStyleSheet(
             """
             #Sidebar { background-color: #1f1f23; }
@@ -2298,7 +2299,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
 
     def apply_style(
         self,
-        accent: QtGui.QColor,
+        accent: Union[QtGui.QColor, str, None],
         sidebar_color: Union[str, QtGui.QColor, None] = None,
     ):
         try:
@@ -2311,17 +2312,34 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             intensity = 255
         size = max(0, size)
         intensity = max(0, min(255, intensity))
+        accent = QtGui.QColor(accent) if accent is not None else QtGui.QColor(
+            CONFIG.get("accent_color", "#39ff14")
+        )
+        if not accent.isValid():
+            accent = QtGui.QColor("#39ff14")
         if sidebar_color is None:
             sidebar_color = CONFIG.get("sidebar_color", "#1f1f23")
         if isinstance(sidebar_color, QtGui.QColor):
             sidebar_color = sidebar_color.name()
-
         label_color = accent.name()
+        accent_name = accent.name()
         style = (
-            f"#Sidebar {{ background-color: {sidebar_color}; }}\n"
-            f"QLabel {{ color: {label_color}; }}\n"
+            "#Sidebar {"
+            f" background-color: {sidebar_color};"
+            f" border: 1px solid {accent_name};"
+            " border-radius: 20px;"
+            "}"
+            "\n"
+            f"#Sidebar QLabel {{ color: {label_color}; }}\n"
         )
         self.setStyleSheet(style)
+        self._neon_prev_style = style
+        palette = self.palette()
+        palette.setColor(QtGui.QPalette.Window, QtGui.QColor(sidebar_color))
+        palette.setColor(QtGui.QPalette.Highlight, accent)
+        self.setPalette(palette)
+        self.setAutoFillBackground(True)
+        apply_neon_effect(self, True, border=False, config=CONFIG)
 
         widgets = [self.btn_toggle] + self.buttons + [self.btn_settings]
         for w in widgets:
