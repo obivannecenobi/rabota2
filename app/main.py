@@ -2104,35 +2104,63 @@ class SettingsDialog(QtWidgets.QDialog):
         info_neon = QtWidgets.QLabel("Подсветка всегда включена", self)
         info_neon.setWordWrap(True)
         lay_neon.addRow(info_neon)
-        spin_style = (
-            "QSpinBox{border-radius:8px; padding:2px; background:#2d2d2d; "
-            "border:1px solid #555;}"
-            "QSpinBox:hover, QSpinBox:focus{background:#2d2d2d;}"
+        self._neon_presets: list[tuple[str, tuple[int, int, int]]] = [
+            ("Мягкий", (6, 1, 180)),
+            ("Стандарт", (10, 1, 255)),
+            ("Яркий", (14, 2, 255)),
+        ]
+        self.combo_neon_preset = QtWidgets.QComboBox(self)
+        for name, values in self._neon_presets:
+            self.combo_neon_preset.addItem(name, values)
+        self._neon_custom_index = self.combo_neon_preset.count()
+        self.combo_neon_preset.addItem("Пользовательский", None)
+        lay_neon.addRow("Профиль", self.combo_neon_preset)
+
+        self.sld_neon_size = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.sld_neon_size.setRange(0, 200)
+        self.sld_neon_size.setValue(int(CONFIG.get("neon_size", 10)))
+        self.lbl_neon_size = QtWidgets.QLabel(str(self.sld_neon_size.value()), self)
+        lay_neon_size = QtWidgets.QHBoxLayout()
+        lay_neon_size.addWidget(self.sld_neon_size, 1)
+        lay_neon_size.addWidget(self.lbl_neon_size)
+        lay_neon.addRow("Размер", lay_neon_size)
+
+        self.sld_neon_thickness = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.sld_neon_thickness.setRange(0, 10)
+        self.sld_neon_thickness.setValue(int(CONFIG.get("neon_thickness", 1)))
+        self.lbl_neon_thickness = QtWidgets.QLabel(
+            str(self.sld_neon_thickness.value()), self
         )
-        self.spin_neon_size = QtWidgets.QSpinBox(self)
-        self.spin_neon_size.setRange(0, 200)
-        self.spin_neon_size.setValue(CONFIG.get("neon_size", 10))
-        self.spin_neon_size.setStyleSheet(spin_style)
-        self.spin_neon_size.valueChanged.connect(self._on_neon_changed)
-        lay_neon.addRow("Размер", self.spin_neon_size)
-        self.spin_neon_thickness = QtWidgets.QSpinBox(self)
-        self.spin_neon_thickness.setRange(0, 10)
-        self.spin_neon_thickness.setValue(CONFIG.get("neon_thickness", 1))
-        self.spin_neon_thickness.setStyleSheet(spin_style)
-        self.spin_neon_thickness.valueChanged.connect(self._on_neon_changed)
-        lay_neon.addRow("Толщина", self.spin_neon_thickness)
-        self.spin_neon_intensity = QtWidgets.QSpinBox(self)
-        self.spin_neon_intensity.setRange(0, 255)
-        self.spin_neon_intensity.setValue(CONFIG.get("neon_intensity", 255))
-        self.spin_neon_intensity.setStyleSheet(spin_style)
-        self.spin_neon_intensity.valueChanged.connect(self._on_neon_changed)
-        lay_neon.addRow("Интенсивность", self.spin_neon_intensity)
+        lay_neon_thickness = QtWidgets.QHBoxLayout()
+        lay_neon_thickness.addWidget(self.sld_neon_thickness, 1)
+        lay_neon_thickness.addWidget(self.lbl_neon_thickness)
+        lay_neon.addRow("Толщина", lay_neon_thickness)
+
+        self.sld_neon_intensity = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.sld_neon_intensity.setRange(0, 255)
+        self.sld_neon_intensity.setValue(int(CONFIG.get("neon_intensity", 255)))
+        self.lbl_neon_intensity = QtWidgets.QLabel(
+            str(self.sld_neon_intensity.value()), self
+        )
+        lay_neon_intensity = QtWidgets.QHBoxLayout()
+        lay_neon_intensity.addWidget(self.sld_neon_intensity, 1)
+        lay_neon_intensity.addWidget(self.lbl_neon_intensity)
+        lay_neon.addRow("Интенсивность", lay_neon_intensity)
         form_interface.addRow(grp_neon)
-        self._neon_spinboxes = (
-            self.spin_neon_size,
-            self.spin_neon_thickness,
-            self.spin_neon_intensity,
+        self._neon_controls = (
+            self.sld_neon_size,
+            self.sld_neon_thickness,
+            self.sld_neon_intensity,
+            self.combo_neon_preset,
         )
+
+        self._block_neon_preset_sync = False
+        self.combo_neon_preset.currentIndexChanged.connect(self._apply_neon_preset)
+        self.sld_neon_size.valueChanged.connect(self._handle_neon_value_change)
+        self.sld_neon_thickness.valueChanged.connect(self._handle_neon_value_change)
+        self.sld_neon_intensity.valueChanged.connect(self._handle_neon_value_change)
+        self._update_neon_labels()
+        self._sync_neon_preset_to_values()
 
 
         self.font_header = QtWidgets.QFontComboBox(self)
@@ -2226,6 +2254,11 @@ class SettingsDialog(QtWidgets.QDialog):
         # General options below tabs
         form_gen = QtWidgets.QFormLayout()
         main_lay.addLayout(form_gen)
+        spin_style = (
+            "QSpinBox{border-radius:8px; padding:2px; background:#2d2d2d; "
+            "border:1px solid #555;}"
+            "QSpinBox:hover, QSpinBox:focus{background:#2d2d2d;}"
+        )
         self.spin_day_rows = QtWidgets.QSpinBox(self)
         self.spin_day_rows.setRange(1, 20)
         day_rows = CONFIG.get("day_rows")
@@ -2259,7 +2292,7 @@ class SettingsDialog(QtWidgets.QDialog):
             self.restoreGeometry(geom)
 
         apply_neon_to_inputs(self)
-        self._update_neon_spin_effects()
+        self._update_neon_controls_effects()
 
     def closeEvent(self, event):
         self._settings.setValue("SettingsDialog/geometry", self.saveGeometry())
@@ -2292,9 +2325,9 @@ class SettingsDialog(QtWidgets.QDialog):
     def _collect_config(self):
         return {
             "neon": True,
-            "neon_size": self.spin_neon_size.value(),
-            "neon_thickness": self.spin_neon_thickness.value(),
-            "neon_intensity": self.spin_neon_intensity.value(),
+            "neon_size": self.sld_neon_size.value(),
+            "neon_thickness": self.sld_neon_thickness.value(),
+            "neon_intensity": self.sld_neon_intensity.value(),
             "accent_color": self._accent_color.name(),
             "gradient_colors": [self._grad_color1.name(), self._grad_color2.name()],
             "gradient_angle": self.sld_grad_angle.value(),
@@ -2322,11 +2355,61 @@ class SettingsDialog(QtWidgets.QDialog):
             parent.apply_style()
             update_neon_filters(parent, CONFIG)
 
-    def _update_neon_spin_effects(self) -> None:
-        for spin in getattr(self, "_neon_spinboxes", ()):
-            if spin is None or not shiboken6.isValid(spin):
+    def _current_neon_values(self) -> tuple[int, int, int]:
+        return (
+            self.sld_neon_size.value(),
+            self.sld_neon_thickness.value(),
+            self.sld_neon_intensity.value(),
+        )
+
+    def _update_neon_labels(self) -> None:
+        self.lbl_neon_size.setText(str(self.sld_neon_size.value()))
+        self.lbl_neon_thickness.setText(str(self.sld_neon_thickness.value()))
+        self.lbl_neon_intensity.setText(str(self.sld_neon_intensity.value()))
+
+    def _sync_neon_preset_to_values(self) -> None:
+        values = self._current_neon_values()
+        idx = next(
+            (
+                i
+                for i, (_, preset) in enumerate(self._neon_presets)
+                if preset == values
+            ),
+            self._neon_custom_index,
+        )
+        self.combo_neon_preset.blockSignals(True)
+        self.combo_neon_preset.setCurrentIndex(idx)
+        self.combo_neon_preset.blockSignals(False)
+
+    def _handle_neon_value_change(self, *_):
+        self._update_neon_labels()
+        if self._block_neon_preset_sync:
+            return
+        self._sync_neon_preset_to_values()
+        self._on_neon_changed()
+
+    def _apply_neon_preset(self, index: int) -> None:
+        values = self.combo_neon_preset.itemData(index)
+        if not isinstance(values, tuple):
+            self._sync_neon_preset_to_values()
+            self._on_neon_changed()
+            return
+        self._block_neon_preset_sync = True
+        try:
+            self.sld_neon_size.setValue(values[0])
+            self.sld_neon_thickness.setValue(values[1])
+            self.sld_neon_intensity.setValue(values[2])
+        finally:
+            self._block_neon_preset_sync = False
+        self._update_neon_labels()
+        self._sync_neon_preset_to_values()
+        self._on_neon_changed()
+
+    def _update_neon_controls_effects(self) -> None:
+        for widget in getattr(self, "_neon_controls", ()):
+            if widget is None or not shiboken6.isValid(widget):
                 continue
-            apply_neon_effect(spin, True, border=True, config=CONFIG)
+            apply_neon_effect(widget, True, border=True, config=CONFIG)
 
     def _save_config(self):
         config = self._collect_config()
@@ -2334,7 +2417,7 @@ class SettingsDialog(QtWidgets.QDialog):
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(CONFIG, f, ensure_ascii=False, indent=2)
         update_neon_filters(self, CONFIG)
-        self._update_neon_spin_effects()
+        self._update_neon_controls_effects()
         self.settings_changed.emit()
 
     def save(self) -> None:
