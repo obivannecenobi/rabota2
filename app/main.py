@@ -714,6 +714,8 @@ class StatsEntryForm(QtWidgets.QWidget):
         )
         form = QtWidgets.QFormLayout(self)
         form.setFieldGrowthPolicy(QtWidgets.QFormLayout.AllNonFixedFieldsGrow)
+        self._styled_inputs: list[tuple[QtWidgets.QWidget, str]] = []
+        self._input_filters: dict[QtWidgets.QWidget, NeonEventFilter] = {}
         self.widgets = {}
         for key, label, cls in self.INPUT_FIELDS:
             w = cls(self)
@@ -733,10 +735,22 @@ class StatsEntryForm(QtWidgets.QWidget):
             form.addRow(label, w)
             self.widgets[key] = w
             w.setAttribute(QtCore.Qt.WA_Hover, True)
+            selector: str | None = None
+            if isinstance(w, QtWidgets.QDoubleSpinBox):
+                selector = "QDoubleSpinBox"
+            elif isinstance(w, QtWidgets.QSpinBox):
+                selector = "QSpinBox"
+            elif isinstance(w, QtWidgets.QLineEdit):
+                selector = "QLineEdit"
+            if selector is not None:
+                self._styled_inputs.append((w, selector))
             if key != "adult":  # avoid framing the entire row for checkbox
                 filt = NeonEventFilter(w, CONFIG)
                 w.installEventFilter(filt)
                 w._neon_filter = filt
+                self._input_filters[w] = filt
+
+        self.refresh_theme()
 
     def get_record(self) -> Dict[str, int | float | str | bool]:
         record: Dict[str, int | float | str | bool] = {}
@@ -771,6 +785,35 @@ class StatsEntryForm(QtWidgets.QWidget):
                 w.setChecked(False)
             else:
                 w.setValue(0)
+
+    def refresh_theme(self) -> None:
+        """Rebuild input styles based on the current configuration."""
+
+        workspace = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21")).name()
+        accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14")).name()
+        try:
+            thickness = int(CONFIG.get("neon_thickness", 1))
+        except (TypeError, ValueError):
+            thickness = 1
+        thickness = max(0, thickness)
+
+        for widget, selector in self._styled_inputs:
+            if widget is None or not shiboken6.isValid(widget):
+                continue
+            style = build_input_neon_style(
+                selector,
+                background=workspace,
+                accent=accent,
+                thickness=thickness,
+            )
+            widget.setStyleSheet(style)
+
+        for widget, filt in self._input_filters.items():
+            if widget is None or not shiboken6.isValid(widget):
+                continue
+            filt._config = CONFIG
+
+        update_neon_filters(self, CONFIG)
 
 
 class StatsDialog(QtWidgets.QDialog):
@@ -883,6 +926,15 @@ class StatsDialog(QtWidgets.QDialog):
         header = self.table_stats.horizontalHeader()
         header.setStyleSheet(header_style)
 
+        highlight = QtGui.QColor(accent)
+        table_palette = self.table_stats.palette()
+        table_palette.setColor(QtGui.QPalette.Highlight, highlight)
+        self.table_stats.setPalette(table_palette)
+
+        header_palette = header.palette()
+        header_palette.setColor(QtGui.QPalette.Highlight, highlight)
+        header.setPalette(header_palette)
+
         self.table_stats.setAttribute(QtCore.Qt.WA_Hover, True)
         self.table_stats.viewport().setAttribute(QtCore.Qt.WA_Hover, True)
         header.setAttribute(QtCore.Qt.WA_Hover, True)
@@ -892,15 +944,29 @@ class StatsDialog(QtWidgets.QDialog):
             self.table_stats.installEventFilter(self._table_filter)
             self.table_stats.viewport().installEventFilter(self._table_filter)
             self.table_stats._neon_filter = self._table_filter
+        else:
+            self._table_filter._config = CONFIG
 
         if self._header_filter is None:
             header_filter = NeonEventFilter(header, CONFIG)
             header.installEventFilter(header_filter)
             header._neon_filter = header_filter
             self._header_filter = header_filter
+        else:
+            self._header_filter._config = CONFIG
 
         apply_neon_effect(self.table_stats, True, config=CONFIG)
         apply_neon_effect(header, True, shadow=False, border=False, config=CONFIG)
+
+    def refresh_theme(self) -> None:
+        """Обновить стили таблицы и формы ввода."""
+
+        self._apply_table_style()
+        if hasattr(self, "form_stats"):
+            self.form_stats.refresh_theme()
+        for filt in self._button_filters:
+            filt._config = CONFIG
+        update_neon_filters(self.btn_box, CONFIG)
 
     def resizeEvent(self, event):
         self.table_stats.horizontalHeader().setSectionResizeMode(
@@ -3194,7 +3260,9 @@ class MainWindow(QtWidgets.QMainWindow):
         app = QtWidgets.QApplication.instance()
         if app is not None:
             for dlg in app.topLevelWidgets():
-                if isinstance(dlg, (ReleaseDialog, AnalyticsDialog, TopDialog)):
+                if isinstance(
+                    dlg, (ReleaseDialog, AnalyticsDialog, TopDialog, StatsDialog)
+                ):
                     dlg.refresh_theme()
 
     def apply_fonts(self):
