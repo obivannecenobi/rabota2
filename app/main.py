@@ -2423,17 +2423,17 @@ class SettingsDialog(QtWidgets.QDialog):
         self.combo_accent.activated.connect(self._on_accent_changed)
         form_interface.addRow("Цвет подсветки", self.combo_accent)
 
+        self._color_preview_links: dict[QtWidgets.QAbstractButton, str] = {}
+
         self._workspace_color = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21"))
         self.btn_workspace = QtWidgets.QPushButton(self)
-        self.btn_workspace.setCursor(QtCore.Qt.PointingHandCursor)
-        self._update_workspace_button()
+        self._register_color_preview(self.btn_workspace, "_workspace_color")
         self.btn_workspace.clicked.connect(self.choose_workspace_color)
         form_interface.addRow("Цвет рабочей области", self.btn_workspace)
 
         self._sidebar_color = QtGui.QColor(CONFIG.get("sidebar_color", "#1f1f23"))
         self.btn_sidebar = QtWidgets.QPushButton(self)
-        self.btn_sidebar.setCursor(QtCore.Qt.PointingHandCursor)
-        self._update_sidebar_button()
+        self._register_color_preview(self.btn_sidebar, "_sidebar_color")
         self.btn_sidebar.clicked.connect(self.choose_sidebar_color)
         form_interface.addRow("Цвет боковой панели", self.btn_sidebar)
 
@@ -2442,10 +2442,9 @@ class SettingsDialog(QtWidgets.QDialog):
         self._grad_color1 = QtGui.QColor(grad[0])
         self._grad_color2 = QtGui.QColor(grad[1])
         self.btn_grad1 = QtWidgets.QPushButton(self)
-        self.btn_grad1.setCursor(QtCore.Qt.PointingHandCursor)
+        self._register_color_preview(self.btn_grad1, "_grad_color1")
         self.btn_grad2 = QtWidgets.QPushButton(self)
-        self.btn_grad2.setCursor(QtCore.Qt.PointingHandCursor)
-        self._update_grad_buttons()
+        self._register_color_preview(self.btn_grad2, "_grad_color2")
         self.btn_grad1.clicked.connect(lambda: self.choose_grad_color(1))
         self.btn_grad2.clicked.connect(lambda: self.choose_grad_color(2))
         lay_grad = QtWidgets.QHBoxLayout(); lay_grad.addWidget(self.btn_grad1); lay_grad.addWidget(self.btn_grad2)
@@ -2716,6 +2715,7 @@ class SettingsDialog(QtWidgets.QDialog):
 
     def _on_sidebar_font_changed(self):
         self._save_config()
+        self._refresh_color_previews()
         if self.main_window and hasattr(self.main_window, "sidebar"):
             self.main_window.sidebar.apply_fonts()
 
@@ -2790,6 +2790,7 @@ class SettingsDialog(QtWidgets.QDialog):
             json.dump(CONFIG, f, ensure_ascii=False, indent=2)
         update_neon_filters(self, CONFIG)
         self._update_neon_controls_effects()
+        self._refresh_color_previews()
         self.settings_changed.emit()
 
     def save(self) -> None:
@@ -2837,14 +2838,75 @@ class SettingsDialog(QtWidgets.QDialog):
             self._accent_color = self._preset_colors[idx][1]
             self._accent_index = idx
         self._save_config()
+        self._refresh_color_previews()
+
+    def _register_color_preview(
+        self, button: QtWidgets.QAbstractButton, attr_name: str
+    ) -> None:
+        """Attach *button* to an attribute storing ``QColor`` value."""
+
+        self._color_preview_links[button] = attr_name
+        button.setCursor(QtCore.Qt.PointingHandCursor)
+        self._refresh_color_previews(button)
+
+    def _style_color_preview(
+        self, button: QtWidgets.QAbstractButton, color: QtGui.QColor
+    ) -> None:
+        """Apply themed style and neon handling to a preview button."""
+
+        accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14")).name()
+        workspace = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21")).name()
+        fill = color.name()
+        shared_rules = (
+            f"background:{fill};"
+            f"border:2px solid {accent};"
+            "border-radius:12px;"
+            "padding:6px 12px;"
+            f"color:{workspace};"
+            "min-height:28px;"
+        )
+        style = (
+            f"QPushButton{{{shared_rules}}}"
+            f"QPushButton:hover{{{shared_rules}}}"
+            f"QPushButton:focus{{{shared_rules}}}"
+        )
+        button.setStyleSheet(style)
+        button.setAttribute(QtCore.Qt.WA_Hover, True)
+        palette = button.palette()
+        palette.setColor(QtGui.QPalette.Highlight, QtGui.QColor(accent))
+        button.setPalette(palette)
+
+        filt = getattr(button, "_neon_filter", None)
+        if filt is None or not shiboken6.isValid(filt):
+            filt = NeonEventFilter(button, CONFIG)
+            button.installEventFilter(filt)
+            button._neon_filter = filt
+        else:
+            filt._config = CONFIG
+
+        effect = getattr(button, "_neon_effect", None)
+        if effect is not None and shiboken6.isValid(effect):
+            button._neon_prev_style = None
+            apply_neon_effect(button, True, config=CONFIG)
+        else:
+            button._neon_prev_style = style
+
+    def _refresh_color_previews(
+        self, *buttons: QtWidgets.QAbstractButton,
+    ) -> None:
+        """Rebuild style for registered color preview buttons."""
+
+        targets = buttons or tuple(self._color_preview_links)
+        for button in targets:
+            attr_name = self._color_preview_links.get(button)
+            if attr_name is None:
+                continue
+            color = getattr(self, attr_name, None)
+            if isinstance(color, QtGui.QColor) and color.isValid():
+                self._style_color_preview(button, color)
 
     def _update_workspace_button(self):
-        color = self._workspace_color.name()
-        self.btn_workspace.setStyleSheet(
-            f"QPushButton{{background:{color}; border:1px solid #555; border-radius:8px;}} "
-            f"QPushButton:hover{{background:{color}; border-radius:8px;}} "
-            f"QPushButton:focus{{background:{color}; border-radius:8px;}}"
-        )
+        self._refresh_color_previews(self.btn_workspace)
 
     def choose_workspace_color(self):
         color = QtWidgets.QColorDialog.getColor(
@@ -2852,8 +2914,8 @@ class SettingsDialog(QtWidgets.QDialog):
         )
         if color.isValid():
             self._workspace_color = color
-            self._update_workspace_button()
             self._save_config()
+            self._refresh_color_previews(self.btn_workspace)
             parent = self.parent()
             if parent is not None:
                 if hasattr(parent, "table"):
@@ -2866,12 +2928,7 @@ class SettingsDialog(QtWidgets.QDialog):
                     )
 
     def _update_sidebar_button(self):
-        color = self._sidebar_color.name()
-        self.btn_sidebar.setStyleSheet(
-            f"QPushButton{{background:{color}; border:1px solid #555; border-radius:8px;}} "
-            f"QPushButton:hover{{background:{color}; border-radius:8px;}} "
-            f"QPushButton:focus{{background:{color}; border-radius:8px;}}"
-        )
+        self._refresh_color_previews(self.btn_sidebar)
 
     def choose_sidebar_color(self):
         color = QtWidgets.QColorDialog.getColor(
@@ -2879,22 +2936,11 @@ class SettingsDialog(QtWidgets.QDialog):
         )
         if color.isValid():
             self._sidebar_color = color
-            self._update_sidebar_button()
             self._save_config()
+            self._refresh_color_previews(self.btn_sidebar)
 
     def _update_grad_buttons(self):
-        c1 = self._grad_color1.name()
-        c2 = self._grad_color2.name()
-        self.btn_grad1.setStyleSheet(
-            f"QPushButton{{background:{c1}; border:1px solid #555; border-radius:8px;}} "
-            f"QPushButton:hover{{background:{c1}; border-radius:8px;}} "
-            f"QPushButton:focus{{background:{c1}; border-radius:8px;}}"
-        )
-        self.btn_grad2.setStyleSheet(
-            f"QPushButton{{background:{c2}; border:1px solid #555; border-radius:8px;}} "
-            f"QPushButton:hover{{background:{c2}; border-radius:8px;}} "
-            f"QPushButton:focus{{background:{c2}; border-radius:8px;}}"
-        )
+        self._refresh_color_previews(self.btn_grad1, self.btn_grad2)
 
     def choose_grad_color(self, idx):
         color = QtWidgets.QColorDialog.getColor(
@@ -2907,8 +2953,10 @@ class SettingsDialog(QtWidgets.QDialog):
                 self._grad_color1 = color
             else:
                 self._grad_color2 = color
-            self._update_grad_buttons()
             self._save_config()
+            self._refresh_color_previews(
+                self.btn_grad1 if idx == 1 else self.btn_grad2
+            )
             parent = self.parent()
             if parent is not None and hasattr(parent, "apply_settings"):
                 parent.apply_settings()
