@@ -84,3 +84,43 @@ def test_sidebar_button_spacing_and_style_toggle(monkeypatch):
 
     window.close()
     app.quit()
+
+
+def test_sidebar_frame_style_uses_accent_border(monkeypatch):
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+
+    monkeypatch.setitem(main.CONFIG, "sidebar_collapsed", False)
+    monkeypatch.setitem(main.CONFIG, "accent_color", "#ff44aa")
+    monkeypatch.setitem(main.CONFIG, "sidebar_color", "#101010")
+
+    window = main.MainWindow()
+    window.apply_palette()
+    sidebar = window.sidebar
+
+    def current_style() -> str:
+        return sidebar.styleSheet().lower()
+
+    initial_style = current_style()
+    assert "border-radius" in initial_style
+    assert "#ff44aa" in initial_style
+
+    monkeypatch.setitem(main.CONFIG, "accent_color", "#33cc55")
+    window.apply_palette()
+    updated_style = current_style()
+    assert "#33cc55" in updated_style
+    assert "#ff44aa" not in updated_style
+
+    sidebar.set_collapsed(True)
+    QtWidgets.QApplication.processEvents()
+    collapsed_style = current_style()
+    assert "border-radius" in collapsed_style
+    assert "#33cc55" in collapsed_style
+
+    sidebar.set_collapsed(False)
+    QtWidgets.QApplication.processEvents()
+    expanded_style = current_style()
+    assert "border-radius" in expanded_style
+    assert "#33cc55" in expanded_style
+
+    window.close()
+    app.quit()
