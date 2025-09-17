@@ -305,6 +305,8 @@ def load_icons(theme: str = "dark") -> None:
         "chevron-up",
         "chevron-down",
         "save",
+        "plus",
+        "minus",
         "x",
     ]:
         for ext in ("svg", "png"):
