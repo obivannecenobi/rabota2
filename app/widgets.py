@@ -68,12 +68,39 @@ class ButtonStyleMixin:
     def _accent_color(self) -> str:
         return self.palette().color(QtGui.QPalette.Highlight).name()
 
+    @staticmethod
+    def _blend_colors(base: str, accent: str, ratio: float) -> str:
+        """Blend ``base`` colour with ``accent`` using the provided ratio."""
+
+        base_color = QtGui.QColor(base)
+        accent_color = QtGui.QColor(accent)
+        if not base_color.isValid() or not accent_color.isValid():
+            return base
+        ratio = max(0.0, min(1.0, ratio))
+        red = round(base_color.red() * (1 - ratio) + accent_color.red() * ratio)
+        green = round(base_color.green() * (1 - ratio) + accent_color.green() * ratio)
+        blue = round(base_color.blue() * (1 - ratio) + accent_color.blue() * ratio)
+        return QtGui.QColor(red, green, blue).name()
+
     def _hover_style(self) -> str:
         accent = self._accent_color()
+        blended_colors = [
+            self._blend_colors(color, accent, 0.25) for color in self._gradient_colors
+        ]
+        angle = math.radians(self._gradient_angle)
+        x2 = 0.5 + 0.5 * math.cos(angle)
+        y2 = 0.5 + 0.5 * math.sin(angle)
+        gradient_stops = []
+        if blended_colors:
+            gradient_stops.append(f"stop:0 {blended_colors[0]}")
+        gradient_stops.append(f"stop:0.5 {accent}")
+        if blended_colors:
+            gradient_stops.append(f"stop:1 {blended_colors[-1]}")
+        gradient_definition = ", ".join(gradient_stops)
         return (
             "border-radius:16px;"
-            "background:#2d2d2d;"
-            f"border-color:{accent}; "
+            f"background: qlineargradient(x1:0,y1:0,x2:{x2:.2f},y2:{y2:.2f},{gradient_definition});"
+            f"border:{self._neon_thickness}px solid {accent};"
             f"color:{accent};"
         )
 
