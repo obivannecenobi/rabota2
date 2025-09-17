@@ -101,6 +101,14 @@ def load_config():
 CONFIG = load_config()
 config.CONFIG = CONFIG
 BASE_SAVE_PATH = os.path.abspath(CONFIG.get("save_path", DATA_DIR))
+MONTH_DATA_SUBDIR = "months"
+
+
+def _ensure_month_storage() -> str:
+    base = os.path.abspath(BASE_SAVE_PATH)
+    month_dir = os.path.join(base, MONTH_DATA_SUBDIR)
+    os.makedirs(month_dir, exist_ok=True)
+    return month_dir
 
 
 def button_config():
@@ -257,8 +265,8 @@ class MonthData:
 
     @property
     def path(self) -> str:
-        os.makedirs(DATA_DIR, exist_ok=True)
-        return os.path.join(DATA_DIR, f"{self.year:04d}-{self.month:02d}.json")
+        storage = _ensure_month_storage()
+        return os.path.join(storage, f"{self.year:04d}-{self.month:02d}.json")
 
     def save(self) -> None:
         days: Dict[str, List[Dict[str, str]]] = {}
@@ -272,13 +280,20 @@ class MonthData:
                 })
             if row_list:
                 days[str(day)] = row_list
+        path = self.path
         data = {"year": self.year, "month": self.month, "days": days}
-        with open(self.path, "w", encoding="utf-8") as f:
+        with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
     @classmethod
     def load(cls, year: int, month: int) -> "MonthData":
-        path = os.path.join(DATA_DIR, f"{year:04d}-{month:02d}.json")
+        storage = _ensure_month_storage()
+        filename = f"{year:04d}-{month:02d}.json"
+        path = os.path.join(storage, filename)
+        if not os.path.exists(path):
+            legacy_path = os.path.join(DATA_DIR, filename)
+            if os.path.exists(legacy_path):
+                path = legacy_path
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
