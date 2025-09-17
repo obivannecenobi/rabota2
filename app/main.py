@@ -118,6 +118,65 @@ def button_config():
         "neon_thickness": CONFIG.get("neon_thickness", 1),
     }
 
+
+def build_input_neon_style(
+    selector: str,
+    *,
+    background: str,
+    accent: str,
+    thickness: int,
+    radius: int = 8,
+) -> str:
+    """Return a stylesheet block for neon-ready input widgets.
+
+    Parameters
+    ----------
+    selector:
+        CSS selector for the widget (e.g. ``"QSpinBox"``).
+    background:
+        Base background color for the control.
+    accent:
+        Accent color used for hover/focus states.
+    thickness:
+        Thickness of the border in pixels.  Values below ``0`` are clamped to
+        ``0`` to mirror slider input; hover/focus states still highlight the
+        control with at least a 1px outline.
+    radius:
+        Corner radius in pixels.
+    """
+
+    try:
+        border = max(0, int(thickness))
+    except (TypeError, ValueError):
+        border = 0
+    highlight_border = max(border, 1)
+
+    accent_color = QtGui.QColor(accent)
+    subtle_border = QtGui.QColor(accent_color)
+    subtle_border.setAlpha(90)
+    subtle_name = subtle_border.name(QtGui.QColor.HexArgb)
+
+    base_border = f"border:{border}px solid {accent};" if border else "border:0px solid transparent;"
+    if border:
+        # use a subtle alpha in the resting state for softer appearance
+        base_border = f"border:{border}px solid {subtle_name};"
+
+    return (
+        f"{selector}{{"
+        f"background-color:{background};"
+        f"border-radius:{radius}px;"
+        "padding:4px 8px;"
+        f"{base_border}"
+        "color:#f0f0f0;"
+        "selection-background-color:rgba(255,255,255,30);"
+        "selection-color:#000;"
+        "}"
+        f"{selector}:hover, {selector}:focus{{"
+        f"border:{highlight_border}px solid {accent};"
+        f"color:{accent};"
+        "}"
+    )
+
 def ensure_year_dirs(year):
     base = os.path.join(BASE_SAVE_PATH, str(year))
     for sub in ("stats", "release", "top", "year"):
@@ -2488,20 +2547,16 @@ class SettingsDialog(QtWidgets.QDialog):
         # General options below tabs
         form_gen = QtWidgets.QFormLayout()
         main_lay.addLayout(form_gen)
-        spin_style = (
-            "QSpinBox{border-radius:8px; padding:2px; background:#2d2d2d; "
-            "border:1px solid #555;}"
-            "QSpinBox:hover, QSpinBox:focus{background:#2d2d2d;}"
-        )
         self.spin_day_rows = QtWidgets.QSpinBox(self)
         self.spin_day_rows.setRange(1, 20)
         day_rows = CONFIG.get("day_rows")
         if not isinstance(day_rows, int) or day_rows < 1:
             day_rows = DAY_ROWS_DEFAULT
         self.spin_day_rows.setValue(day_rows)
-        self.spin_day_rows.setStyleSheet(spin_style)
+        self.spin_day_rows.setAttribute(QtCore.Qt.WA_Hover, True)
         self.spin_day_rows.setFixedWidth(self.spin_day_rows.sizeHint().width() + 20)
         self.spin_day_rows.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
+        self._apply_spin_day_rows_style()
         self.spin_day_rows.valueChanged.connect(lambda _: self._save_config())
         form_gen.addRow("Строк на день", self.spin_day_rows)
 
@@ -2555,6 +2610,22 @@ class SettingsDialog(QtWidgets.QDialog):
                 idx = combo.count() - 1
             combo.setCurrentIndex(idx)
             self._save_config()
+
+    def _build_spin_day_rows_style(self) -> str:
+        background = self._workspace_color.name()
+        accent = self._accent_color.name()
+        thickness = self.sld_neon_thickness.value() if hasattr(self, 'sld_neon_thickness') else CONFIG.get("neon_thickness", 1)
+        return build_input_neon_style("QSpinBox", background=background, accent=accent, thickness=thickness)
+
+    def _apply_spin_day_rows_style(self) -> None:
+        if not hasattr(self, 'spin_day_rows'):
+            return
+        style = self._build_spin_day_rows_style()
+        self.spin_day_rows.setStyleSheet(style)
+        self.spin_day_rows.setAttribute(QtCore.Qt.WA_Hover, True)
+        filt = getattr(self.spin_day_rows, '_neon_filter', None)
+        if filt is not None:
+            filt._config = CONFIG
 
     def _collect_config(self):
         return {
@@ -2648,6 +2719,7 @@ class SettingsDialog(QtWidgets.QDialog):
     def _save_config(self):
         config = self._collect_config()
         CONFIG.update(config)
+        self._apply_spin_day_rows_style()
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(CONFIG, f, ensure_ascii=False, indent=2)
         update_neon_filters(self, CONFIG)
