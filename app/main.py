@@ -1409,12 +1409,68 @@ class TopDialog(QtWidgets.QDialog):
         if geom is not None:
             self.restoreGeometry(geom)
         self.calculate()
+        self.refresh_theme()
         sizes = self._settings.value("TopDialog/columns", type=list)
         for i, w in enumerate(sizes or []):
             try:
                 self.table.setColumnWidth(i, int(w))
             except (TypeError, ValueError):
                 pass  # пропустить некорректное значение
+
+    def refresh_theme(self) -> None:
+        """Пересобрать стили таблицы и заголовков с учётом темы."""
+
+        workspace = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21")).name()
+        accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14")).name()
+
+        header = self.table.horizontalHeader()
+
+        self.table.setAttribute(QtCore.Qt.WA_Hover, True)
+        self.table.viewport().setAttribute(QtCore.Qt.WA_Hover, True)
+        header.setAttribute(QtCore.Qt.WA_Hover, True)
+
+        if getattr(self.table, "_neon_effect", None):
+            apply_neon_effect(self.table, False, config=CONFIG)
+        if getattr(header, "_neon_effect", None):
+            apply_neon_effect(header, False, config=CONFIG)
+
+        highlight = QtGui.QColor(accent)
+        table_palette = self.table.palette()
+        table_palette.setColor(QtGui.QPalette.Highlight, highlight)
+        self.table.setPalette(table_palette)
+
+        header_palette = header.palette()
+        header_palette.setColor(QtGui.QPalette.Highlight, highlight)
+        header.setPalette(header_palette)
+
+        table_style = (
+            "QTableWidget{"  # базовая область и вьюпорт
+            f"background-color:{workspace};"
+            f"border:1px solid {accent};"
+            "border-radius:8px;"
+            "selection-background-color:rgba(0,0,0,0);"
+            f"selection-color:{accent};"
+            "gridline-color:rgba(255,255,255,40);"
+            "}"
+            "QTableWidget::item{border:0;}"
+        )
+        header_style = (
+            "QHeaderView::section{"  # горизонтальные заголовки
+            f"background-color:{workspace};"
+            f"color:{accent};"
+            "padding:0 8px;"
+            "border:0;"
+            f"border-bottom:1px solid {accent};"
+            "}"
+        )
+
+        self.table.setStyleSheet(table_style)
+        header.setStyleSheet(header_style)
+
+        apply_neon_effect(self.table, True, config=CONFIG)
+        apply_neon_effect(header, True, shadow=False, border=False, config=CONFIG)
+        update_neon_filters(self.table, CONFIG)
+        update_neon_filters(header, CONFIG)
 
     def resizeEvent(self, event):
         self.table.horizontalHeader().setSectionResizeMode(
@@ -3066,7 +3122,7 @@ class MainWindow(QtWidgets.QMainWindow):
         app = QtWidgets.QApplication.instance()
         if app is not None:
             for dlg in app.topLevelWidgets():
-                if isinstance(dlg, ReleaseDialog):
+                if isinstance(dlg, (ReleaseDialog, AnalyticsDialog, TopDialog)):
                     dlg.refresh_theme()
 
     def apply_fonts(self):
