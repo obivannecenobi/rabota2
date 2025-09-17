@@ -17,8 +17,8 @@ class FixedDropShadowEffect(QtWidgets.QGraphicsDropShadowEffect):
 
 
 def neon_enabled(config: dict) -> bool:
-    """Return ``True`` if neon highlighting is enabled in *config*."""
-    return bool(config.get("neon", False))
+    """Return ``True`` when neon highlighting should be active."""
+    return True
 
 
 def set_neon(
@@ -195,25 +195,18 @@ class NeonEventFilter(QtCore.QObject):
             widget.removeEventFilter(self)
 
     def _start(self) -> None:
-        if not neon_enabled(self._config):
-            return
         widget = self._widget()
         if getattr(widget, "_neon_effect", None):
             return
         apply_neon_effect(widget, True, config=self._config)
 
     def _stop(self) -> None:
-        if not neon_enabled(self._config):
-            return
         widget = self._widget()
         if widget is None or not shiboken6.isValid(widget):
             return
         apply_neon_effect(widget, False, config=self._config)
 
     def eventFilter(self, obj, event):  # noqa: D401 - Qt event filter signature
-        if not neon_enabled(self._config):
-            return False
-
         widget = self._widget()
         if widget is None or not shiboken6.isValid(widget):
             return False
@@ -257,31 +250,20 @@ def update_neon_filters(root: QtWidgets.QWidget, config: dict) -> None:
     if root is None or not shiboken6.isValid(root):
         return
 
-    enabled = neon_enabled(config)
-
     def _process(widget: QtWidgets.QWidget) -> None:
         if widget is None or not shiboken6.isValid(widget):
             return
         if not widget.testAttribute(QtCore.Qt.WA_Hover):
             return
         filt = getattr(widget, "_neon_filter", None)
-        if enabled and filt is None:
+        if filt is None:
             filt = NeonEventFilter(widget, config)
             widget.installEventFilter(filt)
             if hasattr(widget, "viewport"):
                 widget.viewport().installEventFilter(filt)
             widget._neon_filter = filt
-        elif enabled and filt is not None:
+        elif filt is not None:
             filt._config = config
-        elif not enabled and filt is not None:
-            try:
-                widget.removeEventFilter(filt)
-                if hasattr(widget, "viewport"):
-                    widget.viewport().removeEventFilter(filt)
-            except RuntimeError:
-                pass
-            apply_neon_effect(widget, False, config=config)
-            widget._neon_filter = None
 
     widgets = [root] + root.findChildren(QtWidgets.QWidget)
     for w in widgets:
