@@ -29,6 +29,9 @@ ASSETS = os.path.join(os.path.dirname(__file__), "..", "assets")
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 CONFIG_PATH = os.path.join(DATA_DIR, "config.json")
 
+DAY_ROWS_DEFAULT = 4
+_OLD_DAY_ROWS_DEFAULT = 6
+
 
 def load_config():
     default = {
@@ -44,7 +47,7 @@ def load_config():
         "text_font": "Exo 2",
         "sidebar_font": "Exo 2",
         "save_path": DATA_DIR,
-        "day_rows": 6,
+        "day_rows": DAY_ROWS_DEFAULT,
         "workspace_color": "#1e1e21",
         "sidebar_color": "#1f1f23",
         "sidebar_icon": os.path.join(ASSETS, "gpt_icon.png"),
@@ -62,10 +65,21 @@ def load_config():
                         os.path.join(os.path.dirname(CONFIG_PATH), save_path)
                     )
                 data["save_path"] = save_path
+            migrated = False
+            day_rows = data.get("day_rows")
+            if day_rows is None or day_rows == _OLD_DAY_ROWS_DEFAULT:
+                data["day_rows"] = DAY_ROWS_DEFAULT
+                migrated = True
             default.update({k: v for k, v in data.items() if v is not None})
             for key in ("monochrome", "mono_saturation", "theme"):
                 default.pop(key, None)
             default["neon"] = True
+            if migrated:
+                try:
+                    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+                        json.dump(data, f, ensure_ascii=False, indent=2)
+                except Exception:
+                    pass
         except Exception:
             pass
     else:
@@ -1395,7 +1409,7 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         event.ignore()
 
     def _create_inner_table(self) -> QtWidgets.QTableWidget:
-        tbl = NeonTableWidget(CONFIG.get("day_rows", 6), 3, self, use_neon=True)
+        tbl = NeonTableWidget(CONFIG.get("day_rows", DAY_ROWS_DEFAULT), 3, self, use_neon=True)
         tbl.setHorizontalHeaderLabels(["Работа", "План", "Готово"])
         tbl.verticalHeader().setVisible(False)
         header = tbl.horizontalHeader()
@@ -1439,7 +1453,7 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         return []
 
     def update_day_rows(self):
-        rows = CONFIG.get("day_rows", 6)
+        rows = CONFIG.get("day_rows", DAY_ROWS_DEFAULT)
         for tbl in self.cell_tables.values():
             tbl.setRowCount(rows)
 
@@ -2041,7 +2055,10 @@ class SettingsDialog(QtWidgets.QDialog):
         main_lay.addLayout(form_gen)
         self.spin_day_rows = QtWidgets.QSpinBox(self)
         self.spin_day_rows.setRange(1, 20)
-        self.spin_day_rows.setValue(CONFIG.get("day_rows", 6))
+        day_rows = CONFIG.get("day_rows")
+        if not isinstance(day_rows, int) or day_rows < 1:
+            day_rows = DAY_ROWS_DEFAULT
+        self.spin_day_rows.setValue(day_rows)
         self.spin_day_rows.setStyleSheet(spin_style)
         self.spin_day_rows.setFixedWidth(self.spin_day_rows.sizeHint().width() + 20)
         self.spin_day_rows.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)

@@ -13,7 +13,7 @@
   "text_font": "Exo 2",
   "sidebar_font": "Exo 2",
   "save_path": "/workspace/rabota2/data",
-  "day_rows": 6,
+  "day_rows": 4,
   "workspace_color": "#222222",
   "sidebar_color": "#1f1f23",
   "sidebar_icon": "/workspace/rabota2/app/../assets/gpt_icon.png",
