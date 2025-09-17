@@ -117,6 +117,19 @@ def ensure_year_dirs(year):
     return base
 
 
+def _read_sort_settings(
+    settings: QtCore.QSettings, prefix: str
+) -> tuple[int, QtCore.Qt.SortOrder] | None:
+    section = settings.value(f"{prefix}/sortSection")
+    order = settings.value(f"{prefix}/sortOrder")
+    try:
+        section_int = int(section)
+        order_enum = QtCore.Qt.SortOrder(int(order))
+    except (TypeError, ValueError):
+        return None
+    return section_int, order_enum
+
+
 def apply_neon_to_inputs(root: QtWidgets.QWidget) -> None:
     """Install neon event filters on editable input widgets under ``root``."""
 
@@ -701,6 +714,10 @@ class StatsDialog(QtWidgets.QDialog):
         self.year = year
         self.month = month
         self._settings = QtCore.QSettings("rabota2", "rabota2")
+        self._saved_sort: tuple[int, QtCore.Qt.SortOrder] | None = _read_sort_settings(
+            self._settings, "StatsDialog"
+        )
+        header.sortIndicatorChanged.connect(self._on_sort_changed)
         geom = self._settings.value("StatsDialog/geometry", type=QtCore.QByteArray)
         if geom is not None:
             self.restoreGeometry(geom)
@@ -794,6 +811,7 @@ class StatsDialog(QtWidgets.QDialog):
             )
         self.current_index = None
         self.form_stats.clear()
+        self._apply_saved_sort()
 
     def save_record(self):
         record = self.form_stats.get_record()
@@ -822,8 +840,31 @@ class StatsDialog(QtWidgets.QDialog):
             for i in range(self.table_stats.columnCount())
         ]
         self._settings.setValue("StatsDialog/columns", cols)
+        header = self.table_stats.horizontalHeader()
+        self._settings.setValue("StatsDialog/sortSection", int(header.sortIndicatorSection()))
+        self._settings.setValue(
+            "StatsDialog/sortOrder", int(header.sortIndicatorOrder().value)
+        )
         self._settings.sync()
         super().closeEvent(event)
+
+    def _on_sort_changed(self, section: int, order: QtCore.Qt.SortOrder) -> None:
+        self._saved_sort = (int(section), QtCore.Qt.SortOrder(order))
+
+    def _apply_saved_sort(self) -> None:
+        if not self.table_stats.isSortingEnabled():
+            return
+        section_order = self._saved_sort
+        if section_order is None:
+            header = self.table_stats.horizontalHeader()
+            section_order = (
+                int(header.sortIndicatorSection()),
+                QtCore.Qt.SortOrder(header.sortIndicatorOrder()),
+            )
+        section, order = section_order
+        if 0 <= section < self.table_stats.columnCount():
+            self.table_stats.sortByColumn(section, order)
+            self._saved_sort = (section, order)
 
 
 class AnalyticsDialog(QtWidgets.QDialog):
@@ -1161,7 +1202,9 @@ class TopDialog(QtWidgets.QDialog):
         self.setFont(app.font())
         self.table.setFont(app.font())
         header_font = QtGui.QFont(CONFIG.get("header_font"))
-        self.table.horizontalHeader().setFont(header_font)
+        table_header = self.table.horizontalHeader()
+        table_header.setFont(header_font)
+        table_header.sortIndicatorChanged.connect(self._on_sort_changed)
 
         lay.addWidget(self.table, 1)
 
@@ -1181,6 +1224,9 @@ class TopDialog(QtWidgets.QDialog):
             b.setFixedSize(b.sizeHint())
 
         self._settings = QtCore.QSettings("rabota2", "rabota2")
+        self._saved_sort: tuple[int, QtCore.Qt.SortOrder] | None = _read_sort_settings(
+            self._settings, "TopDialog"
+        )
         geom = self._settings.value("TopDialog/geometry", type=QtCore.QByteArray)
         if geom is not None:
             self.restoreGeometry(geom)
@@ -1345,6 +1391,7 @@ class TopDialog(QtWidgets.QDialog):
         header = self.table.horizontalHeader()
         header.setMinimumSectionSize(50)
         header.setTextElideMode(QtCore.Qt.ElideNone)
+        self._apply_saved_sort()
 
     def _period_key(self):
         mode = self.combo_mode.currentData()
@@ -1398,8 +1445,29 @@ class TopDialog(QtWidgets.QDialog):
         self._settings.setValue("TopDialog/geometry", self.saveGeometry())
         cols = [int(self.table.columnWidth(i)) for i in range(self.table.columnCount())]
         self._settings.setValue("TopDialog/columns", cols)
+        header = self.table.horizontalHeader()
+        self._settings.setValue("TopDialog/sortSection", int(header.sortIndicatorSection()))
+        self._settings.setValue("TopDialog/sortOrder", int(header.sortIndicatorOrder().value))
         self._settings.sync()
         super().closeEvent(event)
+
+    def _on_sort_changed(self, section: int, order: QtCore.Qt.SortOrder) -> None:
+        self._saved_sort = (int(section), QtCore.Qt.SortOrder(order))
+
+    def _apply_saved_sort(self) -> None:
+        if not self.table.isSortingEnabled():
+            return
+        section_order = self._saved_sort
+        if section_order is None:
+            header = self.table.horizontalHeader()
+            section_order = (
+                int(header.sortIndicatorSection()),
+                QtCore.Qt.SortOrder(header.sortIndicatorOrder()),
+            )
+        section, order = section_order
+        if 0 <= section < self.table.columnCount():
+            self.table.sortByColumn(section, order)
+            self._saved_sort = (section, order)
 
 class NeonTableWidget(QtWidgets.QTableWidget):
     """Вложенная таблица с neonовым подсвечиванием при наведении и фокусе."""
