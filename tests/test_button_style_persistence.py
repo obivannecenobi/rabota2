@@ -5,7 +5,7 @@ from pathlib import Path
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "app"))
 
-from PySide6 import QtWidgets
+from PySide6 import QtCore, QtWidgets
 
 import resources
 resources.register_fonts = lambda: None
@@ -57,5 +57,30 @@ def test_gradient_and_neon_persist_across_buttons_and_dialog(monkeypatch):
     assert sidebar_btn.graphicsEffect() is not None
 
     dlg.close()
+    window.close()
+    app.quit()
+
+
+def test_sidebar_button_spacing_and_style_toggle(monkeypatch):
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+
+    monkeypatch.setitem(main.CONFIG, "sidebar_collapsed", False)
+
+    window = main.MainWindow()
+    sidebar = window.sidebar
+
+    labels = [btn.text() for btn in sidebar.buttons]
+    assert all(label == label.strip() for label in labels)
+
+    sidebar.set_collapsed(True)
+    for btn in sidebar.buttons:
+        assert btn.toolButtonStyle() == QtCore.Qt.ToolButtonIconOnly
+
+    sidebar.set_collapsed(False)
+    for original, btn in zip(labels, sidebar.buttons):
+        assert btn.toolButtonStyle() == QtCore.Qt.ToolButtonTextBesideIcon
+        assert btn.text() == original
+        assert not btn.text().startswith(" ")
+
     window.close()
     app.quit()
