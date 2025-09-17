@@ -2970,8 +2970,8 @@ class TopBar(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         lay = QtWidgets.QHBoxLayout(self)
-        lay.setContentsMargins(8, 8, 8, 8)
-        lay.setSpacing(8)
+        lay.setContentsMargins(16, 12, 16, 12)
+        lay.setSpacing(12)
         self.setObjectName("TopBar")
         self._accent_color = self._resolve_accent_color()
         self._spinbox_border = f"1px solid {self._accent_color.name()}"
@@ -2979,6 +2979,8 @@ class TopBar(QtWidgets.QWidget):
         self._background_color = QtGui.QColor(
             CONFIG.get("workspace_color", "#1e1e21")
         )
+        self._corner_radius = 16
+        self._background_effect: FixedDropShadowEffect | None = None
 
         self.btn_prev = StyledToolButton(self, **button_config())
         self.btn_prev.setCursor(QtCore.Qt.PointingHandCursor)
@@ -3038,11 +3040,43 @@ class TopBar(QtWidgets.QWidget):
     def _rebuild_stylesheet(self) -> None:
         background = self._background_color.name()
         selector = self.objectName()
+        radius = max(0, int(getattr(self, "_corner_radius", 0)))
+        padding = "8px 16px 12px 16px"
         if selector:
-            bg_block = f"QWidget#{selector}{{background-color:{background};}}"
+            bg_block = (
+                f"QWidget#{selector}{{"
+                f"background-color:{background};"
+                f" border-radius:{radius}px;"
+                f" padding:{padding};"
+                "}}"
+            )
         else:
-            bg_block = f"QWidget{{background-color:{background};}}"
+            bg_block = (
+                "QWidget{"
+                f"background-color:{background};"
+                f" border-radius:{radius}px;"
+                f" padding:{padding};"
+                "}"
+            )
         self.setStyleSheet(bg_block + (self._base_style_template or ""))
+
+    def _apply_background_effect(self) -> None:
+        color = QtGui.QColor(self._accent_color)
+        if not color.isValid():
+            color = QtGui.QColor("#39ff14")
+        glow_color = QtGui.QColor(color)
+        glow_color.setAlpha(110)
+        effect = self._background_effect
+        if effect is None or not shiboken6.isValid(effect):
+            effect = FixedDropShadowEffect(self)
+            self._background_effect = effect
+        effect.setOffset(0, 6)
+        effect.setBlurRadius(32)
+        effect.setColor(glow_color)
+        try:
+            self.setGraphicsEffect(effect)
+        except RuntimeError:
+            pass
 
     def _apply_background_palette(self) -> None:
         qcolor = self._background_color
@@ -3156,6 +3190,7 @@ class TopBar(QtWidgets.QWidget):
         else:
             self._spinbox_border = f"1px solid {self._accent_color.name()}"
         self._apply_background_palette()
+        self._apply_background_effect()
         self._apply_spinbox_style()
         self._rebuild_stylesheet()
         self.apply_fonts()
@@ -3180,6 +3215,7 @@ class TopBar(QtWidgets.QWidget):
         else:
             self._spinbox_border = f"1px solid {self._accent_color.name()}"
         self._apply_background_palette()
+        self._apply_background_effect()
         self._apply_spinbox_style()
         self._rebuild_stylesheet()
         self.apply_fonts()
