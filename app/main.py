@@ -2552,6 +2552,14 @@ class TopBar(QtWidgets.QWidget):
         lay = QtWidgets.QHBoxLayout(self)
         lay.setContentsMargins(8, 8, 8, 8)
         lay.setSpacing(8)
+        self.setObjectName("TopBar")
+        self._default_spinbox_border = "1px solid rgba(255,255,255,0.2)"
+        self._spinbox_border = self._default_spinbox_border
+        self._base_style_template = ""
+        self._background_color = QtGui.QColor(
+            CONFIG.get("workspace_color", "#1e1e21")
+        )
+
         self.btn_prev = StyledToolButton(self, **button_config())
         self.btn_prev.setCursor(QtCore.Qt.PointingHandCursor)
         self.btn_prev.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
@@ -2607,8 +2615,17 @@ class TopBar(QtWidgets.QWidget):
         self.btn_next.setIcon(icon("chevron-right"))
         self.btn_next.setIconSize(QtCore.QSize(22, 22))
 
-    def apply_background(self, color: Union[str, QtGui.QColor]) -> None:
-        qcolor = QtGui.QColor(color)
+    def _rebuild_stylesheet(self) -> None:
+        background = self._background_color.name()
+        selector = self.objectName()
+        if selector:
+            bg_block = f"QWidget#{selector}{{background-color:{background};}}"
+        else:
+            bg_block = f"QWidget{{background-color:{background};}}"
+        self.setStyleSheet(bg_block + (self._base_style_template or ""))
+
+    def _apply_background_palette(self) -> None:
+        qcolor = self._background_color
         for w in (self, self.spin_year):
             pal = w.palette()
             pal.setColor(QtGui.QPalette.Window, qcolor)
@@ -2619,29 +2636,56 @@ class TopBar(QtWidgets.QWidget):
         self.lbl_month.setAutoFillBackground(False)
         self.lbl_month.setPalette(pal)
         self.lbl_month.setStyleSheet("background:transparent; border:none;")
-        # Ensure rounded spin box with a semi-transparent border for contrast
+
+    def _apply_spinbox_style(self) -> None:
+        border = self._spinbox_border or "0"
         self.spin_year.setStyleSheet(
             (
                 "QSpinBox{"
-                f"background-color:{qcolor.name()}; padding:0 4px;"
-                " border-radius:6px; border:1px solid rgba(255,255,255,0.2);"
+                f"background-color:{self._background_color.name()}; padding:0 4px;"
+                " border-radius:6px;"
+                f" border:{border};"
                 "}"
                 " QSpinBox::lineEdit{border-radius:6px;}"
             )
         )
+
+    def apply_background(
+        self,
+        color: Union[str, QtGui.QColor],
+        *,
+        border: str | None = None,
+    ) -> None:
+        qcolor = QtGui.QColor(color)
+        if not qcolor.isValid():
+            return
+        self._background_color = qcolor
+        self._spinbox_border = border if border is not None else self._default_spinbox_border
+        self._apply_background_palette()
+        self._apply_spinbox_style()
+        self._rebuild_stylesheet()
         self.apply_fonts()
 
-    def update_background(self, color: Union[str, QtGui.QColor]) -> None:
+    def update_background(
+        self,
+        color: Union[str, QtGui.QColor],
+        *,
+        border: str | None = None,
+    ) -> None:
         qcolor = QtGui.QColor(color)
-        self.setStyleSheet(
-            f"background-color:{qcolor.name()};" + self.styleSheet()
-        )
+        if not qcolor.isValid():
+            return
+        self._background_color = qcolor
+        if border is not None:
+            self._spinbox_border = border
+        self._apply_background_palette()
+        self._apply_spinbox_style()
+        self._rebuild_stylesheet()
         self.apply_fonts()
 
     def apply_style(self) -> None:
-        style = "QLabel{color:#e5e5e5; border:none;}"
-        self.setStyleSheet(style)
-        self.apply_background(self.palette().color(QtGui.QPalette.Window))
+        self._base_style_template = "QLabel{color:#e5e5e5; border:none;}"
+        self.update_background(self._background_color)
         apply_neon_effect(
             self.lbl_month, True, shadow=False, border=False, config=CONFIG
         )
@@ -2994,14 +3038,9 @@ class MainWindow(QtWidgets.QMainWindow):
         flat_cfg = CONFIG.copy()
         flat_cfg.pop("gradient_colors", None)
         flat_base, _ = theme_manager.apply_gradient(flat_cfg)
-        self.topbar.setStyleSheet(
-            f"background-color:{workspace.name()};" + self.topbar.styleSheet()
-        )
-        self.topbar.lbl_month.setStyleSheet(
-            "background:transparent; border:none;"
-        )
-        self.topbar.spin_year.setStyleSheet(
-            f"background-color:{workspace.name()}; padding:0 4px; border:1px solid transparent; border-radius:6px;"
+        self.topbar.update_background(
+            workspace,
+            border="1px solid transparent",
         )
         theme = CONFIG.get("theme", "dark")
         self.setStyleSheet(
