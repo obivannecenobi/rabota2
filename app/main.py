@@ -3191,38 +3191,86 @@ class MainWindow(QtWidgets.QMainWindow):
         update_neon_filters(self, CONFIG)
 
     def apply_theme(self):
-        accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
-        if CONFIG.get("monochrome", False):
-            accent = theme_manager.apply_monochrome(accent)
         app = QtWidgets.QApplication.instance()
-        def mc(c):
-            return theme_manager.apply_monochrome(QtGui.QColor(c)) if CONFIG.get("monochrome", False) else QtGui.QColor(c)
-        if CONFIG.get("theme", "dark") == "dark":
-            pal = QtGui.QPalette()
-            pal.setColor(QtGui.QPalette.Window, mc(QtGui.QColor(30, 30, 33)))
-            pal.setColor(QtGui.QPalette.WindowText, mc("#e5e5e5"))
-            pal.setColor(QtGui.QPalette.Base, mc(QtGui.QColor(30, 30, 33)))
-            pal.setColor(QtGui.QPalette.AlternateBase, mc(QtGui.QColor(45, 45, 48)))
-            pal.setColor(QtGui.QPalette.ToolTipBase, mc("#e5e5e5"))
-            pal.setColor(QtGui.QPalette.ToolTipText, mc("#e5e5e5"))
-            pal.setColor(QtGui.QPalette.Text, mc("#e5e5e5"))
-            pal.setColor(QtGui.QPalette.Button, mc(QtGui.QColor(45, 45, 48)))
-            pal.setColor(QtGui.QPalette.ButtonText, mc("#e5e5e5"))
-            pal.setColor(QtGui.QPalette.Highlight, accent)
-            pal.setColor(QtGui.QPalette.HighlightedText, mc(QtGui.QColor(0, 0, 0)))
-            app.setPalette(pal)
-        else:
-            app.setPalette(app.style().standardPalette())
-        base, workspace = theme_manager.apply_gradient(CONFIG)
-        workspace = QtGui.QColor(workspace)
+        if app is None:
+            return
+
+        monochrome = CONFIG.get("monochrome", False)
+        accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
+        workspace_color = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21"))
+        sidebar_color = QtGui.QColor(CONFIG.get("sidebar_color", "#1f1f23"))
+
+        if monochrome:
+            accent = theme_manager.apply_monochrome(accent)
+            workspace_color = theme_manager.apply_monochrome(workspace_color)
+            sidebar_color = theme_manager.apply_monochrome(sidebar_color)
+
+        def contrast_color(color: QtGui.QColor) -> QtGui.QColor:
+            r, g, b, _ = color.getRgb()
+            luminance = 0.299 * r + 0.587 * g + 0.114 * b
+            return QtGui.QColor("#000000") if luminance > 186 else QtGui.QColor("#ffffff")
+
+        text_color = contrast_color(workspace_color)
+        button_text_color = contrast_color(sidebar_color)
+        highlight_text_color = contrast_color(accent)
+
+        palette = QtGui.QPalette()
+        palette.setColor(QtGui.QPalette.Window, workspace_color)
+        palette.setColor(QtGui.QPalette.WindowText, text_color)
+        palette.setColor(QtGui.QPalette.Base, workspace_color)
+        palette.setColor(QtGui.QPalette.AlternateBase, QtGui.QColor(workspace_color).lighter(115))
+        palette.setColor(QtGui.QPalette.ToolTipBase, QtGui.QColor(workspace_color).lighter(120))
+        palette.setColor(QtGui.QPalette.ToolTipText, text_color)
+        palette.setColor(QtGui.QPalette.Text, text_color)
+        palette.setColor(QtGui.QPalette.Button, sidebar_color)
+        palette.setColor(QtGui.QPalette.ButtonText, button_text_color)
+        palette.setColor(QtGui.QPalette.Mid, QtGui.QColor(sidebar_color).darker(115))
+        palette.setColor(QtGui.QPalette.Highlight, accent)
+        palette.setColor(QtGui.QPalette.HighlightedText, highlight_text_color)
+        palette.setColor(QtGui.QPalette.Link, accent)
+        palette.setColor(QtGui.QPalette.BrightText, QtGui.QColor("#ffffff"))
+        palette.setColor(QtGui.QPalette.Shadow, QtGui.QColor(sidebar_color).darker(150))
+
+        # Keep disabled text legible while matching the workspace tone
+        palette.setColor(
+            QtGui.QPalette.Disabled,
+            QtGui.QPalette.WindowText,
+            QtGui.QColor(text_color).darker(140),
+        )
+        palette.setColor(
+            QtGui.QPalette.Disabled,
+            QtGui.QPalette.Text,
+            QtGui.QColor(text_color).darker(140),
+        )
+        palette.setColor(
+            QtGui.QPalette.Disabled,
+            QtGui.QPalette.ButtonText,
+            QtGui.QColor(button_text_color).darker(140),
+        )
+        palette.setColor(
+            QtGui.QPalette.Disabled,
+            QtGui.QPalette.Highlight,
+            QtGui.QColor(accent).darker(130),
+        )
+        palette.setColor(
+            QtGui.QPalette.Disabled,
+            QtGui.QPalette.HighlightedText,
+            highlight_text_color,
+        )
+
+        QtWidgets.QApplication.setPalette(palette)
+        app.setPalette(palette)
+
+        _, workspace_for_styles = theme_manager.apply_gradient(CONFIG)
+        workspace_for_styles = QtGui.QColor(workspace_for_styles)
         self.statusBar().setStyleSheet(
-            f"background-color:{workspace.name()};"
+            f"background-color:{workspace_for_styles.name()};"
         )
         flat_cfg = CONFIG.copy()
         flat_cfg.pop("gradient_colors", None)
         flat_base, _ = theme_manager.apply_gradient(flat_cfg)
         self.topbar.update_background(
-            workspace,
+            workspace_for_styles,
             border="1px solid transparent",
         )
         theme = CONFIG.get("theme", "dark")
@@ -3262,13 +3310,19 @@ class MainWindow(QtWidgets.QMainWindow):
             """
         )
         self.table.apply_theme()
-        sidebar = CONFIG.get("sidebar_color", "#1f1f23")
-        if CONFIG.get("monochrome", False):
-            sidebar = theme_manager.apply_monochrome(QtGui.QColor(sidebar)).name()
-            accent = theme_manager.apply_monochrome(accent)
-        self._apply_sidebar_style(accent, sidebar)
+        sidebar_style_color = sidebar_color
+        if monochrome:
+            sidebar_style_color = theme_manager.apply_monochrome(sidebar_style_color)
+        self._apply_sidebar_style(accent, sidebar_style_color)
         # Reapply topbar background so spin box picks up workspace color
-        self.topbar.apply_background(workspace)
+        self.topbar.apply_background(workspace_for_styles)
+
+        self.statusBar().update()
+        self.topbar.update()
+        for widget in app.topLevelWidgets():
+            if isinstance(widget, QtWidgets.QDialog):
+                widget.setPalette(palette)
+                widget.update()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
