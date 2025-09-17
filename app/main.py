@@ -2044,7 +2044,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             b = StyledToolButton(self, **button_config())
             b.setIcon(QtGui.QIcon(icon_path))
             b.setIconSize(QtCore.QSize(22, 22))
-            b.setText(" " + label)
+            b.setText(label)
             b.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
             b.setCursor(QtCore.Qt.PointingHandCursor)
             b.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)

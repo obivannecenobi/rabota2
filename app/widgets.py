@@ -147,7 +147,7 @@ class StyledPushButton(ButtonStyleMixin, QtWidgets.QPushButton):
 
 
 class StyledToolButton(ButtonStyleMixin, QtWidgets.QToolButton):
-    """QToolButton with shared styling mixin."""
+    """QToolButton with shared styling mixin and centered content."""
 
     def __init__(
         self,
@@ -164,4 +164,118 @@ class StyledToolButton(ButtonStyleMixin, QtWidgets.QToolButton):
             neon_thickness=neon_thickness,
             **kwargs,
         )
+        self._content_spacing = 8
         self.apply_base_style()
+
+    def setContentSpacing(self, spacing: int) -> None:
+        """Update spacing between icon and text when both are visible."""
+
+        self._content_spacing = max(0, int(spacing))
+        self.update()
+
+    def contentSpacing(self) -> int:
+        """Return spacing between icon and text."""
+
+        return self._content_spacing
+
+    def paintEvent(self, event):  # noqa: D401
+        option = QtWidgets.QStyleOptionToolButton()
+        self.initStyleOption(option)
+
+        painter = QtWidgets.QStylePainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
+        base_option = QtWidgets.QStyleOptionToolButton(option)
+        base_option.icon = QtGui.QIcon()
+        base_option.text = ""
+        painter.drawComplexControl(QtWidgets.QStyle.CC_ToolButton, base_option)
+
+        contents = self.style().subControlRect(
+            QtWidgets.QStyle.CC_ToolButton,
+            option,
+            QtWidgets.QStyle.SC_ToolButton,
+            self,
+        )
+
+        icon = option.icon
+        text = option.text
+        style = option.toolButtonStyle
+        spacing = self.style().pixelMetric(
+            QtWidgets.QStyle.PM_ToolBarItemSpacing, option, self
+        )
+        if spacing < 0:
+            spacing = 0
+        spacing = max(spacing, self._content_spacing if text and not icon.isNull() else 0)
+
+        icon_size = option.iconSize
+        icon_rect = QtCore.QRect()
+        text_rect = QtCore.QRect()
+
+        if style == QtCore.Qt.ToolButtonIconOnly or not text:
+            if not icon.isNull():
+                icon_rect = QtCore.QRect(
+                    contents.x()
+                    + max(0, (contents.width() - icon_size.width()) // 2),
+                    contents.y()
+                    + max(0, (contents.height() - icon_size.height()) // 2),
+                    icon_size.width(),
+                    icon_size.height(),
+                )
+        elif icon.isNull():
+            text_rect = contents
+        elif style == QtCore.Qt.ToolButtonTextBesideIcon:
+            metrics = self.fontMetrics()
+            text_width = metrics.size(QtCore.Qt.TextShowMnemonic, text).width()
+            total_width = icon_size.width() + spacing + text_width
+            start_x = contents.x() + max(0, (contents.width() - total_width) // 2)
+            icon_rect = QtCore.QRect(
+                start_x,
+                contents.y()
+                + max(0, (contents.height() - icon_size.height()) // 2),
+                icon_size.width(),
+                icon_size.height(),
+            )
+            available_width = contents.right() - (icon_rect.right() + spacing) + 1
+            text_rect = QtCore.QRect(
+                icon_rect.right() + spacing,
+                contents.y(),
+                max(0, min(text_width, available_width)),
+                contents.height(),
+            )
+        elif style == QtCore.Qt.ToolButtonTextUnderIcon:
+            metrics = self.fontMetrics()
+            text_height = metrics.size(QtCore.Qt.TextShowMnemonic, text).height()
+            total_height = icon_size.height() + spacing + text_height
+            start_y = contents.y() + max(0, (contents.height() - total_height) // 2)
+            icon_rect = QtCore.QRect(
+                contents.x()
+                + max(0, (contents.width() - icon_size.width()) // 2),
+                start_y,
+                icon_size.width(),
+                icon_size.height(),
+            )
+            text_rect = QtCore.QRect(
+                contents.x(),
+                icon_rect.bottom() + spacing,
+                contents.width(),
+                text_height,
+            )
+
+        icon_mode = QtGui.QIcon.Normal
+        if not (option.state & QtWidgets.QStyle.State_Enabled):
+            icon_mode = QtGui.QIcon.Disabled
+        elif option.state & QtWidgets.QStyle.State_MouseOver:
+            icon_mode = QtGui.QIcon.Active
+
+        icon_state = QtGui.QIcon.On if option.state & QtWidgets.QStyle.State_On else QtGui.QIcon.Off
+
+        if not icon.isNull() and icon_rect.isValid():
+            icon.paint(painter, icon_rect, QtCore.Qt.AlignCenter, icon_mode, icon_state)
+
+        if text and text_rect.isValid():
+            alignment = QtCore.Qt.AlignCenter
+            if style == QtCore.Qt.ToolButtonTextBesideIcon and icon_rect.isValid():
+                alignment = QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft
+            elif style == QtCore.Qt.ToolButtonTextUnderIcon:
+                alignment = QtCore.Qt.AlignHCenter | QtCore.Qt.AlignTop
+            painter.setPen(self.palette().color(QtGui.QPalette.ButtonText))
+            painter.drawText(text_rect, alignment, text)
