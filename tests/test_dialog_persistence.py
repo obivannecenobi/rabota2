@@ -103,3 +103,38 @@ def test_release_dialog_restores_multiple_entries(tmp_path, monkeypatch):
     dlg2.close()
     app.quit()
 
+
+def test_release_dialog_preserves_february_data(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    main.BASE_SAVE_PATH = str(tmp_path / "data")
+    main.CONFIG["save_path"] = main.BASE_SAVE_PATH
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+
+    dlg = main.ReleaseDialog(2024, 2, [], None)
+    assert dlg.table.rowCount() >= 28
+    dlg.table.item(0, 0).setText("28")
+    dlg.table.item(0, 1).setText("Gamma")
+    dlg.table.item(0, 2).setText("3")
+    dlg.table.item(0, 3).setText("09:30")
+    dlg.save()
+    dlg.close()
+
+    dlg2 = main.ReleaseDialog(2024, 2, [], None)
+    restored = []
+    for row in range(dlg2.table.rowCount()):
+        work_item = dlg2.table.item(row, 1)
+        if work_item is None or not work_item.text().strip():
+            continue
+        restored.append(
+            (
+                dlg2.table.item(row, 0).text(),
+                work_item.text(),
+                dlg2.table.item(row, 2).text(),
+                dlg2.table.item(row, 3).text(),
+            )
+        )
+
+    assert restored == [("28", "Gamma", "3", "09:30")]
+    dlg2.close()
+    app.quit()
+

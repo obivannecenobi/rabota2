@@ -297,6 +297,23 @@ class ReleaseDialog(QtWidgets.QDialog):
     день, работа, количество глав и время. Допускается несколько
     записей на один день."""
 
+    class _DayColumnDelegate(QtWidgets.QStyledItemDelegate):
+        """Delegate limiting the day column to valid values."""
+
+        def __init__(self, max_day: int, parent: QtWidgets.QWidget | None = None):
+            super().__init__(parent)
+            self._max_day = max_day
+
+        def set_max_day(self, max_day: int) -> None:
+            self._max_day = max_day
+
+        def createEditor(self, parent, option, index):  # type: ignore[override]
+            editor = QtWidgets.QLineEdit(parent)
+            validator = QtGui.QIntValidator(1, self._max_day, editor)
+            editor.setValidator(validator)
+            editor.setAlignment(QtCore.Qt.AlignCenter)
+            return editor
+
     def __init__(self, year, month, works, parent=None):
         super().__init__(parent)
         self.year = year
@@ -319,6 +336,8 @@ class ReleaseDialog(QtWidgets.QDialog):
             "QTableWidget{border:1px solid #555; border-radius:8px;} "
             "QHeaderView::section{padding:0 6px;}"
         )
+        self._day_delegate = self._DayColumnDelegate(self.days_in_month, self.table)
+        self.table.setItemDelegateForColumn(0, self._day_delegate)
 
         self._loading = False
 
@@ -382,6 +401,17 @@ class ReleaseDialog(QtWidgets.QDialog):
         self.table.itemChanged.connect(self._on_item_changed)
         self.load()
 
+    def _ensure_minimum_rows(self) -> None:
+        """Guarantee that the table contains rows for each day of the month."""
+
+        previous_loading = self._loading
+        self._loading = True
+        try:
+            while self.table.rowCount() < self.days_in_month:
+                self.add_row()
+        finally:
+            self._loading = previous_loading
+
     def closeEvent(self, event):
         self.save()
         self._settings.setValue("ReleaseDialog/geometry", self.saveGeometry())
@@ -431,8 +461,8 @@ class ReleaseDialog(QtWidgets.QDialog):
                 self.table.removeRow(row)
         finally:
             self._loading = previous_loading
-        if self.table.rowCount() == 0:
-            self.add_row()
+        if self.table.rowCount() < self.days_in_month:
+            self._ensure_minimum_rows()
         self.save()
 
     def load(self):
@@ -456,7 +486,9 @@ class ReleaseDialog(QtWidgets.QDialog):
 
             self.table.setRowCount(0)
 
-            for day_str, entries in data.get("days", {}).items():
+            day_entries = data.get("days", {})
+            for day_str in sorted(day_entries.keys(), key=lambda x: int(x)):
+                entries = day_entries.get(day_str, [])
                 try:
                     day = int(day_str)
                 except (TypeError, ValueError):
@@ -467,8 +499,10 @@ class ReleaseDialog(QtWidgets.QDialog):
         finally:
             del blocker
             self._loading = False
-        if self.table.rowCount() == 0:
-            self.add_row()
+
+        self._day_delegate.set_max_day(self.days_in_month)
+        if self.table.rowCount() < self.days_in_month:
+            self._ensure_minimum_rows()
 
     def _on_item_changed(self, item: QtWidgets.QTableWidgetItem | None):
         if self._loading or item is None:
