@@ -313,16 +313,12 @@ class ReleaseDialog(QtWidgets.QDialog):
         self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
         self.table.verticalHeader().setVisible(False)
         self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self.table.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
         self.table.setStyleSheet(
             "QTableWidget{border:1px solid #555; border-radius:8px;} "
             "QHeaderView::section{padding:0 6px;}"
         )
-        self.table.setRowCount(31)
-        for row in range(31):
-            item = QtWidgets.QTableWidgetItem(str(row + 1))
-            item.setFlags(QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled)
-            item.setTextAlignment(QtCore.Qt.AlignCenter)
-            self.table.setItem(row, 0, item)
 
         self._loading = False
 
@@ -340,6 +336,18 @@ class ReleaseDialog(QtWidgets.QDialog):
         self.table._neon_filter = self._tbl_filter
 
         lay.addWidget(self.table)
+
+        controls = QtWidgets.QHBoxLayout()
+        controls.addStretch()
+        btn_add_row = StyledPushButton("Добавить запись", self, **button_config())
+        btn_add_row.setIcon(icon("plus"))
+        btn_add_row.setIconSize(QtCore.QSize(16, 16))
+        btn_delete_row = StyledPushButton("Удалить запись", self, **button_config())
+        btn_delete_row.setIcon(icon("minus"))
+        btn_delete_row.setIconSize(QtCore.QSize(16, 16))
+        controls.addWidget(btn_add_row)
+        controls.addWidget(btn_delete_row)
+        lay.addLayout(controls)
 
         box = QtWidgets.QDialogButtonBox(self)
         btn_save = StyledPushButton("Сохранить", self, **button_config())
@@ -368,6 +376,9 @@ class ReleaseDialog(QtWidgets.QDialog):
             except (TypeError, ValueError):
                 pass  # пропустить некорректное значение
 
+        btn_add_row.clicked.connect(self.add_row)
+        btn_delete_row.clicked.connect(self.remove_selected_rows)
+
         self.table.itemChanged.connect(self._on_item_changed)
         self.load()
 
@@ -381,6 +392,48 @@ class ReleaseDialog(QtWidgets.QDialog):
 
     def file_path(self):
         return os.path.join(release_dir(self.year), f"{self.month:02d}.json")
+
+    def add_row(self, day: int | None = None, entry: Dict[str, Union[str, int]] | None = None):
+        previous_loading = self._loading
+        self._loading = True
+        try:
+            row = self.table.rowCount()
+            self.table.insertRow(row)
+
+            day_item = QtWidgets.QTableWidgetItem(str(day) if day else "")
+            day_item.setFlags(
+                QtCore.Qt.ItemIsSelectable
+                | QtCore.Qt.ItemIsEditable
+                | QtCore.Qt.ItemIsEnabled
+            )
+            day_item.setTextAlignment(QtCore.Qt.AlignCenter)
+            self.table.setItem(row, 0, day_item)
+
+            work = entry.get("work", "") if entry else ""
+            chapters = entry.get("chapters", "") if entry else ""
+            time_value = entry.get("time", "") if entry else ""
+
+            self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(str(work)))
+            self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(str(chapters)))
+            self.table.setItem(row, 3, QtWidgets.QTableWidgetItem(str(time_value)))
+            self.table.setCurrentCell(row, 0)
+        finally:
+            self._loading = previous_loading
+
+    def remove_selected_rows(self):
+        selected = sorted({idx.row() for idx in self.table.selectedIndexes()}, reverse=True)
+        if not selected:
+            return
+        previous_loading = self._loading
+        self._loading = True
+        try:
+            for row in selected:
+                self.table.removeRow(row)
+        finally:
+            self._loading = previous_loading
+        if self.table.rowCount() == 0:
+            self.add_row()
+        self.save()
 
     def load(self):
         self._loading = True
@@ -401,45 +454,42 @@ class ReleaseDialog(QtWidgets.QDialog):
                     )
                     data = {}
 
-            # clear previous user-editable columns before reloading
-            for row in range(self.table.rowCount()):
-                for col in range(1, self.table.columnCount()):
-                    self.table.takeItem(row, col)
+            self.table.setRowCount(0)
 
             for day_str, entries in data.get("days", {}).items():
-                day = int(day_str)
-                if 1 <= day <= self.days_in_month and entries:
-                    entry = entries[0]
-                    self.table.setItem(
-                        day - 1,
-                        1,
-                        QtWidgets.QTableWidgetItem(entry.get("work", "")),
-                    )
-                    self.table.setItem(
-                        day - 1,
-                        2,
-                        QtWidgets.QTableWidgetItem(str(entry.get("chapters", ""))),
-                    )
-                    self.table.setItem(
-                        day - 1,
-                        3,
-                        QtWidgets.QTableWidgetItem(entry.get("time", "")),
-                    )
+                try:
+                    day = int(day_str)
+                except (TypeError, ValueError):
+                    continue
+                if 1 <= day <= self.days_in_month:
+                    for entry in entries or []:
+                        self.add_row(day=day, entry=entry)
         finally:
             del blocker
             self._loading = False
+        if self.table.rowCount() == 0:
+            self.add_row()
 
     def _on_item_changed(self, item: QtWidgets.QTableWidgetItem | None):
-        if self._loading or item is None or item.column() == 0:
+        if self._loading or item is None:
             return
         self.save()
 
     def save(self):
         days: Dict[str, List[Dict[str, str | int]]] = {}
-        for row in range(self.days_in_month):
+        for row in range(self.table.rowCount()):
+            day_item = self.table.item(row, 0)
             work_item = self.table.item(row, 1)
             chapters_item = self.table.item(row, 2)
             time_item = self.table.item(row, 3)
+
+            day_text = day_item.text().strip() if day_item else ""
+            try:
+                day = int(day_text)
+            except (TypeError, ValueError):
+                continue
+            if not (1 <= day <= self.days_in_month):
+                continue
 
             work_name = work_item.text().strip() if work_item else ""
             if not work_name:
@@ -450,13 +500,12 @@ class ReleaseDialog(QtWidgets.QDialog):
             except (TypeError, ValueError):
                 chapters = 0
             time_text = time_item.text().strip() if time_item else ""
-            day = row + 1
             entry = {
                 "work": work_name,
                 "chapters": chapters,
                 "time": time_text,
             }
-            days[str(day)] = [entry]
+            days.setdefault(str(day), []).append(entry)
 
         works = sorted({e["work"] for entries in days.values() for e in entries})
         data = {"works": works, "days": days}

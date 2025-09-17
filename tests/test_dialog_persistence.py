@@ -67,3 +67,39 @@ def test_calendar_columns_persist(tmp_path, monkeypatch):
     window2.close()
     app.quit()
 
+
+def test_release_dialog_restores_multiple_entries(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    main.BASE_SAVE_PATH = str(tmp_path / "data")
+    main.CONFIG["save_path"] = main.BASE_SAVE_PATH
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+
+    dlg = main.ReleaseDialog(2024, 1, [], None)
+    # заполнить первую (пустую) строку
+    dlg.table.item(0, 0).setText("5")
+    dlg.table.item(0, 1).setText("Alpha")
+    dlg.table.item(0, 2).setText("2")
+    dlg.table.item(0, 3).setText("10:00")
+    dlg.add_row(day=5, entry={"work": "Beta", "chapters": 1, "time": "12:00"})
+    dlg.save()
+    dlg.close()
+
+    dlg2 = main.ReleaseDialog(2024, 1, [], None)
+    rows = []
+    for row in range(dlg2.table.rowCount()):
+        work_item = dlg2.table.item(row, 1)
+        if work_item is None or not work_item.text().strip():
+            continue
+        rows.append(
+            (
+                dlg2.table.item(row, 0).text(),
+                work_item.text(),
+                dlg2.table.item(row, 2).text(),
+                dlg2.table.item(row, 3).text(),
+            )
+        )
+
+    assert rows == [("5", "Alpha", "2", "10:00"), ("5", "Beta", "1", "12:00")]
+    dlg2.close()
+    app.quit()
+
