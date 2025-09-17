@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -35,6 +36,7 @@ def test_topbar_background_stylesheet_overwrites_previous_colors():
             stylesheet = window.topbar.styleSheet()
 
             assert stylesheet.count(current_name) == 1
+            assert re.search(r"border-radius\s*:\s*16px", stylesheet) is not None
             for old in previous_colors:
                 assert QtGui.QColor(old).name() not in stylesheet
 
