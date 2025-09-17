@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import logging
 import ctypes
-from typing import Dict
+from typing import Dict, Iterable
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
 logger = logging.getLogger(__name__)
@@ -33,6 +33,49 @@ ICONS_DIR = os.path.join(ASSETS_DIR, "icons")
 
 ICONS: Dict[str, QIcon] = {}
 
+LATIN_RANGE = tuple(range(ord("A"), ord("Z") + 1)) + tuple(
+    range(ord("a"), ord("z") + 1)
+)
+CYRILLIC_RANGE = (
+    tuple(range(ord("А"), ord("Я") + 1))
+    + tuple(range(ord("а"), ord("я") + 1))
+    + (ord("Ё"), ord("ё"))
+)
+REQUIRED_RANGES = {
+    "латинский": LATIN_RANGE,
+    "кириллический": CYRILLIC_RANGE,
+}
+
+
+def _font_has_required_glyphs(family: str) -> tuple[bool, str | None]:
+    """Return whether *family* provides required glyph ranges."""
+
+    font = QFont(family)
+    for label, codes in REQUIRED_RANGES.items():
+        if not all(QtGui.QFontDatabase.supportsCharacter(font, code) for code in codes):
+            return False, label
+    return True, None
+
+
+def _filter_supported_families(
+    families: Iterable[str], source: str
+) -> set[str]:
+    """Filter *families* by glyph coverage and log skipped entries."""
+
+    valid: set[str] = set()
+    for family in families:
+        ok, missing = _font_has_required_glyphs(family)
+        if ok:
+            valid.add(family)
+        else:
+            logger.warning(
+                "Шрифт '%s' из '%s' пропущен: отсутствует %s набор символов",
+                family,
+                source,
+                missing,
+            )
+    return valid
+
 
 def _show_error_dialog(message: str) -> None:
     """Display a critical Qt dialog if a window is visible."""
@@ -53,15 +96,19 @@ def register_cattedrale(font_path: str) -> str:
     Returns the detected family name or ``"Exo 2"`` if registration fails."""
 
     if tk is None or ctk is None or tkfont is None:
-        logger.warning(
+        message = (
             "Не удалось загрузить tkinter/customtkinter — шрифт Cattedrale не будет применён"
         )
+        logger.warning(message)
+        _show_error_dialog(message)
         return "Exo 2"
 
     if os.name != "nt" and not os.environ.get("DISPLAY"):
-        logger.warning(
+        message = (
             "Переменная окружения DISPLAY не установлена — шрифт Cattedrale не будет применён"
         )
+        logger.warning(message)
+        _show_error_dialog(message)
         return "Exo 2"
 
     def _worker() -> str:
@@ -105,12 +152,16 @@ def register_fonts() -> None:
     """
 
     def _set_fallback() -> None:
-        """Apply the Arial fallback and store it in global CONFIG."""
-        QGuiApplication.setFont(QFont("Arial"))
+        """Apply the Exo 2 fallback and store it in global CONFIG."""
+
+        fallback_family = "Exo 2"
+        QGuiApplication.setFont(QFont(fallback_family))
         try:  # deferred import to avoid circular dependency
             from . import main as _main
 
-            _main.CONFIG["font_family"] = "Arial"
+            _main.CONFIG["font_family"] = fallback_family
+            _main.CONFIG["header_font"] = fallback_family
+            _main.CONFIG["sidebar_font"] = fallback_family
         except Exception:  # pragma: no cover - extremely defensive
             pass
 
@@ -141,43 +192,69 @@ def register_fonts() -> None:
         fam = "Exo 2"
     if fam == "Exo 2":
         logger.warning("Cattedrale font not found, using fallback")
-    qt_family: str | None = None
+    preferred_cattedrale: str | None = None
     if fam != "Exo 2":
         fid = QtGui.QFontDatabase.addApplicationFont(font_path)
         if fid != -1:
             fams = QtGui.QFontDatabase.applicationFontFamilies(fid)
-            if fams:
-                qt_family = fams[0]
-                families.add(qt_family)
-    if qt_family is None and fam != "Exo 2":
-        families.add(fam)
+            valid = _filter_supported_families(fams, font_path)
+            if valid:
+                preferred_cattedrale = next(iter(valid))
+                families.update(valid)
+    if preferred_cattedrale is None and fam != "Exo 2":
+        valid = _filter_supported_families({fam}, font_path)
+        if valid:
+            preferred_cattedrale = next(iter(valid))
+            families.update(valid)
+        else:
+            fam = "Exo 2"
 
-    for root, _dirs, files in os.walk(FONTS_DIR):
-        for name in files:
-            ext = os.path.splitext(name)[1].lower()
-            if ext not in extensions:
+    whitelist_dirs = {os.path.normpath(os.path.join(FONTS_DIR, "Exo2"))}
+    whitelist_files = {os.path.normpath(font_path)}
+
+    def _iter_font_files() -> Iterable[str]:
+        for entry in sorted(whitelist_files):
+            normalized = os.path.normpath(entry)
+            if normalized == os.path.normpath(font_path):
                 continue
-            path = os.path.join(root, name)
-            old_fams = set(QtGui.QFontDatabase.families())
-            new_fams: set[str] = set()
-            fid = QtGui.QFontDatabase.addApplicationFont(path) if ext != ".fon" else -1
+            if os.path.isfile(entry):
+                yield entry
+        for directory in sorted(whitelist_dirs):
+            if not os.path.isdir(directory):
+                continue
+            for root, _dirs, files in os.walk(directory):
+                for name in sorted(files):
+                    yield os.path.join(root, name)
 
-            if ext == ".fon" or fid == -1:
-                if os.name == "nt":
-                    try:
-                        ctypes.windll.gdi32.AddFontResourceExW(path, 0x10, 0)
-                        ctypes.windll.user32.SendMessageW(0xFFFF, 0x1D, 0, 0)
-                        new_fams = set(QtGui.QFontDatabase.families()) - old_fams
-                    except Exception:  # pragma: no cover - extremely defensive
-                        logger.error("Failed to load font '%s'", path)
-                        continue
-                else:
+    for path in _iter_font_files():
+        ext = os.path.splitext(path)[1].lower()
+        if ext not in extensions:
+            continue
+        old_fams = set(QtGui.QFontDatabase.families())
+        new_fams: set[str] = set()
+        fid = (
+            QtGui.QFontDatabase.addApplicationFont(path)
+            if ext != ".fon"
+            else -1
+        )
+
+        if ext == ".fon" or fid == -1:
+            if os.name == "nt":
+                try:
+                    ctypes.windll.gdi32.AddFontResourceExW(path, 0x10, 0)
+                    ctypes.windll.user32.SendMessageW(0xFFFF, 0x1D, 0, 0)
+                    new_fams = set(QtGui.QFontDatabase.families()) - old_fams
+                except Exception:  # pragma: no cover - extremely defensive
                     logger.error("Failed to load font '%s'", path)
                     continue
             else:
-                new_fams = set(QtGui.QFontDatabase.applicationFontFamilies(fid))
+                logger.error("Failed to load font '%s'", path)
+                continue
+        else:
+            new_fams = set(QtGui.QFontDatabase.applicationFontFamilies(fid))
 
-            families.update(new_fams)
+        valid = _filter_supported_families(new_fams, path)
+        families.update(valid)
 
     if "Exo 2" not in families:
         logger.error("Font 'Exo 2' not registered")
@@ -190,7 +267,7 @@ def register_fonts() -> None:
         from . import theme_manager
 
         _main.CONFIG.setdefault("font_family", "Exo 2")
-        target_family = qt_family if qt_family is not None else fam
+        target_family = preferred_cattedrale if preferred_cattedrale else fam
         if target_family == "Exo 2":
             _main.CONFIG["header_font"] = "Exo 2"
             _main.CONFIG["sidebar_font"] = "Exo 2"
