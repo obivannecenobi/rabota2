@@ -355,15 +355,12 @@ class ReleaseDialog(QtWidgets.QDialog):
 
         self.table = QtWidgets.QTableWidget(0, 4, self)
         self.table.setHorizontalHeaderLabels(["День", "Работа", "Глав", "Время"])
-        self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
         self.table.verticalHeader().setVisible(False)
         self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.table.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
-        self.table.setStyleSheet(
-            "QTableWidget{border:1px solid #555; border-radius:8px;} "
-            "QHeaderView::section{padding:0 6px;}"
-        )
         self._day_delegate = self._DayColumnDelegate(self.days_in_month, self.table)
         self.table.setItemDelegateForColumn(0, self._day_delegate)
 
@@ -377,10 +374,14 @@ class ReleaseDialog(QtWidgets.QDialog):
 
         self.table.setAttribute(QtCore.Qt.WA_Hover, True)
         self.table.viewport().setAttribute(QtCore.Qt.WA_Hover, True)
+        header.setAttribute(QtCore.Qt.WA_Hover, True)
         self._tbl_filter = NeonEventFilter(self.table, CONFIG)
         self.table.installEventFilter(self._tbl_filter)
         self.table.viewport().installEventFilter(self._tbl_filter)
         self.table._neon_filter = self._tbl_filter
+        self._header_filter = NeonEventFilter(header, CONFIG)
+        header.installEventFilter(self._header_filter)
+        header._neon_filter = self._header_filter
 
         lay.addWidget(self.table)
 
@@ -428,6 +429,47 @@ class ReleaseDialog(QtWidgets.QDialog):
 
         self.table.itemChanged.connect(self._on_item_changed)
         self.load()
+        self.refresh_theme()
+
+    def refresh_theme(self) -> None:
+        """Rebuild palette-dependent style and neon highlighting."""
+
+        workspace = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21")).name()
+        accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14")).name()
+
+        header = self.table.horizontalHeader()
+
+        if getattr(self.table, "_neon_effect", None):
+            apply_neon_effect(self.table, False, config=CONFIG)
+        if getattr(header, "_neon_effect", None):
+            apply_neon_effect(header, False, config=CONFIG)
+
+        table_style = (
+            "QTableWidget{"
+            f"background-color:{workspace};"
+            f"border:1px solid {accent};"
+            "border-radius:8px;"
+            "selection-background-color:rgba(0,0,0,0);"
+            f"selection-color:{accent};"
+            "gridline-color:rgba(255,255,255,40);"
+            "}"
+        )
+        header_style = (
+            "QHeaderView::section{"
+            f"background-color:{workspace};"
+            f"color:{accent};"
+            "padding:0 6px;"
+            "border:0;"
+            f"border-bottom:1px solid {accent};"
+            "}"
+        )
+
+        self.table.setStyleSheet(table_style)
+        header.setStyleSheet(header_style)
+
+        apply_neon_effect(self.table, True, config=CONFIG)
+        apply_neon_effect(header, True, shadow=False, border=False, config=CONFIG)
+        update_neon_filters(self.table, CONFIG)
 
     def _ensure_minimum_rows(self) -> None:
         """Guarantee that the table contains rows for each day of the month."""
@@ -2900,6 +2942,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.apply_settings()
         workspace = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21"))
         self.topbar.apply_background(workspace)
+        app = QtWidgets.QApplication.instance()
+        if app is not None:
+            for dlg in app.topLevelWidgets():
+                if isinstance(dlg, ReleaseDialog):
+                    dlg.refresh_theme()
 
     def apply_fonts(self):
         header_family, text_family = resolve_font_config(self)
