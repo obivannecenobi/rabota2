@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from PySide6 import QtWidgets, QtCore
+from PySide6 import QtWidgets, QtCore, QtGui
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "app"))
@@ -60,6 +60,36 @@ def test_stats_dialog_selects_actual_record(tmp_path, monkeypatch):
     assert dialog.current_index == 1
     assert dialog.form_stats.widgets["work"].text() == "Beta"
     assert dialog.form_stats.widgets["profit"].value() == pytest.approx(200.0)
+
+    dialog.close()
+    app.processEvents()
+    app.quit()
+
+
+def test_stats_dialog_table_style_uses_accent(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    main.BASE_SAVE_PATH = str(tmp_path / "data")
+    main.CONFIG["save_path"] = main.BASE_SAVE_PATH
+
+    year, month = 2024, 6
+    stats_path = Path(main.stats_dir(year)) / f"{year}.json"
+    stats_path.parent.mkdir(parents=True, exist_ok=True)
+    data = {str(month): [_make_record("Gamma", 50.0)]}
+    stats_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    dialog = main.StatsDialog(year, month)
+    dialog.show()
+    app.processEvents()
+
+    accent = QtGui.QColor(main.CONFIG.get("accent_color", "#39ff14")).name().lower()
+    table_style = dialog.table_stats.styleSheet().lower()
+    header_style = dialog.table_stats.horizontalHeader().styleSheet().lower()
+
+    assert accent in table_style
+    assert accent in header_style
+    assert getattr(dialog.table_stats, "_neon_filter", None) is not None
+    assert getattr(dialog.table_stats.horizontalHeader(), "_neon_filter", None) is not None
 
     dialog.close()
     app.processEvents()

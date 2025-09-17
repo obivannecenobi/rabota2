@@ -726,11 +726,6 @@ class StatsDialog(QtWidgets.QDialog):
         self.table_stats = NeonTableWidget(0, len(StatsEntryForm.TABLE_COLUMNS), self)
         self.table_stats.setSelectionBehavior(QtWidgets.QTableView.SelectRows)
         self.table_stats.setSelectionMode(QtWidgets.QTableView.SingleSelection)
-        self.table_stats.setStyleSheet(
-            "QTableWidget{border:1px solid #555; border-radius:8px;} "
-            "QTableWidget::item{border:0;} "
-            "QHeaderView::section{padding:0 8px;}"
-        )
         header = self.table_stats.horizontalHeader()
         header.setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
         header.setTextElideMode(QtCore.Qt.ElideNone)
@@ -745,6 +740,11 @@ class StatsDialog(QtWidgets.QDialog):
         self.table_stats.itemSelectionChanged.connect(self.on_table_selection)
         lay.addWidget(self.table_stats)
 
+        self._table_filter: NeonEventFilter | None = None
+        self._header_filter: NeonEventFilter | None = None
+        self._button_filters: list[NeonEventFilter] = []
+        self._apply_table_style()
+
         self.form_stats = StatsEntryForm(self)
         lay.addWidget(self.form_stats)
 
@@ -758,6 +758,11 @@ class StatsDialog(QtWidgets.QDialog):
         for btn in (btn_save, btn_close):
             btn.setFixedSize(btn.sizeHint())
             btn.setStyleSheet(btn.styleSheet() + "border:1px solid transparent;")
+            btn.setAttribute(QtCore.Qt.WA_Hover, True)
+            filt = NeonEventFilter(btn, CONFIG)
+            btn.installEventFilter(filt)
+            btn._neon_filter = filt
+            self._button_filters.append(filt)
         self.btn_box.addButton(btn_save, QtWidgets.QDialogButtonBox.AcceptRole)
         self.btn_box.addButton(btn_close, QtWidgets.QDialogButtonBox.RejectRole)
         self.btn_box.accepted.connect(self.save_record)
@@ -785,6 +790,58 @@ class StatsDialog(QtWidgets.QDialog):
                 self.table_stats.setColumnWidth(i, int(w))
             except (TypeError, ValueError):
                 pass  # пропустить некорректное значение
+        self._apply_saved_sort()
+
+    def _apply_table_style(self) -> None:
+        """Собрать стили для таблицы и заголовка с учётом конфигурации."""
+
+        workspace = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21")).name()
+        accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14")).name()
+
+        table_style = (
+            "QTableWidget{"  # базовая область и вьюпорт
+            f"background-color:{workspace};"
+            f"border:1px solid {accent};"
+            "border-radius:8px;"
+            "selection-background-color:rgba(0,0,0,0);"
+            f"selection-color:{accent};"
+            "gridline-color:rgba(255,255,255,40);"
+            "}"
+            "QTableWidget::item{border:0;}"
+        )
+
+        header_style = (
+            "QHeaderView::section{"  # горизонтальные заголовки
+            f"background-color:{workspace};"
+            f"color:{accent};"
+            "padding:0 8px;"
+            "border:0;"
+            f"border-bottom:1px solid {accent};"
+            "}"
+        )
+
+        self.table_stats.setStyleSheet(table_style)
+        header = self.table_stats.horizontalHeader()
+        header.setStyleSheet(header_style)
+
+        self.table_stats.setAttribute(QtCore.Qt.WA_Hover, True)
+        self.table_stats.viewport().setAttribute(QtCore.Qt.WA_Hover, True)
+        header.setAttribute(QtCore.Qt.WA_Hover, True)
+
+        if self._table_filter is None:
+            self._table_filter = NeonEventFilter(self.table_stats, CONFIG)
+            self.table_stats.installEventFilter(self._table_filter)
+            self.table_stats.viewport().installEventFilter(self._table_filter)
+            self.table_stats._neon_filter = self._table_filter
+
+        if self._header_filter is None:
+            header_filter = NeonEventFilter(header, CONFIG)
+            header.installEventFilter(header_filter)
+            header._neon_filter = header_filter
+            self._header_filter = header_filter
+
+        apply_neon_effect(self.table_stats, True, config=CONFIG)
+        apply_neon_effect(header, True, shadow=False, border=False, config=CONFIG)
 
     def resizeEvent(self, event):
         self.table_stats.horizontalHeader().setSectionResizeMode(
