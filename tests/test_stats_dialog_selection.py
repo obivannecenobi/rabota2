@@ -94,3 +94,51 @@ def test_stats_dialog_table_style_uses_accent(tmp_path, monkeypatch):
     dialog.close()
     app.processEvents()
     app.quit()
+
+
+def test_stats_entry_form_refresh_theme_updates_styles(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    main.BASE_SAVE_PATH = str(tmp_path / "data")
+    main.CONFIG["save_path"] = main.BASE_SAVE_PATH
+
+    year, month = 2024, 7
+    stats_path = Path(main.stats_dir(year)) / f"{year}.json"
+    stats_path.parent.mkdir(parents=True, exist_ok=True)
+    data = {str(month): [_make_record("Delta", 75.0)]}
+    stats_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    dialog = main.StatsDialog(year, month)
+    dialog.show()
+    app.processEvents()
+
+    old_accent = main.CONFIG.get("accent_color")
+    old_workspace = main.CONFIG.get("workspace_color")
+    old_thickness = main.CONFIG.get("neon_thickness", 1)
+
+    try:
+        new_accent = "#ff0055"
+        new_workspace = "#101820"
+        main.CONFIG["accent_color"] = new_accent
+        main.CONFIG["workspace_color"] = new_workspace
+        main.CONFIG["neon_thickness"] = 3
+
+        dialog.refresh_theme()
+        app.processEvents()
+
+        field = dialog.form_stats.widgets["work"]
+        style = field.styleSheet().lower()
+        assert new_accent.lower() in style
+        assert f"border:3px solid {new_accent.lower()}" in style
+        normalized_workspace = QtGui.QColor(new_workspace).name().lower()
+        assert f"background-color:{normalized_workspace}" in style
+    finally:
+        if old_accent is not None:
+            main.CONFIG["accent_color"] = old_accent
+        if old_workspace is not None:
+            main.CONFIG["workspace_color"] = old_workspace
+        main.CONFIG["neon_thickness"] = old_thickness
+
+    dialog.close()
+    app.processEvents()
+    app.quit()
