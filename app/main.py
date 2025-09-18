@@ -7,7 +7,7 @@ import weakref
 import logging
 import argparse
 from datetime import datetime, date
-from typing import Dict, List, Union, Iterable
+from typing import Dict, List, Union, Iterable, Optional
 
 from PySide6 import QtWidgets, QtGui, QtCore
 import shiboken6
@@ -2552,6 +2552,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             ("Топы", ICON_TP),
         ]
         self.buttons = []
+        self.last_active_button: Optional[QtWidgets.QToolButton] = None
         self.btn_inputs = None
         self.btn_release = None
         self.btn_analytics = None
@@ -2598,7 +2599,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             self.set_collapsed(True)
             self.anim.setDuration(160)
 
-    def activate_button(self, btn: QtWidgets.QToolButton) -> None:
+    def activate_button(self, btn: Optional[QtWidgets.QToolButton]) -> None:
         for b in self.buttons:
             selected = b is btn
             b.setProperty("neon_selected", selected)
@@ -2608,6 +2609,11 @@ class CollapsibleSidebar(QtWidgets.QFrame):
 
         for b in self.buttons:
             b._neon_prev_style = b.styleSheet()
+
+        if btn is not None and btn in self.buttons:
+            self.last_active_button = btn
+        elif btn is None and self.last_active_button not in self.buttons:
+            self.last_active_button = None
 
     def set_collapsed(self, collapsed: bool):
         self._collapsed = collapsed
@@ -3728,18 +3734,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self._update_month_label()
 
     def open_input_dialog(self):
+        previous_button = self.sidebar.last_active_button
         dlg = StatsDialog(self.table.year, self.table.month, self)
         dlg.exec()
-        self.sidebar.activate_button(None)
-        for b in self.sidebar.buttons:
-            apply_neon_effect(b, False, config=CONFIG)
+        self.sidebar.activate_button(previous_button)
 
     def open_analytics_dialog(self):
+        previous_button = self.sidebar.last_active_button
         dlg = AnalyticsDialog(self.table.year, self)
         dlg.exec()
-        self.sidebar.activate_button(None)
-        for b in self.sidebar.buttons:
-            apply_neon_effect(b, False, config=CONFIG)
+        self.sidebar.activate_button(previous_button)
 
     def _collect_work_names(self) -> List[str]:
         names = set()
@@ -3758,27 +3762,24 @@ class MainWindow(QtWidgets.QMainWindow):
         return sorted(names)
 
     def open_release_dialog(self):
+        previous_button = self.sidebar.last_active_button
         works = self._collect_work_names()
         dlg = ReleaseDialog(self.table.year, self.table.month, works, self)
         dlg.exec()
-        self.sidebar.activate_button(None)
-        for b in self.sidebar.buttons:
-            apply_neon_effect(b, False, config=CONFIG)
+        self.sidebar.activate_button(previous_button)
 
     def open_top_dialog(self):
+        previous_button = self.sidebar.last_active_button
         dlg = TopDialog(self.table.year, self)
         dlg.exec()
-        self.sidebar.activate_button(None)
-        for b in self.sidebar.buttons:
-            apply_neon_effect(b, False, config=CONFIG)
+        self.sidebar.activate_button(previous_button)
 
     def open_settings_dialog(self):
+        previous_button = self.sidebar.last_active_button
         dlg = SettingsDialog(self)
         dlg.settings_changed.connect(self._on_settings_changed)
         dlg.exec()
-        self.sidebar.activate_button(None)
-        for b in self.sidebar.buttons:
-            apply_neon_effect(b, False, config=CONFIG)
+        self.sidebar.activate_button(previous_button)
 
     def _on_settings_changed(self):
         global BASE_SAVE_PATH
