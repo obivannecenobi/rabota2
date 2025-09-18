@@ -7,6 +7,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "app"))
 
 from PySide6 import QtCore, QtWidgets, QtGui
 
+if not hasattr(QtGui.QFontDatabase, "supportsCharacter"):
+    QtGui.QFontDatabase.supportsCharacter = staticmethod(lambda *_, **__: True)
+
 import resources
 resources.register_fonts = lambda: None
 
@@ -143,6 +146,42 @@ def test_sidebar_settings_button_text_and_neon_persist(monkeypatch):
     assert settings_btn.toolButtonStyle() == QtCore.Qt.ToolButtonTextBesideIcon
     assert settings_btn.text() == "Настройки"
     assert isinstance(settings_btn.graphicsEffect(), main.FixedDropShadowEffect)
+
+    window.close()
+    app.quit()
+
+
+def test_sidebar_toggle_button_style_and_neon_match(monkeypatch):
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+
+    monkeypatch.setitem(main.CONFIG, "sidebar_collapsed", False)
+
+    window = main.MainWindow()
+    sidebar = window.sidebar
+    QtWidgets.QApplication.processEvents()
+
+    toggle_btn = sidebar.btn_toggle
+    reference_btn = sidebar.buttons[0]
+
+    assert toggle_btn.toolButtonStyle() == QtCore.Qt.ToolButtonTextBesideIcon
+    assert toggle_btn.contentSpacing() == reference_btn.contentSpacing()
+    assert toggle_btn.styleSheet() == reference_btn.styleSheet()
+    assert isinstance(toggle_btn.graphicsEffect(), main.FixedDropShadowEffect)
+
+    sidebar.set_collapsed(True)
+    QtWidgets.QApplication.processEvents()
+
+    assert toggle_btn.toolButtonStyle() == QtCore.Qt.ToolButtonIconOnly
+    assert toggle_btn.contentSpacing() == 0
+    assert isinstance(toggle_btn.graphicsEffect(), main.FixedDropShadowEffect)
+
+    sidebar.set_collapsed(False)
+    QtWidgets.QApplication.processEvents()
+
+    assert toggle_btn.toolButtonStyle() == QtCore.Qt.ToolButtonTextBesideIcon
+    assert toggle_btn.contentSpacing() == reference_btn.contentSpacing()
+    assert toggle_btn.styleSheet() == reference_btn.styleSheet()
+    assert isinstance(toggle_btn.graphicsEffect(), main.FixedDropShadowEffect)
 
     window.close()
     app.quit()
