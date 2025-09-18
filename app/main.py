@@ -7,7 +7,7 @@ import weakref
 import logging
 import argparse
 from datetime import datetime, date
-from typing import Dict, List, Union, Iterable, Optional
+from typing import Dict, List, Union, Iterable, Optional, Tuple
 
 from PySide6 import QtWidgets, QtGui, QtCore
 import shiboken6
@@ -1122,6 +1122,8 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self.setWindowTitle("Аналитика")
         self.resize(900, 400)
 
+        self._input_controls: List[Tuple[QtWidgets.QWidget, str]] = []
+
         lay = QtWidgets.QVBoxLayout(self)
         top = QtWidgets.QHBoxLayout()
         top.addWidget(QtWidgets.QLabel("Год:"))
@@ -1131,11 +1133,29 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self.spin_year.setFixedWidth(self.spin_year.sizeHint().width())
         self.spin_year.setButtonSymbols(QtWidgets.QAbstractSpinBox.UpDownArrows)
         self.spin_year.valueChanged.connect(self._year_changed)
-        self.spin_year.setAttribute(QtCore.Qt.WA_Hover, True)
         top.addWidget(self.spin_year)
-        filt = NeonEventFilter(self.spin_year, CONFIG)
-        self.spin_year.installEventFilter(filt)
-        self.spin_year._neon_filter = filt
+        self._register_input_control(self.spin_year, "QSpinBox")
+
+        top.addSpacing(12)
+        top.addWidget(QtWidgets.QLabel("Режим:"))
+        self.combo_mode = QtWidgets.QComboBox(self)
+        self.combo_mode.addItem("Месяц", "month")
+        self.combo_mode.addItem("Квартал", "quarter")
+        self.combo_mode.addItem("Полугодие", "half")
+        self.combo_mode.addItem("Год", "year")
+        self.combo_mode.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
+        self.combo_mode.currentIndexChanged.connect(self._update_period_options)
+        top.addWidget(self.combo_mode)
+        self._register_input_control(self.combo_mode, "QComboBox")
+
+        top.addSpacing(12)
+        top.addWidget(QtWidgets.QLabel("Период:"))
+        self.combo_period = QtWidgets.QComboBox(self)
+        self.combo_period.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
+        top.addWidget(self.combo_period)
+        self._register_input_control(self.combo_period, "QComboBox")
+
+        self._update_period_options()
         top.addStretch(1)
         lay.addLayout(top)
 
@@ -1210,11 +1230,136 @@ class AnalyticsDialog(QtWidgets.QDialog):
         self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         super().resizeEvent(event)
 
+    # --- styling helpers -----------------------------------------------
+    def _register_input_control(self, widget: QtWidgets.QWidget, selector: str) -> None:
+        if widget is None:
+            return
+
+        widget.setAttribute(QtCore.Qt.WA_Hover, True)
+        filt = NeonEventFilter(widget, CONFIG)
+        widget.installEventFilter(filt)
+        if hasattr(widget, "viewport"):
+            widget.viewport().installEventFilter(filt)
+        widget._neon_filter = filt
+
+        if isinstance(widget, QtWidgets.QComboBox):
+            view = widget.view()
+            if view is not None and shiboken6.isValid(view):
+                widget._popup_view = view
+
+        self._input_controls.append((widget, selector))
+
+    def _input_theme_parameters(self) -> Tuple[QtGui.QColor, QtGui.QColor, int]:
+        workspace_color = QtGui.QColor(
+            CONFIG.get("workspace_color", "#1e1e21")
+        )
+        accent_color = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
+        try:
+            thickness = int(CONFIG.get("neon_thickness", 1))
+        except (TypeError, ValueError):
+            thickness = 1
+        return workspace_color, accent_color, thickness
+
+    def _apply_input_control_style(
+        self,
+        widget: QtWidgets.QWidget,
+        selector: str,
+        workspace_color: QtGui.QColor,
+        accent_color: QtGui.QColor,
+        thickness: int,
+    ) -> None:
+        if widget is None or not shiboken6.isValid(widget):
+            return
+
+        workspace = workspace_color.name()
+        accent = accent_color.name()
+        style = build_input_neon_style(
+            selector,
+            background=workspace,
+            accent=accent,
+            thickness=thickness,
+        )
+        if selector == "QComboBox":
+            style += (
+                f"{selector} QAbstractItemView{{"
+                f"background-color:{workspace};"
+                "border:0;"
+                "color:#f0f0f0;"
+                "selection-background-color:rgba(255,255,255,30);"
+                "selection-color:#000000;"
+                "}}"
+            )
+        widget.setStyleSheet(style)
+
+        palette = widget.palette()
+        text_color = QtGui.QColor("#f0f0f0")
+        for role in (
+            QtGui.QPalette.Base,
+            QtGui.QPalette.Button,
+            QtGui.QPalette.Window,
+            QtGui.QPalette.AlternateBase,
+        ):
+            palette.setColor(role, workspace_color)
+        palette.setColor(QtGui.QPalette.Text, text_color)
+        palette.setColor(QtGui.QPalette.ButtonText, text_color)
+        palette.setColor(QtGui.QPalette.Highlight, accent_color)
+        palette.setColor(QtGui.QPalette.HighlightedText, QtGui.QColor("#000000"))
+        widget.setPalette(palette)
+
+        if isinstance(widget, QtWidgets.QComboBox):
+            view = getattr(widget, "_popup_view", None)
+            if view is None and hasattr(widget, "view"):
+                view = widget.view()
+            if view is not None and shiboken6.isValid(view):
+                view.setAttribute(QtCore.Qt.WA_Hover, True)
+                view.setPalette(palette)
+                view.setStyleSheet(
+                    f"QListView{{background-color:{workspace}; color:#f0f0f0;}}"
+                )
+                update_neon_filters(view, CONFIG)
+
+        update_neon_filters(widget, CONFIG)
+
+    def _update_period_options(self) -> None:
+        """Populate period choices according to the current mode."""
+
+        if not hasattr(self, "combo_mode") or not hasattr(self, "combo_period"):
+            return
+
+        mode = self.combo_mode.currentData()
+        self.combo_period.clear()
+
+        if mode == "month":
+            for index, name in enumerate(RU_MONTHS, 1):
+                self.combo_period.addItem(name, index)
+            self.combo_period.setEnabled(True)
+        elif mode == "quarter":
+            for index in range(1, 5):
+                self.combo_period.addItem(f"Квартал {index}", index)
+            self.combo_period.setEnabled(True)
+        elif mode == "half":
+            for index in range(1, 3):
+                self.combo_period.addItem(f"Полугодие {index}", index)
+            self.combo_period.setEnabled(True)
+        else:
+            self.combo_period.addItem("Год", 1)
+            self.combo_period.setEnabled(False)
+
     def refresh_theme(self) -> None:
         """Обновить стиль таблицы в соответствии с текущей темой."""
 
-        workspace = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21")).name()
-        accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14")).name()
+        (
+            workspace_color,
+            accent_color,
+            thickness,
+        ) = self._input_theme_parameters()
+        workspace = workspace_color.name()
+        accent = accent_color.name()
+
+        for widget, selector in list(self._input_controls):
+            self._apply_input_control_style(
+                widget, selector, workspace_color, accent_color, thickness
+            )
 
         header = self.table.horizontalHeader()
 
