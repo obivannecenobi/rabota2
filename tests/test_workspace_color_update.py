@@ -6,7 +6,7 @@ from pathlib import Path
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "app"))
 
-from PySide6 import QtWidgets, QtGui
+from PySide6 import QtWidgets, QtGui, QtCore
 
 import resources
 resources.register_fonts = lambda: None
@@ -15,6 +15,16 @@ if not hasattr(QtGui.QFontDatabase, "supportsCharacter"):
     QtGui.QFontDatabase.supportsCharacter = staticmethod(lambda *args, **kwargs: True)
 
 import app.main as main
+
+
+def _extract_first_opaque_color(pixmap: QtGui.QPixmap) -> QtGui.QColor:
+    image = pixmap.toImage()
+    for y in range(image.height()):
+        for x in range(image.width()):
+            color = image.pixelColor(x, y)
+            if color.alpha() > 0:
+                return color
+    return QtGui.QColor()
 
 
 def test_workspace_color_updates_bars_and_persists(tmp_path, monkeypatch):
@@ -78,6 +88,60 @@ def test_topbar_month_label_tracks_accent_color(monkeypatch):
         main.CONFIG["accent_color"] = original_accent
         main.CONFIG["monochrome"] = original_monochrome
         main.CONFIG["mono_saturation"] = original_saturation
+        if "topbar" in locals():
+            topbar.deleteLater()
+        if "app" in locals():
+            app.quit()
+
+
+def test_topbar_navigation_icons_follow_accent_color(monkeypatch):
+    _ = monkeypatch
+    original_accent = main.CONFIG.get("accent_color")
+    original_monochrome = main.CONFIG.get("monochrome", False)
+    original_theme = main.CONFIG.get("theme", "dark")
+
+    resources.load_icons("dark")
+
+    try:
+        main.CONFIG["monochrome"] = False
+        main.CONFIG["theme"] = "dark"
+        first_accent = "#1255ff"
+        second_accent = "#ff3366"
+        main.CONFIG["accent_color"] = first_accent
+
+        app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+        topbar = main.TopBar()
+        topbar.apply_style()
+
+        def icon_color(button: QtWidgets.QToolButton) -> QtGui.QColor:
+            size = button.iconSize()
+            if not size.isValid():
+                size = QtCore.QSize(22, 22)
+            pixmap = button.icon().pixmap(size)
+            return _extract_first_opaque_color(pixmap)
+
+        def assert_color_close(actual: QtGui.QColor, expected: QtGui.QColor) -> None:
+            assert actual.isValid()
+            assert expected.isValid()
+            for component in ("red", "green", "blue"):
+                a = getattr(actual, component)()
+                e = getattr(expected, component)()
+                assert abs(a - e) <= 1, f"{component} differs: {a} vs {e}"
+
+        first_expected = QtGui.QColor(first_accent)
+        assert_color_close(icon_color(topbar.btn_prev), first_expected)
+        assert_color_close(icon_color(topbar.btn_next), first_expected)
+
+        main.CONFIG["accent_color"] = second_accent
+        topbar.apply_style()
+
+        second_expected = QtGui.QColor(second_accent)
+        assert_color_close(icon_color(topbar.btn_prev), second_expected)
+        assert_color_close(icon_color(topbar.btn_next), second_expected)
+    finally:
+        main.CONFIG["accent_color"] = original_accent
+        main.CONFIG["monochrome"] = original_monochrome
+        main.CONFIG["theme"] = original_theme
         if "topbar" in locals():
             topbar.deleteLater()
         if "app" in locals():
