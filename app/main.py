@@ -3645,6 +3645,9 @@ class TopBar(QtWidgets.QWidget):
         )
         self._corner_radius = 16
         self._background_effect: FixedDropShadowEffect | None = None
+        self._arrow_icon_cache: dict[
+            tuple[str, int, int, int, str, bool], QtGui.QPixmap
+        ] = {}
 
         self.btn_prev = StyledToolButton(self, **button_config())
         self.btn_prev.setCursor(QtCore.Qt.PointingHandCursor)
@@ -3696,11 +3699,69 @@ class TopBar(QtWidgets.QWidget):
         """Refresh label fonts based on current configuration."""
         self.apply_fonts()
 
+    def _invalidate_arrow_cache(self) -> None:
+        self._arrow_icon_cache.clear()
+
+    def _arrow_pixmap(
+        self, name: str, size: QtCore.QSize | None = None
+    ) -> QtGui.QPixmap:
+        if size is None or not size.isValid():
+            size = QtCore.QSize(22, 22)
+
+        accent = QtGui.QColor(self._accent_color)
+        if not accent.isValid():
+            accent = QtGui.QColor("#39ff14")
+        if CONFIG.get("monochrome", False):
+            accent = theme_manager.apply_monochrome(accent)
+
+        theme = str(CONFIG.get("theme", "dark"))
+        monochrome = bool(CONFIG.get("monochrome", False))
+        key = (
+            name,
+            size.width(),
+            size.height(),
+            accent.rgba(),
+            theme,
+            monochrome,
+        )
+
+        cached = self._arrow_icon_cache.get(key)
+        if cached is not None and not cached.isNull():
+            return cached
+
+        base_icon = icon(name)
+        base_pixmap = base_icon.pixmap(size)
+        if base_pixmap.isNull():
+            base_pixmap = QtGui.QPixmap(size)
+            base_pixmap.fill(QtCore.Qt.transparent)
+
+        tinted = QtGui.QPixmap(base_pixmap.size())
+        tinted.setDevicePixelRatio(base_pixmap.devicePixelRatio())
+        tinted.fill(QtCore.Qt.transparent)
+
+        painter = QtGui.QPainter(tinted)
+        painter.drawPixmap(0, 0, base_pixmap)
+        painter.setCompositionMode(QtGui.QPainter.CompositionMode_SourceIn)
+        painter.fillRect(tinted.rect(), accent)
+        painter.end()
+
+        self._arrow_icon_cache[key] = tinted
+        return tinted
+
     def update_icons(self) -> None:
-        self.btn_prev.setIcon(icon("chevron-left"))
-        self.btn_prev.setIconSize(QtCore.QSize(22, 22))
-        self.btn_next.setIcon(icon("chevron-right"))
-        self.btn_next.setIconSize(QtCore.QSize(22, 22))
+        size = self.btn_prev.iconSize()
+        if not size.isValid():
+            size = QtCore.QSize(22, 22)
+
+        prev_icon = QtGui.QIcon()
+        prev_icon.addPixmap(self._arrow_pixmap("chevron-left", size))
+        self.btn_prev.setIcon(prev_icon)
+        self.btn_prev.setIconSize(size)
+
+        next_icon = QtGui.QIcon()
+        next_icon.addPixmap(self._arrow_pixmap("chevron-right", size))
+        self.btn_next.setIcon(next_icon)
+        self.btn_next.setIconSize(size)
 
     def _rebuild_stylesheet(self) -> None:
         background = self._background_color.name()
@@ -3901,6 +3962,7 @@ class TopBar(QtWidgets.QWidget):
             return
         self._background_color = qcolor
         self._accent_color = self._resolve_accent_color(accent)
+        self._invalidate_arrow_cache()
         if border is not None:
             self._spinbox_border = border
             parsed = self._color_from_border(border)
@@ -3927,6 +3989,7 @@ class TopBar(QtWidgets.QWidget):
             return
         self._background_color = qcolor
         self._accent_color = self._resolve_accent_color(accent)
+        self._invalidate_arrow_cache()
         if border is not None:
             self._spinbox_border = border
             parsed = self._color_from_border(border)
@@ -3944,6 +4007,9 @@ class TopBar(QtWidgets.QWidget):
     def apply_style(self) -> None:
         self._base_style_template = "QLabel{border:none;}"
         self.update_background(self._background_color)
+
+        self._invalidate_arrow_cache()
+        self.update_icons()
 
         for btn in (self.btn_prev, self.btn_next):
             btn.apply_base_style()
