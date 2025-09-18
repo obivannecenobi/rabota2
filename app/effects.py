@@ -69,6 +69,8 @@ def apply_neon_effect(
     on: bool = True,
     shadow: bool = True,
     border: bool = True,
+    intensity_scale: float = 1.0,
+    thickness_scale: float = 1.0,
     *,
     config: dict | None = None,
 ) -> None:
@@ -90,10 +92,27 @@ def apply_neon_effect(
         When ``True`` (default) a colored border matching the highlight color is
         added to the widget.  Set to ``False`` to leave the widget border
         unchanged.
+    intensity_scale: float
+        Multiplier applied to the configured neon intensity. Values below ``1``
+        dim the glow while numbers above ``1`` amplify it.
+    thickness_scale: float
+        Multiplier for the configured border thickness when ``border`` is
+        enabled. Allows keeping a thinner outline for idle states.
     """
 
     if widget is None or not shiboken6.isValid(widget):
         return
+
+    try:
+        intensity_scale = float(intensity_scale)
+    except (TypeError, ValueError):
+        intensity_scale = 1.0
+    try:
+        thickness_scale = float(thickness_scale)
+    except (TypeError, ValueError):
+        thickness_scale = 1.0
+    intensity_scale = max(0.0, intensity_scale)
+    thickness_scale = max(0.0, thickness_scale)
 
     try:
         thickness = int(config.get("neon_thickness", 1)) if config else 1
@@ -134,6 +153,12 @@ def apply_neon_effect(
                 intensity = 255
         blur_radius = max(0, blur_radius)
         intensity = max(0, min(255, intensity))
+        scaled_intensity = int(round(intensity * intensity_scale))
+        intensity = max(0, min(255, scaled_intensity))
+        scaled_thickness = int(round(thickness * thickness_scale))
+        if thickness > 0 and thickness_scale > 0 and scaled_thickness == 0:
+            scaled_thickness = 1
+        thickness = max(0, scaled_thickness)
 
         if shadow:
             eff = FixedDropShadowEffect(widget)

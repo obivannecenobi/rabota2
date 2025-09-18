@@ -16,12 +16,29 @@ class ButtonStyleMixin:
         gradient_colors=None,
         gradient_angle=0,
         neon_thickness=1,
+        neon_idle_intensity=0.45,
+        neon_idle_thickness=0.6,
+        neon_hover_intensity=1.0,
+        neon_hover_thickness=1.0,
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
         self._gradient_colors = gradient_colors or ["#39ff14", "#2d7cdb"]
         self._gradient_angle = gradient_angle
         self._neon_thickness = neon_thickness
+        self._state_styles: dict[str, str] = {}
+        self._current_state = "idle"
+        self._neon_profiles = {
+            "idle": {
+                "intensity_scale": float(max(0.0, neon_idle_intensity)),
+                "thickness_scale": float(max(0.0, neon_idle_thickness)),
+            },
+            "hover": {
+                "intensity_scale": float(max(0.0, neon_hover_intensity)),
+                "thickness_scale": float(max(0.0, neon_hover_thickness)),
+            },
+        }
+        self._update_state_styles()
 
     def update_gradient(
         self,
@@ -36,6 +53,7 @@ class ButtonStyleMixin:
             self._gradient_angle = gradient_angle
         if neon_thickness is not None:
             self._neon_thickness = neon_thickness
+        self._update_state_styles()
 
     def _base_style(self) -> str:
         """Build the base style using current configuration."""
@@ -58,11 +76,11 @@ class ButtonStyleMixin:
 
     def apply_base_style(self) -> None:
         """Apply the base style and enable hover tracking."""
-        style = self._base_style()
-        self.setStyleSheet(style)
-        self._neon_prev_style = style
+        self._apply_style_state("idle")
+        self._neon_prev_style = self.styleSheet()
         self.setCursor(QtCore.Qt.PointingHandCursor)
         self.setAttribute(QtCore.Qt.WA_Hover, True)
+        self._apply_neon_profile("idle")
 
     # --- helpers -----------------------------------------------------
     def _accent_color(self) -> str:
@@ -105,23 +123,47 @@ class ButtonStyleMixin:
         )
 
     def _apply_hover(self, on: bool) -> None:
-        if on:
-            self.setStyleSheet(self._base_style() + self._hover_style())
-        else:
-            self.setStyleSheet(self._base_style())
+        state = "hover" if on else "idle"
+        self._apply_style_state(state)
+
+    def _update_state_styles(self) -> None:
+        base = self._base_style()
+        self._state_styles = {
+            "idle": base,
+            "hover": base + self._hover_style(),
+        }
+
+    def _apply_style_state(self, state: str) -> None:
+        if state not in self._state_styles:
+            self._update_state_styles()
+        self._current_state = state
+        self.setStyleSheet(self._state_styles[state])
+
+    def _apply_neon_profile(self, state: str) -> None:
+        profile = self._neon_profiles.get(state, self._neon_profiles["idle"])
+        intensity = profile.get("intensity_scale", 1.0)
+        thickness = profile.get("thickness_scale", 1.0)
+        apply_neon_effect(
+            self,
+            True,
+            intensity_scale=intensity,
+            thickness_scale=thickness,
+            config=CONFIG,
+        )
 
     # --- events ------------------------------------------------------
     def enterEvent(self, event):  # noqa: D401
         self._apply_hover(True)
         self._neon_prev_style = self.styleSheet()
-        apply_neon_effect(self, True, config=CONFIG)
+        self._apply_neon_profile("hover")
         super().enterEvent(event)
 
     def leaveEvent(self, event):  # noqa: D401
         selected = bool(self.property("neon_selected"))
         self._apply_hover(selected)
         self._neon_prev_style = self.styleSheet()
-        apply_neon_effect(self, selected, config=CONFIG)
+        state = "hover" if selected else "idle"
+        self._apply_neon_profile(state)
         super().leaveEvent(event)
 
 

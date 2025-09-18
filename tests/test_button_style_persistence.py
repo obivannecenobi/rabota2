@@ -5,13 +5,13 @@ from pathlib import Path
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "app"))
 
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtCore, QtWidgets, QtGui
 
 import resources
 resources.register_fonts = lambda: None
 
 import app.main as main
-from widgets import StyledToolButton
+from widgets import StyledToolButton, StyledPushButton
 
 
 def test_gradient_and_neon_persist_across_buttons_and_dialog(monkeypatch):
@@ -123,4 +123,28 @@ def test_sidebar_frame_style_uses_accent_border(monkeypatch):
     assert "#33cc55" in expanded_style
 
     window.close()
+    app.quit()
+
+
+def test_push_button_retains_neon_after_leave_event():
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+
+    button = StyledPushButton()
+    button.setText("Idle")
+    button.resize(120, 40)
+    button.show()
+    QtWidgets.QApplication.processEvents()
+
+    enter_event = QtGui.QEnterEvent(
+        QtCore.QPointF(),
+        QtCore.QPointF(),
+        QtCore.QPointF(),
+    )
+    leave_event = QtCore.QEvent(QtCore.QEvent.Leave)
+    QtWidgets.QApplication.sendEvent(button, enter_event)
+    QtWidgets.QApplication.sendEvent(button, leave_event)
+
+    assert button.graphicsEffect() is not None
+
+    button.close()
     app.quit()
