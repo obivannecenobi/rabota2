@@ -1899,15 +1899,9 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         self.setColumnCount(len(day_names))
         self.setHorizontalHeaderLabels(day_names)
         header = self.horizontalHeader()
-        header.setAttribute(QtCore.Qt.WA_Hover, False)
-        if getattr(header, "_neon_filter", None):
-            header.removeEventFilter(header._neon_filter)
-            header._neon_filter = None
-        base = CONFIG.get("workspace_color", "#1e1e21")
-        header.setStyleSheet(
-            f"QHeaderView::section{{background:{base}; padding:0 6px;}}"
-            f"QHeaderView::section:hover{{background:{base};}}"
-        )
+        header.setAttribute(QtCore.Qt.WA_Hover, True)
+        workspace_color, accent_color = self._resolve_palette_colors()
+        self._update_header_theme(header, workspace_color, accent_color, ensure_filter=True)
         header.setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
@@ -1936,6 +1930,108 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
 
         self.load_month_data(self.year, self.month)
 
+    # --- theme helpers -------------------------------------------------
+    @staticmethod
+    def _resolve_palette_colors() -> tuple[QtGui.QColor, QtGui.QColor]:
+        workspace = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21"))
+        accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
+        if CONFIG.get("monochrome", False):
+            workspace = theme_manager.apply_monochrome(workspace)
+            accent = theme_manager.apply_monochrome(accent)
+        if not workspace.isValid():
+            workspace = QtGui.QColor("#1e1e21")
+        if not accent.isValid():
+            accent = QtGui.QColor("#39ff14")
+        return workspace, accent
+
+    @staticmethod
+    def _blend_for_hover(base: QtGui.QColor, accent: QtGui.QColor, ratio: float = 0.18) -> QtGui.QColor:
+        ratio = max(0.0, min(1.0, ratio))
+        mixed = QtGui.QColor(
+            int(base.red() * (1 - ratio) + accent.red() * ratio),
+            int(base.green() * (1 - ratio) + accent.green() * ratio),
+            int(base.blue() * (1 - ratio) + accent.blue() * ratio),
+        )
+        return mixed
+
+    @classmethod
+    def _header_section_style(
+        cls,
+        workspace: QtGui.QColor,
+        accent: QtGui.QColor,
+    ) -> str:
+        ws = workspace.name()
+        accent_name = accent.name()
+        hover = cls._blend_for_hover(workspace, accent).name()
+        return (
+            "QHeaderView::section{"
+            f"background:{ws};"
+            f"color:{accent_name};"
+            "padding:0 6px;"
+            "border:0;"
+            f"border-bottom:1px solid {accent_name};"
+            "}"
+            f"QHeaderView::section:hover{{background:{hover};}}"
+        )
+
+    @staticmethod
+    def _safe_int(value, default: int) -> int:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+
+    def _sync_header_effect(
+        self,
+        header: QtWidgets.QHeaderView,
+        accent: QtGui.QColor,
+        *,
+        shadow: bool = True,
+    ) -> None:
+        if header is None or not shiboken6.isValid(header):
+            return
+        if not accent.isValid():
+            accent = QtGui.QColor("#39ff14")
+        if not shadow:
+            apply_neon_effect(header, True, shadow=False, border=False, config=CONFIG)
+            return
+        effect = header.graphicsEffect()
+        blur = max(0, self._safe_int(CONFIG.get("neon_size", 20), 20))
+        intensity = max(0, min(255, self._safe_int(CONFIG.get("neon_intensity", 255), 255)))
+        if isinstance(effect, FixedDropShadowEffect):
+            color = QtGui.QColor(accent)
+            color.setAlpha(intensity)
+            effect.setBlurRadius(blur)
+            effect.setColor(color)
+        else:
+            apply_neon_effect(header, True, shadow=True, border=False, config=CONFIG)
+
+    def _update_header_theme(
+        self,
+        header: QtWidgets.QHeaderView,
+        workspace: QtGui.QColor,
+        accent: QtGui.QColor,
+        *,
+        ensure_filter: bool = False,
+        shadow: bool = True,
+    ) -> None:
+        if header is None or not shiboken6.isValid(header):
+            return
+        style = self._header_section_style(workspace, accent)
+        header.setStyleSheet(style)
+        header._neon_prev_style = style  # type: ignore[attr-defined]
+        palette = header.palette()
+        palette.setColor(QtGui.QPalette.Highlight, accent)
+        header.setPalette(palette)
+        filt = getattr(header, "_neon_filter", None)
+        if ensure_filter and filt is None:
+            filt = NeonEventFilter(header, CONFIG)
+            header.installEventFilter(filt)
+            header._neon_filter = filt  # type: ignore[attr-defined]
+        if filt:
+            filt.update_config(CONFIG)
+        self._sync_header_effect(header, accent, shadow=shadow)
+
     def mousePressEvent(self, event):
         self.clearSelection()
         event.ignore()
@@ -1945,11 +2041,15 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         tbl.setHorizontalHeaderLabels(["Работа", "План", "Готово"])
         tbl.verticalHeader().setVisible(False)
         header = tbl.horizontalHeader()
+        header.setAttribute(QtCore.Qt.WA_Hover, True)
         header.setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
-        base = CONFIG.get("workspace_color", "#1e1e21")
-        header.setStyleSheet(
-            f"QHeaderView::section{{background:{base}; padding:0 6px;}}"
-            f"QHeaderView::section:hover{{background:{base};}}"
+        workspace_color, accent_color = self._resolve_palette_colors()
+        self._update_header_theme(
+            header,
+            workspace_color,
+            accent_color,
+            ensure_filter=True,
+            shadow=False,
         )
         tbl.setEditTriggers(QtWidgets.QAbstractItemView.DoubleClicked)
         tbl.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
@@ -2144,22 +2244,44 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
 
     def apply_theme(self) -> None:
         """Apply palette-based colors to calendar widgets."""
-        workspace = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21"))
-        if CONFIG.get("monochrome", False):
-            workspace = theme_manager.apply_monochrome(workspace)
+        workspace_color, accent_color = self._resolve_palette_colors()
         text_color = QtWidgets.QApplication.palette().color(QtGui.QPalette.WindowText).name()
-        ws = workspace.name()
+        ws = workspace_color.name()
         style = (
-            f"QTableWidget{{background-color:{ws};color:{text_color};}}"
-            f"QTableWidget::item{{background-color:{ws};color:{text_color};}}"
-            f"QTableWidget::item:selected{{background-color:{ws};color:{text_color};}}"
-            "QTableWidget::item:hover{border:1px solid transparent;}"
+            "QTableWidget{"
+            f"background-color:{ws};"
+            f"color:{text_color};"
+            f"selection-background-color:{ws};"
+            f"selection-color:{text_color};"
+            "border:1px solid transparent;"
+            "border-radius:8px;"
+            "gridline-color:rgba(255,255,255,40);"
+            "}"
+            "QTableWidget::item{border:0;}"
         )
         self.setStyleSheet(style)
-        self.horizontalHeader().setStyleSheet(f"background-color:{ws};")
+        table_palette = self.palette()
+        table_palette.setColor(QtGui.QPalette.Highlight, accent_color)
+        self.setPalette(table_palette)
+        header = self.horizontalHeader()
+        self._update_header_theme(
+            header,
+            workspace_color,
+            accent_color,
+            ensure_filter=True,
+        )
         for tbl in self.cell_tables.values():
             tbl.setStyleSheet(style)
-            tbl.horizontalHeader().setStyleSheet(f"background-color:{ws};")
+            tbl_palette = tbl.palette()
+            tbl_palette.setColor(QtGui.QPalette.Highlight, accent_color)
+            tbl.setPalette(tbl_palette)
+            self._update_header_theme(
+                tbl.horizontalHeader(),
+                workspace_color,
+                accent_color,
+                ensure_filter=True,
+                shadow=False,
+            )
         for container in self.cell_containers.values():
             container.setStyleSheet(f"background-color:{ws};color:{text_color};")
 
