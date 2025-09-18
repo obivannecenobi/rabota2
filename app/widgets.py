@@ -75,12 +75,10 @@ class ButtonStyleMixin:
         )
 
     def apply_base_style(self) -> None:
-        """Apply the base style and enable hover tracking."""
-        self._apply_style_state("idle")
-        self._neon_prev_style = self.styleSheet()
+        """Apply the base style, enable hover tracking and neon."""
         self.setCursor(QtCore.Qt.PointingHandCursor)
         self.setAttribute(QtCore.Qt.WA_Hover, True)
-        self._apply_neon_profile("idle")
+        self.apply_neon_state("idle")
 
     # --- helpers -----------------------------------------------------
     def _accent_color(self) -> str:
@@ -151,19 +149,25 @@ class ButtonStyleMixin:
             config=CONFIG,
         )
 
+    def apply_neon_state(self, state: str | bool) -> None:
+        """Apply the requested neon state and reset cached styles."""
+
+        state_name = "hover" if state in ("hover", True) else "idle"
+        self._apply_style_state(state_name)
+        # Reset cached stylesheet to avoid repeated CSS concatenation when the
+        # effect is reapplied (e.g. after theme changes).
+        self._neon_prev_style = None
+        self._apply_neon_profile(state_name)
+
     # --- events ------------------------------------------------------
     def enterEvent(self, event):  # noqa: D401
-        self._apply_hover(True)
-        self._neon_prev_style = self.styleSheet()
-        self._apply_neon_profile("hover")
+        self.apply_neon_state("hover")
         super().enterEvent(event)
 
     def leaveEvent(self, event):  # noqa: D401
         selected = bool(self.property("neon_selected"))
-        self._apply_hover(selected)
-        self._neon_prev_style = self.styleSheet()
         state = "hover" if selected else "idle"
-        self._apply_neon_profile(state)
+        self.apply_neon_state(state)
         super().leaveEvent(event)
 
 

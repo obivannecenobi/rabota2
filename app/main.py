@@ -2604,11 +2604,8 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             selected = b is btn
             b.setProperty("neon_selected", selected)
             b.apply_base_style()
-            b._apply_hover(selected)
-            apply_neon_effect(b, selected, config=CONFIG)
-
-        for b in self.buttons:
-            b._neon_prev_style = b.styleSheet()
+            state = "hover" if selected else "idle"
+            b.apply_neon_state(state)
 
         if btn is not None and btn in self.buttons:
             self.last_active_button = btn
@@ -2685,12 +2682,8 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         for w in widgets:
             w.apply_base_style()
             selected = bool(w.property("neon_selected"))
-            w._apply_hover(selected)
-            apply_neon_effect(
-                w,
-                selected,
-                config=CONFIG,
-            )
+            state = "hover" if selected else "idle"
+            w.apply_neon_state(state)
             if selected:
                 effect = getattr(w, "_neon_effect", None)
                 if (
@@ -3587,13 +3580,8 @@ class TopBar(QtWidgets.QWidget):
 
         for btn in (self.btn_prev, self.btn_next):
             btn.apply_base_style()
-            selected = bool(btn.property("neon_selected"))
-            btn._apply_hover(selected)
-            apply_neon_effect(
-                btn,
-                selected,
-                config=CONFIG,
-            )
+            state = "hover" if bool(btn.property("neon_selected")) else "idle"
+            btn.apply_neon_state(state)
 
         self.apply_fonts()
         self._update_spin_year_neon()
@@ -3893,12 +3881,8 @@ class MainWindow(QtWidgets.QMainWindow):
             if isinstance(w, (StyledToolButton, StyledPushButton)):
                 w.update_gradient(**button_config())
                 w.apply_base_style()
-                w._neon_prev_style = w.styleSheet()
-                apply_neon_effect(
-                    w,
-                    bool(w.property("neon_selected")),
-                    config=CONFIG,
-                )
+                state = "hover" if bool(w.property("neon_selected")) else "idle"
+                w.apply_neon_state(state)
 
 
 
