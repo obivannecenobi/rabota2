@@ -2247,15 +2247,32 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         workspace_color, accent_color = self._resolve_palette_colors()
         text_color = QtWidgets.QApplication.palette().color(QtGui.QPalette.WindowText).name()
         ws = workspace_color.name()
+
+        # Reset previously applied neon so the refreshed CSS becomes the base style.
+        apply_neon_effect(self, False, config=CONFIG)
+        header = self.horizontalHeader()
+        if header is not None and shiboken6.isValid(header):
+            apply_neon_effect(header, False, config=CONFIG)
+
+        subtle_border = QtGui.QColor(accent_color)
+        subtle_border.setAlpha(90)
+        r, g, b, a = subtle_border.getRgb()
+        border_rgba = f"rgba({r},{g},{b},{a})"
+        selection_rgba = f"rgba({accent_color.red()},{accent_color.green()},{accent_color.blue()},120)"
+
         style = (
             "QTableWidget{"
             f"background-color:{ws};"
             f"color:{text_color};"
-            f"selection-background-color:{ws};"
+            f"selection-background-color:{selection_rgba};"
             f"selection-color:{text_color};"
-            "border:1px solid transparent;"
-            "border-radius:8px;"
+            f"border:1px solid {border_rgba};"
+            "border-radius:16px;"
             "gridline-color:rgba(255,255,255,40);"
+            "}"
+            "QTableWidget::viewport{"
+            f"background-color:{ws};"
+            "border:0;"
             "}"
             "QTableWidget::item{border:0;}"
         )
@@ -2263,13 +2280,15 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         table_palette = self.palette()
         table_palette.setColor(QtGui.QPalette.Highlight, accent_color)
         self.setPalette(table_palette)
-        header = self.horizontalHeader()
         self._update_header_theme(
             header,
             workspace_color,
             accent_color,
             ensure_filter=True,
         )
+        apply_neon_effect(self, True, config=CONFIG)
+        if header is not None and shiboken6.isValid(header):
+            apply_neon_effect(header, True, border=False, config=CONFIG)
         for tbl in self.cell_tables.values():
             tbl.setStyleSheet(style)
             tbl_palette = tbl.palette()
