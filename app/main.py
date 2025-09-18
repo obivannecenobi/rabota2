@@ -3,6 +3,7 @@ import sys
 import os
 import json
 import calendar
+import weakref
 import logging
 import argparse
 from datetime import datetime, date
@@ -1889,6 +1890,35 @@ class NeonTableWidget(QtWidgets.QTableWidget):
 class ExcelCalendarTable(QtWidgets.QTableWidget):
     """Таблица календаря месяца с вложенными таблицами по дням."""
 
+    class _DayContainerEventFilter(QtCore.QObject):
+        """Проксирует события контейнера дня в ``ExcelCalendarTable``."""
+
+        def __init__(self, table: "ExcelCalendarTable", coords: tuple[int, int]):
+            super().__init__(table)
+            self._table_ref = weakref.ref(table)
+            self._coords = coords
+
+        def eventFilter(self, obj, event):  # noqa: D401 - Qt override signature
+            table = self._table_ref()
+            if table is None or not shiboken6.isValid(table):
+                return False
+
+            etype = event.type()
+            if etype in (
+                QtCore.QEvent.Enter,
+                QtCore.QEvent.HoverEnter,
+                QtCore.QEvent.FocusIn,
+            ):
+                table._set_active_day(self._coords, transient=True)
+            elif etype == QtCore.QEvent.MouseButtonPress:
+                table._set_active_day(self._coords, transient=False)
+            elif etype in (
+                QtCore.QEvent.Leave,
+                QtCore.QEvent.HoverLeave,
+            ):
+                table._clear_active_day(self._coords, transient=True)
+            return False
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
@@ -1915,6 +1945,9 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         self.day_labels: Dict[tuple[int, int], QtWidgets.QLabel] = {}
         self.cell_containers: Dict[tuple[int, int], QtWidgets.QWidget] = {}
         self.cell_filters: Dict[tuple[int, int], NeonEventFilter | None] = {}
+        self._cell_event_filters: Dict[tuple[int, int], QtCore.QObject] = {}
+        self._active_day: tuple[int, int] | None = None
+        self._hover_day: tuple[int, int] | None = None
 
         self._col_widths: List[int] | None = None
 
@@ -2147,11 +2180,28 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         md = MonthData.load(year, month)
         cal = calendar.Calendar()
         weeks = cal.monthdatescalendar(year, month)
+        old_tables = dict(self.cell_tables)
+        old_labels = dict(self.day_labels)
         self.date_map.clear()
         self.cell_tables.clear()
         self.day_labels.clear()
-        for container in list(self.cell_containers.values()):
+        for coords, container in list(self.cell_containers.items()):
             apply_neon_effect(container, False, config=CONFIG)
+            event_filter = self._cell_event_filters.pop(coords, None)
+            if event_filter:
+                if shiboken6.isValid(container):
+                    container.removeEventFilter(event_filter)
+                label = old_labels.get(coords)
+                if label and shiboken6.isValid(label):
+                    label.removeEventFilter(event_filter)
+                inner_table = old_tables.get(coords)
+                if inner_table and shiboken6.isValid(inner_table):
+                    inner_table.removeEventFilter(event_filter)
+                    viewport = inner_table.viewport()
+                    if viewport and shiboken6.isValid(viewport):
+                        viewport.removeEventFilter(event_filter)
+        self._hover_day = None
+        self._active_day = None
         self.cell_containers.clear()
         self.cell_filters.clear()
         self.setRowCount(len(weeks))
@@ -2162,12 +2212,14 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                 for c, day in enumerate(week):
                     container = QtWidgets.QWidget()
                     container.setAttribute(QtCore.Qt.WA_Hover, True)
+                    container.setMouseTracking(True)
                     container.setFocusPolicy(QtCore.Qt.NoFocus)
                     lay = QtWidgets.QVBoxLayout(container)
                     lay.setContentsMargins(0, 0, 0, 0)
                     lay.setSpacing(2)
                     container.setStyleSheet(base_style)
                     lbl = QtWidgets.QLabel(str(day.day), container)
+                    lbl.setAttribute(QtCore.Qt.WA_Hover, True)
                     lbl.setFont(
                         QtGui.QFont(
                             CONFIG.get(
@@ -2180,22 +2232,40 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                     self.day_labels[(r, c)] = lbl
                     lay.addWidget(lbl, alignment=QtCore.Qt.AlignHCenter)
                     inner = self._create_inner_table()
+                    inner.setAttribute(QtCore.Qt.WA_Hover, True)
+                    inner.setMouseTracking(True)
+                    inner.viewport().setAttribute(QtCore.Qt.WA_Hover, True)
+                    inner.viewport().setMouseTracking(True)
                     lay.addWidget(inner)
                     self.setCellWidget(r, c, container)
                     self.date_map[(r, c)] = day
                     self.cell_tables[(r, c)] = inner
                     self.cell_containers[(r, c)] = container
-                    self.cell_filters[(r, c)] = None
+                    filt = NeonEventFilter(container, CONFIG)
+                    container.installEventFilter(filt)
+                    container._neon_filter = filt
+                    self.cell_filters[(r, c)] = filt
+                    day_filter = self._DayContainerEventFilter(self, (r, c))
+                    container.installEventFilter(day_filter)
+                    lbl.installEventFilter(day_filter)
+                    inner.installEventFilter(day_filter)
+                    inner.viewport().installEventFilter(day_filter)
+                    self._cell_event_filters[(r, c)] = day_filter
                     if day.month != month:
                         container.setEnabled(False)
                         container.setStyleSheet(
                             base_style + "background-color:#2a2a2a; color:#777;"
                         )
                         lbl.setStyleSheet("color:#777;")
+                        container.setProperty(
+                            "calendar_base_style",
+                            container.styleSheet(),
+                        )
                     else:
                         container.setEnabled(True)
                         container.setStyleSheet(base_style)
                         lbl.setStyleSheet("")
+                        container.setProperty("calendar_base_style", base_style)
                     blocker = QtCore.QSignalBlocker(inner)
                     try:
                         rows = md.days.get(day.day, [])
@@ -2220,6 +2290,55 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         self._update_row_heights()
         self.apply_fonts()
         return True
+
+    # ---------- Day highlighting ----------
+    def _set_active_day(
+        self, coords: tuple[int, int], *, transient: bool = False
+    ) -> None:
+        container = self.cell_containers.get(coords)
+        if container is None or not shiboken6.isValid(container) or not container.isEnabled():
+            return
+
+        if transient:
+            if self._hover_day == coords:
+                return
+            self._hover_day = coords
+        else:
+            if self._active_day == coords:
+                return
+            if self._active_day and self._active_day != coords:
+                self._clear_active_day(self._active_day, transient=False)
+            self._active_day = coords
+            self._hover_day = None
+
+        base_style = container.property("calendar_base_style")
+        if base_style:
+            container._neon_prev_style = base_style
+
+        apply_neon_effect(container, True, config=CONFIG)
+
+    def _clear_active_day(
+        self, coords: tuple[int, int], *, transient: bool = False
+    ) -> None:
+        container = self.cell_containers.get(coords)
+        if container is None or not shiboken6.isValid(container):
+            return
+
+        if transient:
+            if self._hover_day != coords:
+                return
+            self._hover_day = None
+            if self._active_day == coords:
+                return
+        else:
+            if self._active_day != coords:
+                return
+            self._active_day = None
+
+        apply_neon_effect(container, False, config=CONFIG)
+        base_style = container.property("calendar_base_style")
+        if base_style:
+            container.setStyleSheet(base_style)
 
     def apply_fonts(self):
         """Apply current header font to calendar elements."""
