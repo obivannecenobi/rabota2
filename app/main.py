@@ -2794,7 +2794,8 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         self.btn_settings = StyledToolButton(self, **button_config())
         self.btn_settings.setIcon(icon("settings"))
         self.btn_settings.setIconSize(QtCore.QSize(22, 22))
-        self.btn_settings.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
+        self.btn_settings.setText("Настройки")
+        self.btn_settings.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
         self.btn_settings.clicked.connect(self.settings_clicked)
         # Push other buttons to the top when sidebar is taller than content
         lay.addStretch(1)
@@ -2833,10 +2834,14 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         self.anim.setStartValue(start)
         self.anim.setEndValue(end)
         self.anim.start()
-        for b in self.buttons:
+        for b in self.buttons + [self.btn_settings]:
             b.setToolButtonStyle(
-                QtCore.Qt.ToolButtonIconOnly if collapsed else QtCore.Qt.ToolButtonTextBesideIcon
+                QtCore.Qt.ToolButtonIconOnly
+                if collapsed
+                else QtCore.Qt.ToolButtonTextBesideIcon
             )
+            if hasattr(b, "setContentSpacing"):
+                b.setContentSpacing(0 if collapsed else 8)
         CONFIG["sidebar_collapsed"] = collapsed
         try:
             with open(CONFIG_PATH, "w", encoding="utf-8") as f:
@@ -2890,22 +2895,20 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         else:
             self.last_active_button = None
 
+        self.apply_fonts()
+
         widgets = [self.btn_toggle] + self.buttons + [self.btn_settings]
         for w in widgets:
             w.apply_base_style()
             selected = bool(w.property("neon_selected"))
             state = "hover" if selected else "idle"
-            if hasattr(w, "_apply_style_state"):
-                w._apply_style_state(state)
-            if hasattr(w, "_neon_prev_style"):
-                w._neon_prev_style = None
-            if hasattr(w, "_apply_neon_profile"):
-                w._apply_neon_profile(state)
+            if hasattr(w, "apply_neon_state"):
+                w.apply_neon_state(state)
             else:
                 apply_neon_effect(w, selected, config=CONFIG)
-            if not selected and hasattr(w, "_neon_anim") and w._neon_anim:
-                w._neon_anim.stop()
-                w._neon_anim = None
+                if not selected and hasattr(w, "_neon_anim") and w._neon_anim:
+                    w._neon_anim.stop()
+                    w._neon_anim = None
 
     def update_icons(self) -> None:
         """Update sidebar icon from configuration."""
