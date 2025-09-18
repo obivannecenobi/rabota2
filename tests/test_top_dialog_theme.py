@@ -55,6 +55,13 @@ def test_top_dialog_table_uses_accent_color(tmp_path, monkeypatch):
     dialog.show()
     app.processEvents()
 
+    headers = [
+        dialog.table.horizontalHeaderItem(i).text()
+        for i in range(dialog.table.columnCount())
+    ]
+    assert "Запланировано" in headers
+    assert "Запланированно" not in headers
+
     accent = QtGui.QColor(accent_color).name().lower()
     table_style = dialog.table.styleSheet().lower()
     header_style = dialog.table.horizontalHeader().styleSheet().lower()
