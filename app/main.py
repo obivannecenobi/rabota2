@@ -2746,12 +2746,18 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         self.expanded_width=260; self.collapsed_width=64
         lay=QtWidgets.QVBoxLayout(self); lay.setContentsMargins(8,8,8,8); lay.setSpacing(6)
 
-        # Toggle button — только иконка
+        # Toggle button — хранится отдельной ссылкой для смены стиля при сворачивании
         self.btn_toggle = StyledToolButton(self, **button_config())
+        self.btn_toggle.setText("Свернуть")
         self.btn_toggle.setIcon(QtGui.QIcon(CONFIG.get("sidebar_icon", ICON_TOGGLE)))
         self.btn_toggle.setIconSize(QtCore.QSize(28,28))
-        self.btn_toggle.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
+        self.btn_toggle.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
         self.btn_toggle.setCursor(QtCore.Qt.PointingHandCursor)
+        self.btn_toggle.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
+        )
+        self.btn_toggle.setContentSpacing(8)
+        self.toggle_button = self.btn_toggle
         self.btn_toggle.clicked.connect(self.toggle)
         lay.addWidget(self.btn_toggle)
 
@@ -2801,6 +2807,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         lay.addStretch(1)
         lay.addWidget(self.btn_settings)
 
+        self._button_widgets = [self.btn_toggle] + self.buttons + [self.btn_settings]
         self._collapsed = CONFIG.get("sidebar_collapsed", False)
         self.anim = QtCore.QPropertyAnimation(self, b"maximumWidth", self)
         self.anim.setDuration(160)
@@ -2834,14 +2841,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         self.anim.setStartValue(start)
         self.anim.setEndValue(end)
         self.anim.start()
-        for b in self.buttons + [self.btn_settings]:
-            b.setToolButtonStyle(
-                QtCore.Qt.ToolButtonIconOnly
-                if collapsed
-                else QtCore.Qt.ToolButtonTextBesideIcon
-            )
-            if hasattr(b, "setContentSpacing"):
-                b.setContentSpacing(0 if collapsed else 8)
+        self._update_button_layouts()
         CONFIG["sidebar_collapsed"] = collapsed
         try:
             with open(CONFIG_PATH, "w", encoding="utf-8") as f:
@@ -2851,6 +2851,18 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         self.toggled.emit(not collapsed)
 
     def toggle(self): self.set_collapsed(not self._collapsed)
+
+    def _update_button_layouts(self) -> None:
+        style = (
+            QtCore.Qt.ToolButtonIconOnly
+            if self._collapsed
+            else QtCore.Qt.ToolButtonTextBesideIcon
+        )
+        spacing = 0 if self._collapsed else 8
+        for button in self._button_widgets:
+            button.setToolButtonStyle(style)
+            if hasattr(button, "setContentSpacing"):
+                button.setContentSpacing(spacing)
 
     def apply_style(
         self,
@@ -2896,8 +2908,9 @@ class CollapsibleSidebar(QtWidgets.QFrame):
             self.last_active_button = None
 
         self.apply_fonts()
+        self._update_button_layouts()
 
-        widgets = [self.btn_toggle] + self.buttons + [self.btn_settings]
+        widgets = self._button_widgets
         for w in widgets:
             w.apply_base_style()
             selected = bool(w.property("neon_selected"))
@@ -2919,7 +2932,7 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         """Apply configured sidebar font to heading widgets."""
         family = CONFIG.get("sidebar_font", CONFIG.get("header_font", "Exo 2"))
         font = QtGui.QFont(family)
-        widgets = [self.btn_toggle] + self.buttons + [self.btn_settings]
+        widgets = self._button_widgets
         for w in widgets:
             w.setFont(font)
 
