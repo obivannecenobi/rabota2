@@ -3680,6 +3680,7 @@ class TopBar(QtWidgets.QWidget):
         color = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21"))
         if CONFIG.get("monochrome", False):
             color = theme_manager.apply_monochrome(color)
+        self._month_label_base_css = "background:transparent; border:none;"
         self.apply_background(color)
         self.apply_style()
         self.apply_fonts()
@@ -3722,7 +3723,13 @@ class TopBar(QtWidgets.QWidget):
                 f" padding:{padding};"
                 "}"
             )
-        self.setStyleSheet(bg_block + (self._base_style_template or ""))
+        label_rule = self._month_label_selector_rule(selector)
+        parts = [bg_block]
+        if self._base_style_template:
+            parts.append(self._base_style_template)
+        if label_rule:
+            parts.append(label_rule)
+        self.setStyleSheet("\n".join(parts))
 
     def _apply_background_effect(self) -> None:
         color = QtGui.QColor(self._accent_color)
@@ -3749,11 +3756,59 @@ class TopBar(QtWidgets.QWidget):
             pal.setColor(QtGui.QPalette.Window, qcolor)
             w.setAutoFillBackground(True)
             w.setPalette(pal)
+        self._update_month_label_theme(qcolor)
+
+    def _month_label_color_css(self) -> str:
+        accent = QtGui.QColor(self._accent_color)
+        if not accent.isValid():
+            accent = QtGui.QColor("#39ff14")
+        return f"color:{accent.name()};"
+
+    def _month_label_selector_rule(self, selector: str | None) -> str:
+        if selector:
+            scope = f"QWidget#{selector} QLabel"
+        else:
+            scope = "QLabel"
+        return f"{scope}{{{self._month_label_color_css()}}}"
+
+    def _update_month_label_theme(self, background: QtGui.QColor) -> None:
+        accent = QtGui.QColor(self._accent_color)
+        if not accent.isValid():
+            accent = QtGui.QColor("#39ff14")
         pal = self.lbl_month.palette()
-        pal.setColor(QtGui.QPalette.Window, qcolor)
+        pal.setColor(QtGui.QPalette.Window, background)
+        pal.setColor(QtGui.QPalette.WindowText, accent)
+        pal.setColor(QtGui.QPalette.Text, accent)
+        pal.setColor(QtGui.QPalette.ButtonText, accent)
+        pal.setColor(QtGui.QPalette.Highlight, accent)
+        highlight_text = QtGui.QColor("#000000")
+        if accent.lightness() < 150:
+            highlight_text = QtGui.QColor("#ffffff")
+        pal.setColor(QtGui.QPalette.HighlightedText, highlight_text)
         self.lbl_month.setAutoFillBackground(False)
         self.lbl_month.setPalette(pal)
-        self.lbl_month.setStyleSheet("background:transparent; border:none;")
+        base_css = (self._month_label_base_css or "").strip()
+        if base_css and not base_css.endswith(";"):
+            base_css = f"{base_css};"
+        if base_css:
+            base_css = f"{base_css} "
+        style = f"{base_css}{self._month_label_color_css()}"
+        self.lbl_month.setStyleSheet(style)
+        self.lbl_month._neon_prev_style = (self._month_label_base_css or "")
+
+    def _refresh_month_label_neon(self) -> None:
+        accent = QtGui.QColor(self._accent_color)
+        if not accent.isValid():
+            accent = QtGui.QColor("#39ff14")
+        pal = self.lbl_month.palette()
+        pal.setColor(QtGui.QPalette.Highlight, accent)
+        pal.setColor(QtGui.QPalette.WindowText, accent)
+        pal.setColor(QtGui.QPalette.Text, accent)
+        pal.setColor(QtGui.QPalette.ButtonText, accent)
+        self.lbl_month.setPalette(pal)
+        apply_neon_effect(
+            self.lbl_month, True, shadow=False, border=False, config=CONFIG
+        )
 
     def _resolve_accent_color(
         self, color: Union[str, QtGui.QColor, None] = None
@@ -3857,6 +3912,7 @@ class TopBar(QtWidgets.QWidget):
         self._apply_background_effect()
         self._apply_spinbox_style()
         self._rebuild_stylesheet()
+        self._refresh_month_label_neon()
         self.apply_fonts()
 
     def update_background(
@@ -3882,14 +3938,12 @@ class TopBar(QtWidgets.QWidget):
         self._apply_background_effect()
         self._apply_spinbox_style()
         self._rebuild_stylesheet()
+        self._refresh_month_label_neon()
         self.apply_fonts()
 
     def apply_style(self) -> None:
-        self._base_style_template = "QLabel{color:#e5e5e5; border:none;}"
+        self._base_style_template = "QLabel{border:none;}"
         self.update_background(self._background_color)
-        apply_neon_effect(
-            self.lbl_month, True, shadow=False, border=False, config=CONFIG
-        )
 
         for btn in (self.btn_prev, self.btn_next):
             btn.apply_base_style()
