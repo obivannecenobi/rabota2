@@ -2639,16 +2639,6 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         accent: Union[QtGui.QColor, str, None],
         sidebar_color: Union[str, QtGui.QColor, None] = None,
     ):
-        try:
-            size = int(CONFIG.get("neon_size", 10))
-        except (TypeError, ValueError):
-            size = 10
-        try:
-            intensity = int(CONFIG.get("neon_intensity", 255))
-        except (TypeError, ValueError):
-            intensity = 255
-        size = max(0, size)
-        intensity = max(0, min(255, intensity))
         accent = QtGui.QColor(accent) if accent is not None else QtGui.QColor(
             CONFIG.get("accent_color", "#39ff14")
         )
@@ -2678,32 +2668,29 @@ class CollapsibleSidebar(QtWidgets.QFrame):
         self.setAutoFillBackground(True)
         apply_neon_effect(self, True, border=False, config=CONFIG)
 
+        active_button = (
+            self.last_active_button if self.last_active_button in self.buttons else None
+        )
+        if active_button is not None:
+            for button in self.buttons:
+                button.setProperty("neon_selected", button is active_button)
+        else:
+            self.last_active_button = None
+
         widgets = [self.btn_toggle] + self.buttons + [self.btn_settings]
         for w in widgets:
             w.apply_base_style()
             selected = bool(w.property("neon_selected"))
             state = "hover" if selected else "idle"
-            w.apply_neon_state(state)
-            if selected:
-                effect = getattr(w, "_neon_effect", None)
-                if (
-                    effect is None
-                    or not shiboken6.isValid(effect)
-                    or not isinstance(effect, FixedDropShadowEffect)
-                ):
-                    effect = FixedDropShadowEffect(self)
-                    effect.setOffset(0, 0)
-                    try:
-                        w.setGraphicsEffect(effect)
-                    except RuntimeError:
-                        continue
-                    w._neon_effect = effect
-                if isinstance(effect, FixedDropShadowEffect):
-                    effect.setBlurRadius(size)
-                    c = QtGui.QColor(accent)
-                    c.setAlpha(intensity)
-                    effect.setColor(c)
-            elif hasattr(w, "_neon_anim") and w._neon_anim:
+            if hasattr(w, "_apply_style_state"):
+                w._apply_style_state(state)
+            if hasattr(w, "_neon_prev_style"):
+                w._neon_prev_style = None
+            if hasattr(w, "_apply_neon_profile"):
+                w._apply_neon_profile(state)
+            else:
+                apply_neon_effect(w, selected, config=CONFIG)
+            if not selected and hasattr(w, "_neon_anim") and w._neon_anim:
                 w._neon_anim.stop()
                 w._neon_anim = None
 

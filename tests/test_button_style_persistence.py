@@ -61,6 +61,31 @@ def test_gradient_and_neon_persist_across_buttons_and_dialog(monkeypatch):
     app.quit()
 
 
+def test_sidebar_apply_style_preserves_idle_neon(monkeypatch):
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+
+    monkeypatch.setitem(main.CONFIG, "sidebar_collapsed", False)
+
+    window = main.MainWindow()
+    sidebar = window.sidebar
+    sidebar.activate_button(sidebar.buttons[0])
+
+    QtWidgets.QApplication.processEvents()
+
+    accent = main.CONFIG.get("accent_color", "#39ff14")
+    sidebar.apply_style(accent)
+
+    assert sidebar.last_active_button is sidebar.buttons[0]
+
+    inactive_button = sidebar.buttons[1]
+    effect = inactive_button.graphicsEffect()
+
+    assert isinstance(effect, main.FixedDropShadowEffect)
+
+    window.close()
+    app.quit()
+
+
 def test_sidebar_button_spacing_and_style_toggle(monkeypatch):
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 
