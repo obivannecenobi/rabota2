@@ -2065,6 +2065,79 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
             filt.update_config(CONFIG)
         self._sync_header_effect(header, accent, shadow=shadow)
 
+    def _apply_inner_table_theme(
+        self,
+        table: QtWidgets.QTableWidget,
+        workspace: QtGui.QColor,
+        accent: QtGui.QColor,
+        *,
+        text_color: str | None = None,
+    ) -> None:
+        if table is None or not shiboken6.isValid(table):
+            return
+        if not workspace.isValid():
+            workspace = QtGui.QColor("#1e1e21")
+        if not accent.isValid():
+            accent = QtGui.QColor("#39ff14")
+        if text_color is None:
+            text_color = (
+                QtWidgets.QApplication.palette()
+                .color(QtGui.QPalette.WindowText)
+                .name()
+            )
+        thickness = max(1, self._safe_int(CONFIG.get("neon_thickness", 1), 1))
+        radius = max(0, self._safe_int(CONFIG.get("inner_table_radius", 12), 12))
+        selection_rgba = (
+            f"rgba({accent.red()},{accent.green()},{accent.blue()},120)"
+        )
+        ws_name = workspace.name()
+        accent_name = accent.name()
+        viewport_radius = max(0, radius - 1)
+        style = (
+            "QTableWidget{"\
+            f"background-color:{ws_name};"\
+            f"color:{text_color};"\
+            f"selection-background-color:{selection_rgba};"\
+            f"selection-color:{text_color};"\
+            f"border:{thickness}px solid {accent_name};"\
+            f"border-radius:{radius}px;"\
+            "gridline-color:rgba(255,255,255,40);"\
+            "}"\
+            "QTableWidget::viewport{"\
+            f"background-color:{ws_name};"\
+            "border:0;"\
+            f"border-radius:{viewport_radius}px;"\
+            "}"\
+            "QTableWidget::item{border:0;}"
+        )
+        if getattr(table, "_neon_effect", None):
+            apply_neon_effect(table, False, config=CONFIG)
+        table.setStyleSheet(style)
+        table._neon_prev_style = style  # type: ignore[attr-defined]
+        palette = table.palette()
+        palette.setColor(QtGui.QPalette.Highlight, accent)
+        palette.setColor(QtGui.QPalette.Base, workspace)
+        palette.setColor(QtGui.QPalette.Window, workspace)
+        palette.setColor(QtGui.QPalette.Text, QtGui.QColor(text_color))
+        table.setPalette(palette)
+        filt = getattr(table, "_neon_filter", None)
+        if filt is None:
+            filt = NeonEventFilter(table, CONFIG)
+            table.installEventFilter(filt)
+            table._neon_filter = filt  # type: ignore[attr-defined]
+        else:
+            filt.update_config(CONFIG)
+        apply_neon_effect(table, True, config=CONFIG)
+        header = table.horizontalHeader()
+        if header is not None and shiboken6.isValid(header):
+            self._update_header_theme(
+                header,
+                workspace,
+                accent,
+                ensure_filter=True,
+                shadow=False,
+            )
+
     def mousePressEvent(self, event):
         self.clearSelection()
         event.ignore()
@@ -2076,14 +2149,6 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         header = tbl.horizontalHeader()
         header.setAttribute(QtCore.Qt.WA_Hover, True)
         header.setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
-        workspace_color, accent_color = self._resolve_palette_colors()
-        self._update_header_theme(
-            header,
-            workspace_color,
-            accent_color,
-            ensure_filter=True,
-            shadow=False,
-        )
         tbl.setEditTriggers(QtWidgets.QAbstractItemView.DoubleClicked)
         tbl.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         tbl.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
@@ -2091,6 +2156,8 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
             for i, w in enumerate(self._col_widths):
                 tbl.setColumnWidth(i, w)
         tbl.horizontalHeader().sectionResized.connect(self._sync_day_columns)
+        workspace_color, accent_color = self._resolve_palette_colors()
+        self._apply_inner_table_theme(tbl, workspace_color, accent_color)
         return tbl
 
     def set_day_column_widths(self, widths: Iterable[int]):
@@ -2180,6 +2247,12 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         md = MonthData.load(year, month)
         cal = calendar.Calendar()
         weeks = cal.monthdatescalendar(year, month)
+        workspace_color, accent_color = self._resolve_palette_colors()
+        text_color = (
+            QtWidgets.QApplication.palette()
+            .color(QtGui.QPalette.WindowText)
+            .name()
+        )
         old_tables = dict(self.cell_tables)
         old_labels = dict(self.day_labels)
         self.date_map.clear()
@@ -2279,6 +2352,12 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
                                 inner.setItem(rr, cc, item)
                     finally:
                         del blocker
+                    self._apply_inner_table_theme(
+                        inner,
+                        workspace_color,
+                        accent_color,
+                        text_color=text_color,
+                    )
                     handler = lambda changed_item, coord=(r, c): self._on_inner_item_changed(
                         coord, changed_item
                     )
@@ -2409,16 +2488,11 @@ class ExcelCalendarTable(QtWidgets.QTableWidget):
         if header is not None and shiboken6.isValid(header):
             apply_neon_effect(header, True, border=False, config=CONFIG)
         for tbl in self.cell_tables.values():
-            tbl.setStyleSheet(style)
-            tbl_palette = tbl.palette()
-            tbl_palette.setColor(QtGui.QPalette.Highlight, accent_color)
-            tbl.setPalette(tbl_palette)
-            self._update_header_theme(
-                tbl.horizontalHeader(),
+            self._apply_inner_table_theme(
+                tbl,
                 workspace_color,
                 accent_color,
-                ensure_filter=True,
-                shadow=False,
+                text_color=text_color,
             )
         for container in self.cell_containers.values():
             container.setStyleSheet(f"background-color:{ws};color:{text_color};")
