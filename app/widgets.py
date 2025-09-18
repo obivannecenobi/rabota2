@@ -1,4 +1,5 @@
 import math
+import re
 
 from PySide6 import QtWidgets, QtGui, QtCore
 
@@ -224,6 +225,30 @@ class StyledToolButton(ButtonStyleMixin, QtWidgets.QToolButton):
 
         return self._content_spacing
 
+    @staticmethod
+    def _extract_text_color(style_sheet: str) -> QtGui.QColor | None:
+        """Return the last declared ``color:`` from ``style_sheet`` if valid."""
+
+        if not style_sheet:
+            return None
+        color_value: QtGui.QColor | None = None
+        for match in re.finditer(r"color\s*:\s*([^;]+)", style_sheet, re.IGNORECASE):
+            candidate = QtGui.QColor(match.group(1).strip())
+            if candidate.isValid():
+                color_value = candidate
+        return color_value
+
+    def _resolve_text_color(self, option: QtWidgets.QStyleOptionToolButton) -> QtGui.QColor:
+        """Determine the text color using style option and stylesheet hints."""
+
+        text_color = option.palette.color(QtGui.QPalette.ButtonText)
+        css_color = self._extract_text_color(self.styleSheet())
+        if css_color is not None:
+            text_color = css_color
+        if not text_color.isValid():
+            text_color = QtGui.QColor("white")
+        return text_color
+
     def paintEvent(self, event):  # noqa: D401
         option = QtWidgets.QStyleOptionToolButton()
         self.initStyleOption(option)
@@ -323,5 +348,5 @@ class StyledToolButton(ButtonStyleMixin, QtWidgets.QToolButton):
                 alignment = QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft
             elif style == QtCore.Qt.ToolButtonTextUnderIcon:
                 alignment = QtCore.Qt.AlignHCenter | QtCore.Qt.AlignTop
-            painter.setPen(self.palette().color(QtGui.QPalette.ButtonText))
+            painter.setPen(QtGui.QPen(self._resolve_text_color(option)))
             painter.drawText(text_rect, alignment, text)
