@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 from PySide6 import QtGui, QtWidgets
+import shiboken6
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "app"))
@@ -62,6 +63,36 @@ def test_top_dialog_table_uses_accent_color(tmp_path, monkeypatch):
     assert accent in header_style
     assert getattr(dialog.table, "_neon_filter", None) is not None
     assert getattr(dialog.table.horizontalHeader(), "_neon_filter", None) is not None
+
+    dialog.close()
+    app.processEvents()
+    app.quit()
+
+
+def test_top_dialog_refresh_updates_filter_controls(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    main.BASE_SAVE_PATH = str(tmp_path / "data")
+    main.CONFIG["save_path"] = main.BASE_SAVE_PATH
+
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    dialog = main.TopDialog(2024)
+    dialog.show()
+    app.processEvents()
+
+    new_accent = "#f5429b"
+    new_workspace = "#14161c"
+    monkeypatch.setitem(main.CONFIG, "accent_color", new_accent)
+    monkeypatch.setitem(main.CONFIG, "workspace_color", new_workspace)
+
+    dialog.refresh_theme()
+    app.processEvents()
+
+    accent = QtGui.QColor(new_accent).name().lower()
+    style = dialog.spin_year.styleSheet().lower()
+    assert f"border:1px solid {accent}" in style
+
+    effect = dialog.btn_calc.graphicsEffect()
+    assert effect is not None and shiboken6.isValid(effect)
 
     dialog.close()
     app.processEvents()

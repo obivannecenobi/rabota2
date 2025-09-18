@@ -1578,11 +1578,6 @@ class TopDialog(QtWidgets.QDialog):
         self.spin_year = QtWidgets.QSpinBox(self)
         self.spin_year.setRange(2000, 2100)
         self.spin_year.setValue(year)
-        self.spin_year.setStyleSheet("padding:0 4px;")
-        self.spin_year.setAttribute(QtCore.Qt.WA_Hover, True)
-        filt = NeonEventFilter(self.spin_year, CONFIG)
-        self.spin_year.installEventFilter(filt)
-        self.spin_year._neon_filter = filt
 
         self.combo_mode = QtWidgets.QComboBox(self)
         self.combo_mode.addItem("Месяц", "month")
@@ -1590,20 +1585,45 @@ class TopDialog(QtWidgets.QDialog):
         self.combo_mode.addItem("Полугодие", "half")
         self.combo_mode.addItem("Год", "year")
         self.combo_mode.currentIndexChanged.connect(self._mode_changed)
-        self.combo_mode.setAttribute(QtCore.Qt.WA_Hover, True)
-        filt = NeonEventFilter(self.combo_mode, CONFIG)
-        self.combo_mode.installEventFilter(filt)
-        self.combo_mode._neon_filter = filt
-
         self.combo_period = QtWidgets.QComboBox(self)
-        self.combo_period.setAttribute(QtCore.Qt.WA_Hover, True)
-        filt = NeonEventFilter(self.combo_period, CONFIG)
-        self.combo_period.installEventFilter(filt)
-        self.combo_period._neon_filter = filt
+
+        self._input_selectors: dict[QtWidgets.QWidget, str] = {
+            self.spin_year: "QSpinBox",
+            self.combo_mode: "QComboBox",
+            self.combo_period: "QComboBox",
+        }
+        self._input_filters: dict[QtWidgets.QWidget, NeonEventFilter] = {}
+        self._input_views: dict[QtWidgets.QWidget, QtWidgets.QWidget] = {}
+        for widget in self._input_selectors:
+            widget.setAttribute(QtCore.Qt.WA_Hover, True)
+            filt = NeonEventFilter(widget, CONFIG)
+            widget.installEventFilter(filt)
+            widget._neon_filter = filt
+            self._input_filters[widget] = filt
+            view_getter = getattr(widget, "view", None)
+            view = view_getter() if callable(view_getter) else None
+            if view is not None and shiboken6.isValid(view):
+                view.setAttribute(QtCore.Qt.WA_Hover, True)
+                try:
+                    view.installEventFilter(filt)
+                except RuntimeError:
+                    pass
+                viewport_getter = getattr(view, "viewport", None)
+                viewport = viewport_getter() if callable(viewport_getter) else None
+                if viewport is not None and shiboken6.isValid(viewport):
+                    viewport.setAttribute(QtCore.Qt.WA_Hover, True)
+                    try:
+                        viewport.installEventFilter(filt)
+                    except RuntimeError:
+                        pass
+                self._input_views[widget] = view
+
         self._mode_changed()  # fill periods
 
         self.btn_calc = StyledPushButton("Сформировать", self, **button_config())
         self.btn_calc.clicked.connect(self.calculate)
+        self.btn_calc.apply_base_style()
+        self.btn_calc._apply_neon_profile("idle")
 
         row = QtWidgets.QHBoxLayout()
         row.setContentsMargins(0, 0, 0, 0)
@@ -1693,12 +1713,39 @@ class TopDialog(QtWidgets.QDialog):
 
         workspace = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21")).name()
         accent = QtGui.QColor(CONFIG.get("accent_color", "#39ff14")).name()
+        try:
+            thickness = int(CONFIG.get("neon_thickness", 1))
+        except (TypeError, ValueError):
+            thickness = 1
+        thickness = max(0, thickness)
 
         header = self.table.horizontalHeader()
 
         self.table.setAttribute(QtCore.Qt.WA_Hover, True)
         self.table.viewport().setAttribute(QtCore.Qt.WA_Hover, True)
         header.setAttribute(QtCore.Qt.WA_Hover, True)
+
+        for widget, selector in self._input_selectors.items():
+            if widget is None or not shiboken6.isValid(widget):
+                continue
+            style = build_input_neon_style(
+                selector,
+                background=workspace,
+                accent=accent,
+                thickness=thickness,
+            )
+            widget.setStyleSheet(style)
+            filt = self._input_filters.get(widget)
+            if filt is not None:
+                filt._config = CONFIG
+            update_neon_filters(widget, CONFIG)
+            view = self._input_views.get(widget)
+            if view is not None and shiboken6.isValid(view):
+                update_neon_filters(view, CONFIG)
+
+        self.btn_calc.update_gradient(**button_config())
+        self.btn_calc.apply_base_style()
+        self.btn_calc._apply_neon_profile("idle")
 
         if getattr(self.table, "_neon_effect", None):
             apply_neon_effect(self.table, False, config=CONFIG)
