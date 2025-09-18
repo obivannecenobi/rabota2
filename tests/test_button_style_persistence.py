@@ -37,10 +37,10 @@ def test_gradient_and_neon_persist_across_buttons_and_dialog(monkeypatch):
         assert f"stop:0 {grad[0].lower()}" in style
         assert f"stop:1 {grad[1].lower()}" in style
 
-    # only the activated sidebar button should have a neon effect
+    # все кнопки сохраняют неоновый контур (selected усиливает эффект)
     assert window.sidebar.buttons[0].graphicsEffect() is not None
-    assert window.topbar.btn_prev.graphicsEffect() is None
-    assert btn_dialog.graphicsEffect() is None
+    assert window.topbar.btn_prev.graphicsEffect() is not None
+    assert btn_dialog.graphicsEffect() is not None
 
     dlg.close()
 
