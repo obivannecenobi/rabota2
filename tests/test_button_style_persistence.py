@@ -12,6 +12,7 @@ resources.register_fonts = lambda: None
 
 import app.main as main
 from widgets import StyledToolButton, StyledPushButton
+from config import CONFIG
 
 
 def test_gradient_and_neon_persist_across_buttons_and_dialog(monkeypatch):
@@ -108,6 +109,44 @@ def test_sidebar_button_spacing_and_style_toggle(monkeypatch):
         assert not btn.text().startswith(" ")
 
     window.close()
+    app.quit()
+
+
+def test_tool_button_hover_uses_accent_color(monkeypatch):
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+
+    accent = "#ff55aa"
+    monkeypatch.setitem(CONFIG, "accent_color", accent)
+
+    button = StyledToolButton()
+    button.setText("Hover me")
+
+    palette = button.palette()
+    palette.setColor(QtGui.QPalette.Highlight, QtGui.QColor(accent))
+    button.setPalette(palette)
+
+    button.resize(160, 48)
+    button.show()
+    QtWidgets.QApplication.processEvents()
+
+    enter_event = QtGui.QEnterEvent(
+        QtCore.QPointF(),
+        QtCore.QPointF(),
+        QtCore.QPointF(),
+    )
+    QtWidgets.QApplication.sendEvent(button, enter_event)
+    QtWidgets.QApplication.processEvents()
+
+    option = QtWidgets.QStyleOptionToolButton()
+    button.initStyleOption(option)
+
+    assert (
+        option.palette.color(QtGui.QPalette.ButtonText).name().lower()
+        == accent.lower()
+    )
+    assert button._resolve_text_color(option).name().lower() == accent.lower()
+
+    button.close()
     app.quit()
 
 

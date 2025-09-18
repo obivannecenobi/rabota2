@@ -173,6 +173,15 @@ def apply_neon_effect(
                 return
         else:
             widget.setGraphicsEffect(None)
+        if getattr(widget, "_neon_prev_palette", None) is None:
+            widget._neon_prev_palette = QtGui.QPalette(widget.palette())
+        palette = widget.palette()
+        palette.setColor(QtGui.QPalette.ButtonText, color)
+        try:
+            widget.setPalette(palette)
+        except RuntimeError:
+            return
+
         if border:
             border_style = f" border:{thickness}px solid {color.name()};"
         else:
@@ -183,6 +192,8 @@ def apply_neon_effect(
     else:
         prev = getattr(widget, "_neon_prev_effect", None)
         widget._neon_prev_effect = None
+        prev_palette = getattr(widget, "_neon_prev_palette", None)
+        widget._neon_prev_palette = None
         try:
             if prev is not None and shiboken6.isValid(prev):
                 widget.setGraphicsEffect(prev)
@@ -194,6 +205,11 @@ def apply_neon_effect(
                 widget.setGraphicsEffect(None)
         except RuntimeError:
             pass
+        if prev_palette is not None:
+            try:
+                widget.setPalette(prev_palette)
+            except RuntimeError:
+                pass
         prev_style = getattr(widget, "_neon_prev_style", None)
         if prev_style:
             widget.setStyleSheet(prev_style)
