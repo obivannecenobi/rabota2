@@ -57,17 +57,20 @@ def _font_has_required_glyphs(family: str) -> tuple[bool, str | None]:
     return True, None
 
 
-def _filter_supported_families(
-    families: Iterable[str], source: str
+def filter_supported_families(
+    families: Iterable[str],
+    source: str,
+    *,
+    emit_warnings: bool = True,
 ) -> set[str]:
-    """Filter *families* by glyph coverage and log skipped entries."""
+    """Return a set of font families that pass glyph coverage checks."""
 
     valid: set[str] = set()
     for family in families:
         ok, missing = _font_has_required_glyphs(family)
         if ok:
             valid.add(family)
-        else:
+        elif emit_warnings:
             logger.warning(
                 "Шрифт '%s' из '%s' пропущен: отсутствует %s набор символов",
                 family,
@@ -75,6 +78,50 @@ def _filter_supported_families(
                 missing,
             )
     return valid
+
+
+def _filter_supported_families(
+    families: Iterable[str], source: str
+) -> set[str]:
+    """Filter *families* by glyph coverage and log skipped entries."""
+
+    return filter_supported_families(families, source, emit_warnings=True)
+
+
+def ensure_supported_family(
+    family: str,
+    *,
+    source: str,
+    fallback: str = "Exo 2",
+) -> tuple[str, str | None]:
+    """Return a supported family name and the missing glyph range if any."""
+
+    if not family:
+        family = fallback
+    valid = _filter_supported_families({family}, source)
+    if family in valid:
+        return family, None
+
+    ok, missing = _font_has_required_glyphs(family)
+    if not missing and not ok:
+        missing = "требуемый"
+
+    fallback_family = fallback or "Exo 2"
+    fallback_valid = filter_supported_families({fallback_family}, f"{source}/fallback")
+    if fallback_family in fallback_valid:
+        return fallback_family, missing
+
+    exo_valid = filter_supported_families({"Exo 2"}, f"{source}/fallback")
+    if exo_valid:
+        return "Exo 2", missing
+
+    return fallback_family, missing
+
+
+def family_support_details(family: str) -> tuple[bool, str | None]:
+    """Expose glyph coverage check for UI validation."""
+
+    return _font_has_required_glyphs(family)
 
 
 def _show_error_dialog(message: str) -> None:

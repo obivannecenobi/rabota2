@@ -15,7 +15,14 @@ from dataclasses import dataclass, field
 import config
 
 from widgets import StyledPushButton, StyledToolButton
-from resources import register_fonts, load_icons, icon
+from resources import (
+    register_fonts,
+    load_icons,
+    icon,
+    ensure_supported_family,
+    filter_supported_families,
+    family_support_details,
+)
 import theme_manager
 from effects import (
     FixedDropShadowEffect,
@@ -293,9 +300,20 @@ def resolve_font_config(parent: QtWidgets.QWidget | None = None) -> tuple[str, s
 
     default = CONFIG.get("font_family", "Exo 2")
     header = ensure_font_registered(CONFIG.get("header_font", default), parent)
+    header, _missing = ensure_supported_family(
+        header, source="config/header", fallback=default
+    )
+
     text = ensure_font_registered(CONFIG.get("text_font", default), parent)
+    text, _missing = ensure_supported_family(
+        text, source="config/text", fallback=default
+    )
+
     sidebar = ensure_font_registered(
         CONFIG.get("sidebar_font", CONFIG.get("header_font", default)), parent
+    )
+    sidebar, _missing = ensure_supported_family(
+        sidebar, source="config/sidebar", fallback=header
     )
 
     changed = False
@@ -304,6 +322,9 @@ def resolve_font_config(parent: QtWidgets.QWidget | None = None) -> tuple[str, s
         changed = True
     if text != CONFIG.get("text_font"):
         CONFIG["text_font"] = text
+        changed = True
+    if text != CONFIG.get("font_family"):
+        CONFIG["font_family"] = text
         changed = True
     if sidebar != CONFIG.get("sidebar_font"):
         CONFIG["sidebar_font"] = sidebar
@@ -3051,23 +3072,62 @@ class SettingsDialog(QtWidgets.QDialog):
         self._sync_neon_preset_to_values()
 
 
-        self.font_header = QtWidgets.QFontComboBox(self)
-        self.font_header.setCurrentFont(
-            QtGui.QFont(CONFIG.get("header_font", CONFIG.get("font_family", "Exo 2")))
+        supported = filter_supported_families(
+            QtGui.QFontDatabase.families(),
+            "Qt font database",
+            emit_warnings=False,
         )
-        self.font_header.currentFontChanged.connect(lambda _: self.apply_fonts())
+        fallback_family, _ = ensure_supported_family(
+            "Exo 2", source="ui/fallback", fallback="Exo 2"
+        )
+        if fallback_family not in supported:
+            supported.add(fallback_family)
+        self._supported_font_families = supported
+        self._fallback_font_family = fallback_family
+
+        self.font_header = QtWidgets.QFontComboBox(self)
+        self._prepare_font_combo(self.font_header)
+        header_initial, _ = ensure_supported_family(
+            CONFIG.get("header_font", CONFIG.get("font_family", fallback_family)),
+            source="ui/header",
+            fallback=fallback_family,
+        )
+        self._set_combo_font(self.font_header, header_initial)
+        self.font_header.currentFontChanged.connect(
+            lambda font: self._handle_font_combo_changed(
+                "header_font", self.font_header, font, apply_header=True
+            )
+        )
         form_interface.addRow("Шрифт заголовков", self.font_header)
 
         self.font_text = QtWidgets.QFontComboBox(self)
-        self.font_text.setCurrentFont(
-            QtGui.QFont(CONFIG.get("text_font", CONFIG.get("font_family", "Exo 2")))
+        self._prepare_font_combo(self.font_text)
+        text_initial, _ = ensure_supported_family(
+            CONFIG.get("text_font", CONFIG.get("font_family", fallback_family)),
+            source="ui/text",
+            fallback=fallback_family,
         )
-        self.font_text.currentFontChanged.connect(lambda _: self._save_config())
+        self._set_combo_font(self.font_text, text_initial)
+        self.font_text.currentFontChanged.connect(
+            lambda font: self._handle_font_combo_changed(
+                "text_font", self.font_text, font
+            )
+        )
         form_interface.addRow("Шрифт текста", self.font_text)
 
         self.font_sidebar = QtWidgets.QFontComboBox(self)
-        self.font_sidebar.setCurrentFont(QtGui.QFont(CONFIG.get("sidebar_font", "Exo 2")))
-        self.font_sidebar.currentFontChanged.connect(lambda _: self._on_sidebar_font_changed())
+        self._prepare_font_combo(self.font_sidebar)
+        sidebar_initial, _ = ensure_supported_family(
+            CONFIG.get("sidebar_font", header_initial),
+            source="ui/sidebar",
+            fallback=header_initial,
+        )
+        self._set_combo_font(self.font_sidebar, sidebar_initial)
+        self.font_sidebar.currentFontChanged.connect(
+            lambda font: self._handle_font_combo_changed(
+                "sidebar_font", self.font_sidebar, font, refresh_sidebar=True
+            )
+        )
         form_interface.addRow("Шрифт боковой панели", self.font_sidebar)
 
         path_lay = QtWidgets.QHBoxLayout()
@@ -3244,10 +3304,84 @@ class SettingsDialog(QtWidgets.QDialog):
         }
 
     def _on_sidebar_font_changed(self):
+        self._handle_font_combo_changed(
+            "sidebar_font",
+            self.font_sidebar,
+            self.font_sidebar.currentFont(),
+            refresh_sidebar=True,
+        )
+
+    def _prepare_font_combo(self, combo: QtWidgets.QFontComboBox) -> None:
+        """Restrict *combo* to supported font families."""
+
+        model = combo.model()
+        row = 0
+        while row < model.rowCount():
+            index = model.index(row, combo.modelColumn())
+            family = index.data(QtCore.Qt.DisplayRole)
+            if family not in self._supported_font_families:
+                model.removeRow(row)
+            else:
+                row += 1
+
+    def _set_combo_font(self, combo: QtWidgets.QFontComboBox, family: str) -> None:
+        """Assign *family* to *combo* without emitting signals."""
+
+        blocker = QtCore.QSignalBlocker(combo)
+        combo.setCurrentFont(QtGui.QFont(family))
+        del blocker
+
+    def _apply_header_font_update(self, family: str) -> None:
+        """Apply header font changes to the main window immediately."""
+
+        theme_manager.set_header_font(family)
+        parent = self.parent()
+        if parent and hasattr(parent, "table"):
+            parent.table.apply_fonts()
+            if hasattr(parent, "topbar"):
+                parent.topbar.update_labels()
+
+    def _handle_font_combo_changed(
+        self,
+        key: str,
+        combo: QtWidgets.QFontComboBox,
+        font: QtGui.QFont,
+        *,
+        apply_header: bool = False,
+        refresh_sidebar: bool = False,
+    ) -> None:
+        """Validate the chosen font and update configuration."""
+
+        family = font.family()
+        supported, missing = family_support_details(family)
+        if not supported:
+            missing_label = missing or "необходимый"
+            message = (
+                f"Шрифт «{family}» не поддерживается: отсутствует {missing_label} набор символов. "
+                f"Будет использован «{self._fallback_font_family}»."
+            )
+            QtWidgets.QMessageBox.warning(self, "Недоступный шрифт", message)
+            blocker = QtCore.QSignalBlocker(combo)
+            combo.setCurrentFont(QtGui.QFont(self._fallback_font_family))
+            del blocker
+            family = self._fallback_font_family
+
+        valid_family, _ = ensure_supported_family(
+            family,
+            source=f"ui/{key}",
+            fallback=self._fallback_font_family,
+        )
+        if key == "text_font":
+            CONFIG["font_family"] = valid_family
+        CONFIG[key] = valid_family
         self._save_config()
-        self._refresh_color_previews()
-        if self.main_window and hasattr(self.main_window, "sidebar"):
-            self.main_window.sidebar.apply_fonts()
+
+        if apply_header:
+            self._apply_header_font_update(valid_family)
+        if refresh_sidebar:
+            self._refresh_color_previews()
+            if self.main_window and hasattr(self.main_window, "sidebar"):
+                self.main_window.sidebar.apply_fonts()
 
     def _on_neon_changed(self):
         self._save_config()
@@ -3329,13 +3463,13 @@ class SettingsDialog(QtWidgets.QDialog):
 
     def apply_fonts(self):
         """Save and apply new header font immediately."""
-        self._save_config()
-        theme_manager.set_header_font(self.font_header.currentFont().family())
-        parent = self.parent()
-        if parent and hasattr(parent, "table"):
-            parent.table.apply_fonts()
-            if hasattr(parent, "topbar"):
-                parent.topbar.update_labels()
+
+        self._handle_font_combo_changed(
+            "header_font",
+            self.font_header,
+            self.font_header.currentFont(),
+            apply_header=True,
+        )
 
     def accept(self):
         self._save_config()
