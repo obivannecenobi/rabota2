@@ -108,6 +108,42 @@ def test_sidebar_button_spacing_and_style_toggle(monkeypatch):
         assert btn.text() == original
         assert not btn.text().startswith(" ")
 
+    settings_btn = sidebar.btn_settings
+    assert settings_btn.toolButtonStyle() == QtCore.Qt.ToolButtonTextBesideIcon
+    assert settings_btn.text() == "Настройки"
+
+    window.close()
+    app.quit()
+
+
+def test_sidebar_settings_button_text_and_neon_persist(monkeypatch):
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+
+    monkeypatch.setitem(main.CONFIG, "sidebar_collapsed", False)
+
+    window = main.MainWindow()
+    sidebar = window.sidebar
+
+    QtWidgets.QApplication.processEvents()
+
+    settings_btn = sidebar.btn_settings
+    assert settings_btn.text() == "Настройки"
+    assert settings_btn.toolButtonStyle() == QtCore.Qt.ToolButtonTextBesideIcon
+    assert isinstance(settings_btn.graphicsEffect(), main.FixedDropShadowEffect)
+
+    sidebar.set_collapsed(True)
+    QtWidgets.QApplication.processEvents()
+
+    assert settings_btn.toolButtonStyle() == QtCore.Qt.ToolButtonIconOnly
+    assert isinstance(settings_btn.graphicsEffect(), main.FixedDropShadowEffect)
+
+    sidebar.set_collapsed(False)
+    QtWidgets.QApplication.processEvents()
+
+    assert settings_btn.toolButtonStyle() == QtCore.Qt.ToolButtonTextBesideIcon
+    assert settings_btn.text() == "Настройки"
+    assert isinstance(settings_btn.graphicsEffect(), main.FixedDropShadowEffect)
+
     window.close()
     app.quit()
 
