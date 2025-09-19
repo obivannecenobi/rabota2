@@ -843,6 +843,7 @@ class StatsDialog(QtWidgets.QDialog):
 
     def __init__(self, year: int, month: int, parent=None):
         super().__init__(parent)
+        self.setObjectName("StatsDialog")
         self.setWindowTitle("Вводные данные")
         self.resize(800, 500)
 
@@ -869,17 +870,21 @@ class StatsDialog(QtWidgets.QDialog):
         self._button_filters: list[NeonEventFilter] = []
         self._apply_table_style()
 
+        self.setAttribute(QtCore.Qt.WA_StyledBackground, True)
+        self.setAutoFillBackground(True)
+        self._apply_dialog_style()
+
         self.form_stats = StatsEntryForm(self)
         lay.addWidget(self.form_stats)
 
         self.btn_box = QtWidgets.QDialogButtonBox(self)
-        btn_save = StyledPushButton("Сохранить", self, **button_config())
-        btn_save.setIcon(icon("save"))
-        btn_save.setIconSize(QtCore.QSize(20, 20))
-        btn_close = StyledPushButton("Закрыть", self, **button_config())
-        btn_close.setIcon(icon("x"))
-        btn_close.setIconSize(QtCore.QSize(20, 20))
-        for btn in (btn_save, btn_close):
+        self.btn_save = StyledPushButton("Сохранить", self, **button_config())
+        self.btn_save.setIcon(icon("save"))
+        self.btn_save.setIconSize(QtCore.QSize(20, 20))
+        self.btn_close = StyledPushButton("Закрыть", self, **button_config())
+        self.btn_close.setIcon(icon("x"))
+        self.btn_close.setIconSize(QtCore.QSize(20, 20))
+        for btn in (self.btn_save, self.btn_close):
             btn.setFixedSize(btn.sizeHint())
             btn.setStyleSheet(btn.styleSheet() + "border:1px solid transparent;")
             btn.setAttribute(QtCore.Qt.WA_Hover, True)
@@ -887,8 +892,8 @@ class StatsDialog(QtWidgets.QDialog):
             btn.installEventFilter(filt)
             btn._neon_filter = filt
             self._button_filters.append(filt)
-        self.btn_box.addButton(btn_save, QtWidgets.QDialogButtonBox.AcceptRole)
-        self.btn_box.addButton(btn_close, QtWidgets.QDialogButtonBox.RejectRole)
+        self.btn_box.addButton(self.btn_save, QtWidgets.QDialogButtonBox.AcceptRole)
+        self.btn_box.addButton(self.btn_close, QtWidgets.QDialogButtonBox.RejectRole)
         self.btn_box.accepted.connect(self.save_record)
         self.btn_box.rejected.connect(self.reject)
         lay.addWidget(self.btn_box)
@@ -980,9 +985,59 @@ class StatsDialog(QtWidgets.QDialog):
         apply_neon_effect(self.table_stats, True, config=CONFIG)
         apply_neon_effect(header, True, shadow=False, border=False, config=CONFIG)
 
+    def _apply_dialog_style(self) -> None:
+        """Обновить палитру и обёртку диалога под текущую тему."""
+
+        workspace_color = QtGui.QColor(CONFIG.get("workspace_color", "#1e1e21"))
+        accent_color = QtGui.QColor(CONFIG.get("accent_color", "#39ff14"))
+        workspace = workspace_color.name()
+        accent = accent_color.name()
+
+        if getattr(self, "_neon_effect", None):
+            apply_neon_effect(self, False, config=CONFIG)
+
+        palette = QtGui.QPalette(self.palette())
+        for role in (
+            QtGui.QPalette.Window,
+            QtGui.QPalette.Base,
+            QtGui.QPalette.Button,
+            QtGui.QPalette.AlternateBase,
+        ):
+            palette.setColor(role, workspace_color)
+        text_color = QtGui.QColor("#f0f0f0")
+        palette.setColor(QtGui.QPalette.WindowText, text_color)
+        palette.setColor(QtGui.QPalette.Text, text_color)
+        palette.setColor(QtGui.QPalette.ButtonText, text_color)
+        palette.setColor(QtGui.QPalette.Highlight, accent_color)
+        palette.setColor(QtGui.QPalette.HighlightedText, QtGui.QColor("#000000"))
+        self.setPalette(palette)
+
+        base_style = (
+            "#StatsDialog{"  # контейнер диалога
+            f"background-color:{workspace};"
+            "color:#f0f0f0;"
+            "border-radius:16px;"
+            f"border:1px solid {accent};"
+            "}"
+        )
+        self.setStyleSheet(base_style)
+
+        apply_neon_effect(
+            self,
+            True,
+            shadow=True,
+            border=False,
+            intensity_scale=0.45,
+            thickness_scale=0.0,
+            config=CONFIG,
+        )
+        # Вернуть базовый стиль без переопределения цвета для дочерних элементов.
+        self.setStyleSheet(base_style)
+
     def refresh_theme(self) -> None:
         """Обновить стили таблицы и формы ввода."""
 
+        self._apply_dialog_style()
         self._apply_table_style()
         if hasattr(self, "form_stats"):
             self.form_stats.refresh_theme()

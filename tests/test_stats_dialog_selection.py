@@ -142,3 +142,44 @@ def test_stats_entry_form_refresh_theme_updates_styles(tmp_path, monkeypatch):
     dialog.close()
     app.processEvents()
     app.quit()
+
+
+def test_stats_dialog_updates_background_after_theme_change(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    main.BASE_SAVE_PATH = str(tmp_path / "data")
+    main.CONFIG["save_path"] = main.BASE_SAVE_PATH
+
+    year, month = 2024, 8
+    stats_path = Path(main.stats_dir(year)) / f"{year}.json"
+    stats_path.parent.mkdir(parents=True, exist_ok=True)
+    data = {str(month): [_make_record("Omega", 125.0)]}
+    stats_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    dialog = main.StatsDialog(year, month)
+    dialog.show()
+    app.processEvents()
+
+    old_accent = main.CONFIG.get("accent_color")
+    old_workspace = main.CONFIG.get("workspace_color")
+
+    try:
+        new_accent = "#ff8800"
+        new_workspace = "#0f1115"
+        main.CONFIG["accent_color"] = new_accent
+        main.CONFIG["workspace_color"] = new_workspace
+
+        dialog.refresh_theme()
+        app.processEvents()
+
+        normalized_workspace = QtGui.QColor(new_workspace).name().lower()
+        assert normalized_workspace in dialog.styleSheet().lower()
+    finally:
+        if old_accent is not None:
+            main.CONFIG["accent_color"] = old_accent
+        if old_workspace is not None:
+            main.CONFIG["workspace_color"] = old_workspace
+
+    dialog.close()
+    app.processEvents()
+    app.quit()
